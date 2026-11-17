@@ -9,6 +9,7 @@
       "stat": "lifesteal",
       "per_level": 0.004,
       "max_level": 5,
+      "unlock": { "kind": "default", "note": "默认解锁 · 初始可用" },
       "desc": "击杀回复 0.4% 生命上限/级（满级 2.0%）。橄榄枝 → 彩虹之约。"
     },
     {
@@ -19,6 +20,7 @@
       "stat": "xp_gain",
       "per_level": 0.12,
       "max_level": 5,
+      "unlock": { "kind": "default", "note": "默认解锁 · 初始可用" },
       "desc": "经验获取 +12%/级（满级 +60%）。大卫的琴 → 锡安的诗篇。"
     },
     {
@@ -29,6 +31,7 @@
       "stat": "damage_reduction",
       "per_level": 0.06,
       "max_level": 5,
+      "unlock": { "kind": "wins", "n": 1, "note": "累计通关 1 次后解锁" },
       "desc": "受到伤害 -6%/级（满级 -30%）。香炉 → 金香坛。"
     },
     {
@@ -39,6 +42,7 @@
       "stat": "armor",
       "per_level": 4,
       "max_level": 5,
+      "unlock": { "kind": "kills", "n": 800, "note": "累计击杀 800 后解锁" },
       "desc": "护甲 +4/级（满级 +20），抗击退 +15%/级。牧杖 → 摩西分海杖。"
     },
     {
@@ -49,6 +53,7 @@
       "stat": "pickup_radius",
       "per_level": 0.2,
       "max_level": 5,
+      "unlock": { "kind": "kills", "n": 500, "note": "累计击杀 500 后解锁" },
       "desc": "拾取半径 +20%/级（满级 +100%）。拾穗镰 → 末后的收割镰。"
     },
     {
@@ -59,6 +64,7 @@
       "stat": "crit_chance",
       "per_level": 0.05,
       "max_level": 5,
+      "unlock": { "kind": "kills", "n": 1200, "note": "累计击杀 1200 后解锁" },
       "desc": "暴击率 +5%/级（满级 +25%）。投石索 → 歌利亚的丧钟。"
     },
     {
@@ -69,6 +75,7 @@
       "stat": "dot_damage",
       "per_level": 0.12,
       "max_level": 5,
+      "unlock": { "kind": "seals", "n": 3, "note": "灾变阶达到 3 阶后开放" },
       "desc": "持续与状态伤害 +12%/级（满级 +60%）。火把 → 燃烧的荆棘。"
     },
     {
@@ -79,6 +86,7 @@
       "stat": "move_speed",
       "per_level": 0.05,
       "max_level": 5,
+      "unlock": { "kind": "seals", "n": 5, "note": "灾变阶达到 5 阶后开放" },
       "desc": "移动速度 +5%/级（满级 +25%）。铃鼓 → 米利暗的凯歌。"
     },
     {
@@ -89,6 +97,7 @@
       "stat": "cooldown",
       "per_level": 0.06,
       "max_level": 5,
+      "unlock": { "kind": "seals", "n": 7, "note": "灾变阶达到 7 阶后开放" },
       "desc": "武器冷却 -6%/级（满级 -30%）。号角 → 耶利哥的号角。"
     },
     {
@@ -99,6 +108,7 @@
       "stat": "area_pct",
       "per_level": 0.08,
       "max_level": 5,
+      "unlock": { "kind": "default", "note": "默认解锁 · 初始可用" },
       "desc": "攻击范围与区域半径 +8%/级（满级 +40%）。筑城锤 → 锡安的房角石。"
     },
     {
@@ -109,6 +119,7 @@
       "stat": "max_hp",
       "per_level": 14,
       "max_level": 5,
+      "unlock": { "kind": "wins", "n": 2, "note": "累计通关 2 次后解锁" },
       "desc": "生命上限 +14/级（满级 +70）。金灯台 → 七盏火灯。"
     },
     {
@@ -119,6 +130,7 @@
       "stat": "move_speed",
       "per_level": 0.06,
       "max_level": 5,
+      "unlock": { "kind": "wins", "n": 3, "note": "累计通关 3 次后解锁" },
       "desc": "移速 +6%/级（满级 +30%），闪避冷却 -6%/级。驴腮骨 → 利希的泉源。"
     },
     {
@@ -129,6 +141,7 @@
       "stat": "armor",
       "per_level": 6,
       "max_level": 5,
+      "unlock": { "kind": "seals", "n": 2, "note": "灾变阶达到 2 阶后开放" },
       "desc": "护甲 +6/级（满级 +30），远程格挡率 +6%/级。火战车 → 旋风升天。"
     },
     {
@@ -139,6 +152,7 @@
       "stat": "damage_reduction",
       "per_level": 0.07,
       "max_level": 5,
+      "unlock": { "kind": "seals", "n": 4, "note": "灾变阶达到 4 阶后开放" },
       "desc": "受到伤害 -7%/级（满级 -35%），对精英/BOSS 额外生效。摩西铜蛇 → 旷野的仰望。"
     },
     {
@@ -149,6 +163,7 @@
       "stat": "damage_pct",
       "per_level": 0.08,
       "max_level": 5,
+      "unlock": { "kind": "seals", "n": 6, "note": "灾变阶达到 6 阶后开放" },
       "desc": "全武器伤害 +8%/级（满级 +40%）。圣言利剑 → 两刃的利剑。"
     },
     {
@@ -159,6 +174,7 @@
       "stat": "projectile_speed",
       "per_level": 0.06,
       "max_level": 4,
+      "unlock": { "kind": "default", "note": "默认解锁 · 初始可用" },
       "desc": "乳香烟气托举投射物：弹速 +6%/级，每 2 级额外 +1 发（满级 +2 发）。王后金杖 → 施恩的金杖。",
       "stat2": "extra_projectile",
       "per_level2": 0.5
@@ -171,6 +187,7 @@
       "stat": "heal_per_sec",
       "per_level": 0.6,
       "max_level": 5,
+      "unlock": { "kind": "kills", "n": 2000, "note": "累计击杀 2000 后解锁" },
       "desc": "每秒生命再生 +0.6/级（满级 +3.0 HP/s）。亚伯羔羊血 → 馨香的祭坛。"
     },
     {
@@ -181,6 +198,7 @@
       "stat": "projectile_speed",
       "per_level": 0.12,
       "max_level": 5,
+      "unlock": { "kind": "wins", "n": 4, "note": "累计通关 4 次后解锁" },
       "desc": "弹速 +12%/级（满级 +60%）；Lv.3 起额外穿透 +1。旷野呼声 → 修直的道路。"
     },
     {
@@ -191,6 +209,7 @@
       "stat": "duration",
       "per_level": 0.03,
       "max_level": 5,
+      "unlock": { "kind": "seals", "n": 5, "note": "灾变阶达到 5 阶后开放" },
       "desc": "无敌帧与状态/领域持续时间 +0.03s/级（满级 +0.15s）。加利利渔网 → 得人如鱼的网。"
     },
     {
@@ -201,6 +220,7 @@
       "stat": "crit_damage",
       "per_level": 0.1,
       "max_level": 5,
+      "unlock": { "kind": "seals", "n": 7, "note": "灾变阶达到 7 阶后开放" },
       "desc": "暴击伤害 +10%/级（满级 +50%），银两收益 +10%/级。天国钥匙 → 大卫的钥匙。",
       "stat2": "silver_gain",
       "per_level2": 0.1

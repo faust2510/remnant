@@ -172,6 +172,91 @@ static func achievement_reward_text(a: Dictionary) -> String:
 		return "无额外奖励"
 	return " · ".join(parts)
 
+# ---------------------------------------------------------------- 武器 / 宝物解锁（V4）
+
+## 解锁条件文案：优先问 Meta（权威），Meta 不可用时按数据规则兜底。
+static func unlock_rule_text(rule: Dictionary) -> String:
+	if Meta.has_method("unlock_rule_text"):
+		return String(Meta.unlock_rule_text(rule))
+	var note: String = String(rule.get("note", ""))
+	if note != "":
+		return note
+	match String(rule.get("kind", "")):
+		"default":
+			return "默认解锁"
+		"wins":
+			return "累计通关 %d 次后解锁" % int(rule.get("n", 0))
+		"kills":
+			return "累计击杀 %d 后解锁" % int(rule.get("n", 0))
+		"seals":
+			return "灾变阶达到 %d 阶后开放" % int(rule.get("n", 0))
+		"character":
+			var cid: String = String(rule.get("id", ""))
+			return "解锁见证人「%s」后" % String(GameData.characters_by_id.get(cid, {}).get("name", cid))
+		"achievement":
+			var aid: String = String(rule.get("id", ""))
+			return "达成成就「%s」后" % String(GameData.achievement_def(aid).get("name", aid))
+	return "尚未解锁"
+
+## 已解锁返回空串（调用方判断空串即可），未解锁返回条件文案。
+static func weapon_unlock_note(id: String) -> String:
+	if Meta.has_method("weapon_unlock_note"):
+		return String(Meta.weapon_unlock_note(id))
+	var d: Dictionary = GameData.weapons.get(id, {})
+	if d.is_empty():
+		return "尚未解锁"
+	var u: Variant = d.get("unlock", {})
+	return unlock_rule_text(u if typeof(u) == TYPE_DICTIONARY else {})
+
+static func passive_unlock_note(id: String) -> String:
+	if Meta.has_method("passive_unlock_note"):
+		return String(Meta.passive_unlock_note(id))
+	var d: Dictionary = GameData.passives.get(id, {})
+	if d.is_empty():
+		return "尚未解锁"
+	var u: Variant = d.get("unlock", {})
+	return unlock_rule_text(u if typeof(u) == TYPE_DICTIONARY else {})
+
+## 结算页一行文案：{"weapons":[id...],"passives":[id...]} → 「新解锁 · 兵器 号角 · 宝物 和平」
+static func new_unlock_text(d: Dictionary) -> String:
+	if typeof(d) != TYPE_DICTIONARY:
+		return ""
+	var wn: PackedStringArray = []
+	var ws: Variant = d.get("weapons", [])
+	if typeof(ws) == TYPE_ARRAY:
+		for id in ws:
+			wn.append(String(GameData.weapons.get(String(id), {}).get("name", id)))
+	var pn: PackedStringArray = []
+	var ps: Variant = d.get("passives", [])
+	if typeof(ps) == TYPE_ARRAY:
+		for id2 in ps:
+			pn.append(String(GameData.passives.get(String(id2), {}).get("name", id2)))
+	var parts: PackedStringArray = []
+	if not wn.is_empty():
+		parts.append("兵器 " + "、".join(wn))
+	if not pn.is_empty():
+		parts.append("宝物 " + "、".join(pn))
+	if parts.is_empty():
+		return ""
+	return "新解锁 · " + " · ".join(parts)
+
+## 结算页逐条文案（HUD 一行一条用）：["新兵器「号角」", "新宝物「和平」"]
+static func new_unlock_lines(d: Dictionary) -> Array:
+	var out: Array = []
+	if typeof(d) != TYPE_DICTIONARY:
+		return out
+	var ws: Variant = d.get("weapons", [])
+	if typeof(ws) == TYPE_ARRAY:
+		for id in ws:
+			var wname: String = String(GameData.weapons.get(String(id), {}).get("name", id))
+			out.append("新兵器「%s」" % wname)
+	var ps: Variant = d.get("passives", [])
+	if typeof(ps) == TYPE_ARRAY:
+		for id2 in ps:
+			var pname: String = String(GameData.passives.get(String(id2), {}).get("name", id2))
+			out.append("新宝物「%s」" % pname)
+	return out
+
 static func clip(text: String, max_chars: int) -> String:
 	if max_chars <= 0 or text.length() <= max_chars:
 		return text

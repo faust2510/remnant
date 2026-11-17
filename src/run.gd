@@ -68,6 +68,9 @@ var mechanics: RunMechanics
 var rewards: RunRewards
 var covenants: RunCovenants
 var achievements: RunAchievements
+# ---- V4 解锁：开局快照（新解锁汇报的基准，纯读存档计数）+ 本局真正新解锁的清单
+var unlock_snapshot_before: Dictionary = Meta.unlock_snapshot()
+var new_unlocks: Dictionary = { "weapons": [], "passives": [] }
 var vision_radius: float = 0.0
 var light_t: float = 0.0
 var magnet_t: float = 0.0
@@ -832,6 +835,16 @@ func _finish(victory: bool) -> void:
 		if victory and seal >= 3:
 			Meta.set_awakened(character_id)
 		Meta.save_save()
+	# V4 解锁汇报：以开局快照为基准，写档之后再对比，只有本局真正带出来的新解锁才进结算页。
+	# 不写档的模拟局（--no-meta）不改任何计数，自然也不会汇报。
+	new_unlocks = Meta.newly_unlocked(unlock_snapshot_before) if commit else { "weapons": [], "passives": [] }
+	if rewards != null:
+		# rewards 是 RunRewards 对象（不属本任务写范围）：同时挂 meta 与 flags["new_unlocks"]，
+		# 结算页读 run.new_unlocks / run.rewards.get_meta("new_unlocks") / rewards.flags 都能取到。
+		rewards.set_meta("new_unlocks", new_unlocks)
+		rewards.flags["new_unlocks"] = new_unlocks
+	if sim_mode:
+		print("[sim] new_unlocks weapons=%d passives=%d" % [new_unlocks["weapons"].size(), new_unlocks["passives"].size()])
 	shake = maxf(shake, 6.0)
 	if victory:
 		sfx.play("fuse", 0.0, 0.75, 1.0)
@@ -1316,6 +1329,9 @@ func _open_levelup() -> void:
 func _level_options() -> Array:
 	var cand: Array = []
 	for id in GameData.weapons.keys():
+		# V4 解锁：未解锁的兵器不进候选；已拥有武器的「强化」不受限（看下一个循环）
+		if not Meta.is_weapon_unlocked(String(id)):
+			continue
 		if not state.has_weapon(id) and not state.consumed_weapons.has(id) and state.weapons.size() < state.max_weapon_slots():
 			var d: Dictionary = GameData.weapons[id]
 			cand.append({ "kind": "new_weapon", "id": id, "name": String(d.get("name", id)), "tag": "新武器", "desc": String(d.get("desc", "")), "color": Color(String(d.get("color", "#C9A66B"))) })
@@ -1330,6 +1346,9 @@ func _level_options() -> Array:
 			continue
 		if state.passives.size() >= state.max_passive_slots():
 			break
+		# V4 解锁：未解锁的宝物不进候选（强化分支同样不受限）
+		if not Meta.is_passive_unlocked(String(pid)):
+			continue
 		var pd: Dictionary = GameData.passives[pid]
 		if String(pd.get("kind", "")) == "armor":
 			continue
@@ -1404,6 +1423,9 @@ func _grant_armor() -> void:
 		if String(pd.get("kind", "")) != "armor":
 			continue
 		if state.has_armor(pid):
+			continue
+		# V4 解锁：军装也是宝物，未解锁的不能靠精英掉落提前拿到
+		if not Meta.is_passive_unlocked(String(pid)):
 			continue
 		pool.append(pid)
 	if pool.is_empty():
@@ -1513,6 +1535,9 @@ func _grant_partner() -> bool:
 			continue
 		var pid: String = String(f.get("passive", ""))
 		if pid == "" or state.has_passive(pid) or not GameData.passives.has(pid):
+			continue
+		# V4 解锁：祝圣配材也要先在图鉴解锁，不能靠祭坛赠送提前拿到
+		if not Meta.is_passive_unlocked(pid):
 			continue
 		# 只补「快成型」的武器（Lv3+）：给 1 级武器配材等于提前浪费一个果子槽
 		if int(w["level"]) < 3:

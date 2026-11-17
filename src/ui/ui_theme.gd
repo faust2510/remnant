@@ -49,10 +49,12 @@ static func scroll(ci: CanvasItem, rect: Rect2, alpha: float = 1.0) -> void:
 	ci.draw_rect(Rect2(Vector2(r.position.x, r.end.y - 2), Vector2(r.size.x, 2)), Color(PARCH_DIM.r, PARCH_DIM.g, PARCH_DIM.b, alpha), true)
 	ci.draw_rect(Rect2(r.position, Vector2(2, r.size.y)), Color(PARCH_DIM.r, PARCH_DIM.g, PARCH_DIM.b, 0.7 * alpha), true)
 	ci.draw_rect(Rect2(Vector2(r.end.x - 2, r.position.y), Vector2(2, r.size.y)), Color(PARCH_DIM.r, PARCH_DIM.g, PARCH_DIM.b, 0.7 * alpha), true)
+	# 纸纹横线：原先 6px 一条、alpha 0.06，与 8-9px 中文正文的字形横向笔画穿插，
+	# 5x 放大读作「文字重影」（modal_v6 实测）。降到 8px 间距 + alpha 0.035，只留纸质感。
 	var y: float = r.position.y + 5.0
 	while y < r.end.y - 4.0:
-		ci.draw_rect(Rect2(Vector2(r.position.x + 4, y), Vector2(r.size.x - 8, 1)), Color(INK.r, INK.g, INK.b, 0.06 * alpha), true)
-		y += 6.0
+		ci.draw_rect(Rect2(Vector2(r.position.x + 4, y), Vector2(r.size.x - 8, 1)), Color(INK.r, INK.g, INK.b, 0.035 * alpha), true)
+		y += 8.0
 
 ## 金属槽条（经验条/生命条）：深槽 + 内阴影 + 金色填充 + 顶部高光
 static func metal_bar(ci: CanvasItem, rect: Rect2, ratio: float, fill: Color, glow: float = 0.0) -> void:

@@ -321,6 +321,182 @@ func set_awakened(cid: String, value: bool = true) -> void:
 		awakened_ids.erase(cid)
 	save_save()
 
+# ---------------------------------------------------------------- 武器 / 宝物解锁（V4）
+
+## 解锁规则写在 data/weapons.json 与 data/passives.json 的 "unlock" 字段：
+##   { "kind": "default" } / { "kind": "wins", "n": 1 } / { "kind": "kills", "n": 300 }
+##   { "kind": "seals", "n": 3 } / { "kind": "character", "id": "noah" }
+##   { "kind": "achievement", "id": "ach_xx" }
+## 判定只读现有存档计数与 GameData，不消耗 rng、不写盘；读不到规则一律未解锁，
+## 只有 kind=default 恒解锁（fail-closed）。存档不新增任何键：进度全部由既有计数派生。
+
+func _unlock_rule(def: Dictionary) -> Dictionary:
+	var u: Variant = def.get("unlock", {})
+	if typeof(u) != TYPE_DICTIONARY:
+		return {}
+	return u
+
+## 规则是否已满足。rule 为空 / kind 未知 / 参数缺失 → false（fail-closed）。
+func unlock_rule_ok(rule: Dictionary) -> bool:
+	match String(rule.get("kind", "")):
+		"default":
+			return true
+		"wins":
+			var wn: int = int(rule.get("n", 0))
+			return wn > 0 and wins >= wn
+		"kills":
+			var kn: int = int(rule.get("n", 0))
+			return kn > 0 and lifetime_kills >= kn
+		"seals":
+			var sn: int = int(rule.get("n", 0))
+			return sn > 0 and seals >= sn
+		"character":
+			return is_character_unlocked(String(rule.get("id", "")))
+		"achievement":
+			var aid: String = String(rule.get("id", ""))
+			return aid != "" and has_achievement(aid)
+	return false
+
+## 条件文案：优先用数据里的 note；缺失时按 kind 生成，读不到规则则「尚未解锁」。
+func unlock_rule_text(rule: Dictionary) -> String:
+	var note: String = String(rule.get("note", ""))
+	if note != "":
+		return note
+	match String(rule.get("kind", "")):
+		"default":
+			return "默认解锁"
+		"wins":
+			return "累计通关 %d 次后解锁" % int(rule.get("n", 0))
+		"kills":
+			return "累计击杀 %d 后解锁" % int(rule.get("n", 0))
+		"seals":
+			return "灾变阶达到 %d 阶后开放" % int(rule.get("n", 0))
+		"character":
+			var cid: String = String(rule.get("id", ""))
+			var cname: String = String(GameData.characters_by_id.get(cid, {}).get("name", cid))
+			return "解锁见证人「%s」后" % cname
+		"achievement":
+			var aid2: String = String(rule.get("id", ""))
+			var aname: String = String(GameData.achievement_def(aid2).get("name", aid2))
+			return "达成成就「%s」后" % aname
+	return "尚未解锁"
+
+func is_weapon_unlocked(id: String) -> bool:
+	var def: Dictionary = GameData.weapons.get(id, {})
+	if def.is_empty():
+		return false
+	return unlock_rule_ok(_unlock_rule(def))
+
+func is_passive_unlocked(id: String) -> bool:
+	var def: Dictionary = GameData.passives.get(id, {})
+	if def.is_empty():
+		return false
+	return unlock_rule_ok(_unlock_rule(def))
+
+## 未解锁时返回条件文案；已解锁返回空串（UI 直接判断是否为空即可）。
+func weapon_unlock_note(id: String) -> String:
+	if is_weapon_unlocked(id):
+		return ""
+	var def: Dictionary = GameData.weapons.get(id, {})
+	if def.is_empty():
+		return "尚未解锁"
+	return unlock_rule_text(_unlock_rule(def))
+
+func passive_unlock_note(id: String) -> String:
+	if is_passive_unlocked(id):
+		return ""
+	var def: Dictionary = GameData.passives.get(id, {})
+	if def.is_empty():
+		return "尚未解锁"
+	return unlock_rule_text(_unlock_rule(def))
+
+## 顺序 = data/*.json 的顺序（与 5x4 图标图集一一对应），UI 直接按顺序铺格子。
+func unlocked_weapon_ids() -> Array:
+	var out: Array = []
+	for id in GameData.weapons.keys():
+		if is_weapon_unlocked(String(id)):
+			out.append(String(id))
+	return out
+
+func unlocked_passive_ids() -> Array:
+	var out: Array = []
+	for id in GameData.passives.keys():
+		if is_passive_unlocked(String(id)):
+			out.append(String(id))
+	return out
+
+## 开局快照：已解锁 id + 当时的三条进度轴。只读，不写盘。
+func unlock_snapshot() -> Dictionary:
+	return {
+		"weapons": unlocked_weapon_ids(),
+		"passives": unlocked_passive_ids(),
+		"wins": wins,
+		"lifetime_kills": lifetime_kills,
+		"seals": seals
+	}
+
+## 与开局快照对比。快照不可信（缺键 / 类型不对）时返回空表：
+## 绝不把整本图鉴误报成「本局新解锁」（结算页只该展示这一局真正拿到的）。
+func newly_unlocked(before: Dictionary) -> Dictionary:
+	var out: Dictionary = { "weapons": [], "passives": [] }
+	if typeof(before) != TYPE_DICTIONARY:
+		return out
+	var bw: Variant = before.get("weapons", null)
+	var bp: Variant = before.get("passives", null)
+	if typeof(bw) != TYPE_ARRAY or typeof(bp) != TYPE_ARRAY:
+		return out
+	for id in unlocked_weapon_ids():
+		if not bw.has(id):
+			out["weapons"].append(id)
+	for id in unlocked_passive_ids():
+		if not bp.has(id):
+			out["passives"].append(id)
+	return out
+
+## 见证人解锁（与营地 / 图鉴同一套数据规则：默认、成就优先、其次章节首通/得胜次数）。
+## 放进 Meta 是为了让武器解锁的 character 轴在无头模拟里也能独立判定，不依赖 UI 层。
+func is_character_unlocked(cid: String) -> bool:
+	var c: Dictionary = GameData.characters_by_id.get(cid, {})
+	if c.is_empty():
+		return false
+	var unlock: Dictionary = c.get("unlock", {})
+	var note: String = String(unlock.get("note", ""))
+	var stage_id: String = String(unlock.get("stage", ""))
+	if note.contains("默认") or (stage_id == "" and note == ""):
+		return true
+	var ach: String = _first_ach_id(note)
+	if ach != "":
+		return has_achievement(ach)
+	if stage_id != "":
+		var a: Dictionary = _stage_clear_achievement(stage_id)
+		if not a.is_empty():
+			return has_achievement(String(a.get("id", "")))
+		var sdef: Dictionary = GameData.stages_by_id.get(stage_id, {})
+		return wins >= int(sdef.get("unlock_wins", 0))
+	return false
+
+func _first_ach_id(text: String) -> String:
+	var idx: int = text.find("ach_")
+	if idx < 0:
+		return ""
+	var out: String = ""
+	var i: int = idx
+	while i < text.length():
+		var ch: String = text[i]
+		var ok: bool = (ch >= "a" and ch <= "z") or (ch >= "A" and ch <= "Z") or (ch >= "0" and ch <= "9") or ch == "_"
+		if not ok:
+			break
+		out += ch
+		i += 1
+	return out
+
+func _stage_clear_achievement(stage_id: String) -> Dictionary:
+	for a in GameData.achievements:
+		var cond: Dictionary = a.get("cond", {})
+		if String(cond.get("type", "")) == "stage_clear" and String(cond.get("value", "")) == stage_id:
+			return a
+	return {}
+
 # ---------------------------------------------------------------- 21 阶灾变
 
 ## 当前生效的阶：>7 时以 tier 为准；1–7 仍以 selected_seal 为准

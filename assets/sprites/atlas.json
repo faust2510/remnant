@@ -1,0 +1,105 @@
+{
+  "_comment": "V4 图集清单：运行期唯一事实源。cell=单格边长，frames=横向帧数，feet_y=格内脚底 y。生成脚本 tools/gen_art.py 负责产出，SpriteBank 负责读取。",
+  "witnesses": {
+    "file": "witnesses.png",
+    "cell": 48,
+    "frames": 8,
+    "idle_frames": 4,
+    "feet_y": 44,
+    "rows": [
+      "david",
+      "noah",
+      "abraham",
+      "jacob",
+      "miriam",
+      "moses",
+      "joshua",
+      "gideon",
+      "samson",
+      "deborah",
+      "ruth",
+      "elijah",
+      "elisha",
+      "nehemiah",
+      "esther",
+      "daniel",
+      "john_baptist",
+      "peter",
+      "paul",
+      "john_patmos"
+    ]
+  },
+  "enemies": {
+    "file": "enemies.png",
+    "cell": 32,
+    "frames": 6,
+    "feet_y": 28,
+    "rows": [
+      "soldier",
+      "archer",
+      "raven",
+      "beast",
+      "scorpion",
+      "six_finger_giant",
+      "goliath",
+      "the_tempter"
+    ],
+    "aliases": {
+      "fallen_sentry": "soldier",
+      "shadow_raider": "soldier",
+      "iron_shielder": "soldier",
+      "baal_zealot": "soldier",
+      "serpent_brood": "beast",
+      "thorn_crawler": "beast",
+      "fiery_serpent": "beast",
+      "dragon_spawn": "beast",
+      "midian_prowler": "beast",
+      "brick_golem": "six_finger_giant",
+      "law_golem": "six_finger_giant",
+      "babel_overseer": "six_finger_giant",
+      "possessed_brute": "six_finger_giant",
+      "anakim_giant": "goliath",
+      "nephilim_shade": "goliath",
+      "camel_rider": "goliath",
+      "chariot_captain": "goliath",
+      "horsemen_vanguard": "goliath",
+      "chariot_phantom": "goliath",
+      "blood_wraith": "the_tempter",
+      "drowned_shade": "the_tempter",
+      "smoke_specter": "the_tempter",
+      "star_ember": "the_tempter",
+      "pharaoh_sorcerer": "the_tempter",
+      "false_idol": "the_tempter",
+      "plague_locust": "raven",
+      "night_owl": "raven",
+      "storm_petrel": "raven",
+      "iron_locust": "raven",
+      "dune_scorpion_king": "scorpion"
+    }
+  },
+  "props": {
+    "file": "props.png",
+    "cell": 16,
+    "frames": 8,
+    "feet_y": 16,
+    "rows": [
+      "props"
+    ]
+  },
+  "projectiles": {
+    "file": "projectiles.png",
+    "cell": 16,
+    "frames": 8,
+    "feet_y": 16,
+    "rows": [
+      "stone",
+      "arrow",
+      "flame",
+      "blade",
+      "note",
+      "water",
+      "shock",
+      "spark"
+    ]
+  }
+}

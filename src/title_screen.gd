@@ -446,9 +446,19 @@ func _stat_row(y: float, label: String, ratio: float, avg_ratio: float, value: S
 func _draw_portrait(r: Rect2, cid: String) -> void:
 	var tex: Texture2D = SpriteBank.witnesses()
 	var row: int = SpriteBank.witness_row(cid)
+	var drawn: bool = false
 	if tex != null and row >= 0:
-		draw_texture_rect_region(tex, r, SpriteBank.frame_rect(row, 0))
-	else:
+		var cell: int = SpriteBank.cell_of("witnesses")
+		var rows_ok: int = int(tex.get_height() / maxi(cell, 1))
+		if cell > 0 and row < rows_ok:
+			# 立绘只做整数倍放大（48px 格 → 96px 框正好 2x，硬边不糊）；
+			# 框尺寸不整除时按整数倍居中，宁可留边也不做非整数拉伸
+			var k: int = maxi(int(floorf(minf(r.size.x, r.size.y) / float(cell))), 1)
+			var w: float = float(cell * k)
+			var dst := Rect2(roundf(r.position.x + (r.size.x - w) * 0.5), roundf(r.position.y + (r.size.y - w) * 0.5), w, w)
+			draw_texture_rect_region(tex, dst, SpriteBank.frame_rect(row, 0))
+			drawn = true
+	if not drawn:
 		_draw_fallback_portrait(r, cid)
 	draw_rect(r, Color(0, 0, 0, 0.16), false, 1.0)
 

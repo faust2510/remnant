@@ -22,6 +22,14 @@ const ENTER_ROW := 7
 const SEAL_MAX := 7
 const EMBER_COUNT := 18
 
+## 军械库（解锁 V4）：L 键全屏目录，左 20 兵器、右 20 宝物，5 列 × 4 行图标格。
+const ARMORY_COLS := 5
+const ARMORY_ROWS := 4
+const ARMORY_PITCH_X := 57.0
+const ARMORY_PITCH_Y := 57.0
+const ARMORY_ICON := 32.0
+const ARMORY_GRID_Y := 72.0
+
 var sel: int = 0
 var page: int = 0
 var hover: int = -1
@@ -37,6 +45,10 @@ var notice_t: float = 0.0
 var shot_camp: bool = false
 var shot_path: String = "/tmp/camp.png"
 var shot_frames: int = 0
+## 军械库（解锁 V4）：打开状态 / 当前栏 0=兵器 1=宝物 / 两栏各自的光标。
+var armory_open: bool = false
+var armory_col: int = 0
+var armory_cursor: Array = [0, 0]
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -48,6 +60,9 @@ func _ready() -> void:
 	for a in args:
 		if a == "--shot-camp":
 			shot_camp = true
+		elif a == "--armory":
+			# 配合 --shot-camp 使用：直接打开军械库拍图（--shot-* 前缀会被标题页当成开局截图）
+			armory_open = true
 		elif a.begins_with("--shot-path="):
 			shot_path = a.substr(12)
 		elif a.begins_with("--camp-page="):
@@ -383,6 +398,117 @@ func _open_codex() -> void:
 	sfx.play("pickup", -10.0)
 	get_tree().change_scene_to_file.call_deferred("res://scenes/codex.tscn")
 
+# ---------------------------------------------------------------- 军械库（解锁 V4）
+
+## 两栏外框：左 8..304，右 336..632；纵向 54..290。
+func _armory_box(col: int) -> Rect2:
+	return Rect2(8.0 + float(col) * 328.0, 44.0, 296.0, 258.0)
+
+func _armory_grid_x(col: int) -> float:
+	return 16.0 + float(col) * 328.0
+
+## 栏内条目 id，顺序与图标图集行序一致（GameData 键序 = JSON 数组序）。
+func _armory_ids(col: int) -> Array:
+	return GameData.weapons.keys() if col == 0 else GameData.passives.keys()
+
+func _armory_def(col: int, id: String) -> Dictionary:
+	var d: Variant = GameData.weapons.get(id, {}) if col == 0 else GameData.passives.get(id, {})
+	return d if typeof(d) == TYPE_DICTIONARY else {}
+
+func _armory_unlocked(col: int, id: String) -> bool:
+	return Meta.is_weapon_unlocked(id) if col == 0 else Meta.is_passive_unlocked(id)
+
+## 已解锁返回空串，未解锁返回条件文案。
+func _armory_note(col: int, id: String) -> String:
+	return Meta.weapon_unlock_note(id) if col == 0 else Meta.passive_unlock_note(id)
+
+## 格子里的短条件（7px 一行放得下），完整文案在详情条。
+func _armory_short_note(col: int, id: String) -> String:
+	var u: Variant = _armory_def(col, id).get("unlock", {})
+	if typeof(u) != TYPE_DICTIONARY:
+		return "未解锁"
+	var rule: Dictionary = u
+	match String(rule.get("kind", "")):
+		"wins":
+			return "通关 %d 次" % int(rule.get("n", 0))
+		"kills":
+			return "击杀 %d" % int(rule.get("n", 0))
+		"seals":
+			return "灾变 %d 阶" % int(rule.get("n", 0))
+		"character":
+			var cid: String = String(rule.get("id", ""))
+			return "见证人 %s" % String(GameData.characters_by_id.get(cid, {}).get("name", cid))
+		"achievement":
+			return "达成成就"
+	return "未解锁"
+
+func _armory_unlocked_count(col: int) -> int:
+	var n: int = 0
+	for id in _armory_ids(col):
+		if _armory_unlocked(col, String(id)):
+			n += 1
+	return n
+
+func _armory_sel() -> int:
+	return int(armory_cursor[armory_col])
+
+func _armory_cell_rect(col: int, idx: int) -> Rect2:
+	var row: int = floori(float(idx) / float(ARMORY_COLS))
+	var cx: int = idx % ARMORY_COLS
+	return Rect2(_armory_grid_x(col) + float(cx) * ARMORY_PITCH_X, ARMORY_GRID_Y + float(row) * ARMORY_PITCH_Y, ARMORY_PITCH_X, ARMORY_PITCH_Y)
+
+func _armory_toggle() -> void:
+	armory_open = not armory_open
+	sfx.play("pickup" if armory_open else "hit", -14.0, 1.06 if armory_open else 0.94)
+
+## 5×4 光标移动；左右越界时跳到另一栏同排最外侧。
+func _armory_move(dx: int, dy: int) -> void:
+	var col: int = armory_col
+	var idx: int = _armory_sel()
+	var row: int = floori(float(idx) / float(ARMORY_COLS))
+	var cx: int = idx % ARMORY_COLS
+	if dx < 0:
+		if cx == 0:
+			col = 1 - col
+			cx = ARMORY_COLS - 1
+		else:
+			cx -= 1
+	elif dx > 0:
+		if cx == ARMORY_COLS - 1:
+			col = 1 - col
+			cx = 0
+		else:
+			cx += 1
+	if dy != 0:
+		row = clampi(row + dy, 0, ARMORY_ROWS - 1)
+	var n: int = _armory_ids(col).size()
+	if n <= 0:
+		return
+	armory_col = col
+	armory_cursor[col] = clampi(row * ARMORY_COLS + cx, 0, n - 1)
+	sfx.play("pickup", -26.0, 1.3)
+
+## 未解锁项的当前进度（只读 Meta 计数，不写盘）。
+func _armory_progress(col: int, id: String) -> String:
+	var u: Variant = _armory_def(col, id).get("unlock", {})
+	if typeof(u) != TYPE_DICTIONARY:
+		return ""
+	var rule: Dictionary = u
+	match String(rule.get("kind", "")):
+		"wins":
+			return "进度 · 得胜 %d / %d" % [Meta.wins, int(rule.get("n", 0))]
+		"kills":
+			return "进度 · 累计击杀 %d / %d" % [Meta.lifetime_kills, int(rule.get("n", 0))]
+		"seals":
+			return "进度 · 灾变阶 %d / %d" % [Meta.seals, int(rule.get("n", 0))]
+		"character":
+			var cid: String = String(rule.get("id", ""))
+			return "进度 · 见证人「%s」未解锁" % String(GameData.characters_by_id.get(cid, {}).get("name", cid))
+		"achievement":
+			var aid: String = String(rule.get("id", ""))
+			return "进度 · 成就「%s」未达成" % String(GameData.achievement_def(aid).get("name", aid))
+	return ""
+
 # ---------------------------------------------------------------- 布局
 
 func _card_rect(i: int) -> Rect2:
@@ -436,6 +562,24 @@ func _input(e: InputEvent) -> void:
 	if not (e is InputEventKey) or not e.pressed or e.echo:
 		return
 	var k: int = e.keycode
+	if armory_open:
+		match k:
+			KEY_L, KEY_ESCAPE:
+				_armory_toggle()
+			KEY_UP, KEY_W:
+				_armory_move(0, -1)
+			KEY_DOWN, KEY_S:
+				_armory_move(0, 1)
+			KEY_LEFT, KEY_A:
+				_armory_move(-1, 0)
+			KEY_RIGHT, KEY_D:
+				_armory_move(1, 0)
+			KEY_TAB:
+				armory_col = 1 - armory_col
+		return
+	if k == KEY_L:
+		_armory_toggle()
+		return
 	match k:
 		KEY_UP, KEY_W:
 			sel = (sel - 1 + _rows()) % _rows()
@@ -465,6 +609,18 @@ func _input(e: InputEvent) -> void:
 			get_tree().change_scene_to_file.call_deferred("res://scenes/title.tscn")
 
 func _gui_input(e: InputEvent) -> void:
+	if armory_open:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			var m0: Vector2 = e.position
+			for col in range(2):
+				var aids: Array = _armory_ids(col)
+				for idx in range(aids.size()):
+					if _armory_cell_rect(col, idx).has_point(m0):
+						armory_col = col
+						armory_cursor[col] = idx
+						sfx.play("pickup", -16.0, 1.15)
+						return
+		return
 	if e is InputEventMouseMotion:
 		var m: Vector2 = e.position
 		var row: int = _pointer_row(m)
@@ -525,6 +681,10 @@ func _process(d: float) -> void:
 	t += d
 	flash = maxf(0.0, flash - d * 2.5)
 	notice_t = maxf(0.0, notice_t - d)
+	if armory_open:
+		queue_redraw()
+		_maybe_save_shot()
+		return
 	var m: Vector2 = get_local_mouse_position()
 	hover = _pointer_row(m)
 	tab_hover = -1
@@ -543,20 +703,28 @@ func _process(d: float) -> void:
 		if _stage_arrow_rect(side).has_point(m):
 			stage_arrow_hover = side
 	queue_redraw()
-	if shot_camp:
-		shot_frames += 1
-		if shot_frames >= 6:
-			var img: Image = get_viewport().get_texture().get_image()
-			if img != null:
-				img.save_png(shot_path)
-			print("[shot] camp saved ", shot_path)
-			get_tree().quit()
+	_maybe_save_shot()
+
+## 截图模式：营地 / 军械库共用，第 6 帧落盘后退出。
+func _maybe_save_shot() -> void:
+	if not shot_camp:
+		return
+	shot_frames += 1
+	if shot_frames >= 6:
+		var img: Image = get_viewport().get_texture().get_image()
+		if img != null:
+			img.save_png(shot_path)
+		print("[shot] camp saved ", shot_path)
+		get_tree().quit()
 
 # ---------------------------------------------------------------- 绘制
 
 func _draw() -> void:
 	var font: Font = GameFont.get_font()
 	_draw_background()
+	if armory_open:
+		_draw_armory()
+		return
 	if flash > 0.0:
 		draw_rect(Rect2(0, 0, 640, 360), Color(1.0, 0.85, 0.4, 0.10 * flash), true)
 	_draw_header(font)
@@ -617,7 +785,7 @@ func _draw_tabs(font: Font) -> void:
 		draw_rect(r, base, true)
 		draw_rect(r, UITheme.GOLD_BRIGHT if on else (UITheme.GOLD if hv else Color(0.24, 0.25, 0.27)), false, 1.0)
 		UITheme.text(self, Vector2(r.position.x, r.position.y + 15.0), PAGE_NAMES[i], 11, Color(0.96, 0.92, 0.80) if on else Color(0.60, 0.61, 0.60), 1, r.size.x)
-	UITheme.text(self, Vector2(300, 66), "↑↓ 选择 · Enter 购买 · Tab 切页 · V 图鉴 · Esc 返回", 10, Color(0.46, 0.48, 0.46), 2, 316.0)
+	UITheme.text(self, Vector2(304, 66), "↑↓ 选择 · Enter 购买 · Tab 切页 · V 图鉴 · L 军械库", 9, Color(0.46, 0.48, 0.46), 2, 312.0)
 
 func _draw_cards(font: Font) -> void:
 	for i in range(6):
@@ -831,6 +999,84 @@ func _mmss(s: float) -> String:
 	var n: int = int(s)
 	return "%d:%02d" % [n / 60, n % 60]
 
+# ---------------------------------------------------------------- 军械库绘制
+
+func _draw_armory() -> void:
+	draw_rect(Rect2(0, 0, 640, 360), Color(0.028, 0.033, 0.047, 0.95), true)
+	UITheme.etched_title(self, Vector2(0, 26), "军械库 · 兵器与宝物", 20)
+	var wu: int = _armory_unlocked_count(0)
+	var pu: int = _armory_unlocked_count(1)
+	UITheme.text(self, Vector2(0, 40), "已解锁 兵器 %d / %d · 宝物 %d / %d · 未解锁项随进度逐步开放" % [wu, _armory_ids(0).size(), pu, _armory_ids(1).size()], 10, Color(0.60, 0.62, 0.58), 1, 640.0)
+	for col in range(2):
+		var box: Rect2 = _armory_box(col)
+		UITheme.panel(self, box, 0.96, true)
+		var label: String = ("兵  器" if col == 0 else "宝  物") + " · %d / %d" % [_armory_unlocked_count(col), _armory_ids(col).size()]
+		UITheme.text(self, Vector2(box.position.x + 14.0, box.position.y + 17.0), label, 11, UITheme.GOLD_PALE, 0, box.size.x - 28.0)
+		UITheme.divider(self, box.position.x + 12.0, box.end.x - 12.0, box.position.y + 22.0, 0.8)
+		for idx in range(_armory_ids(col).size()):
+			_draw_armory_cell(col, idx)
+	_draw_armory_detail()
+	UITheme.text(self, Vector2(0, 353), "L 关闭 · 方向键浏览", 9, Color(0.56, 0.58, 0.55), 1, 640.0)
+
+func _draw_armory_cell(col: int, idx: int) -> void:
+	var ids: Array = _armory_ids(col)
+	if idx < 0 or idx >= ids.size():
+		return
+	var id: String = String(ids[idx])
+	var def: Dictionary = _armory_def(col, id)
+	var unlocked: bool = _armory_unlocked(col, id)
+	var r: Rect2 = _armory_cell_rect(col, idx)
+	var on: bool = col == armory_col and idx == _armory_sel()
+	var icon := Rect2(r.position.x + (ARMORY_PITCH_X - ARMORY_ICON) * 0.5, r.position.y, ARMORY_ICON, ARMORY_ICON)
+	var tex: Texture2D = SpriteBank.weapon_icons() if col == 0 else SpriteBank.passive_icons()
+	var src: Rect2 = SpriteBank.weapon_icon_rect(idx) if col == 0 else SpriteBank.passive_icon_rect(idx)
+	var glow: float = (0.55 + 0.45 * sin(t * 4.0)) if on else 0.0
+	UITheme.icon_frame(self, icon, tex, src, glow)
+	if tex == null:
+		var fc: Color = Color(String(def.get("color", "#C9A66B"))) if col == 0 else UITheme.OLIVE
+		draw_rect(icon.grow(-5.0), Color(fc.r * 0.4, fc.g * 0.4, fc.b * 0.4, 0.85), true)
+		UITheme.text(self, Vector2(icon.position.x, icon.position.y + 23.0), String(def.get("name", "?")).substr(0, 1), 13, fc, 1, icon.size.x)
+	if not unlocked:
+		draw_rect(icon, Color(0.030, 0.034, 0.045, 0.55), true)
+		draw_rect(Rect2(icon.position.x, icon.end.y - 9.0, icon.size.x, 9.0), Color(0.20, 0.07, 0.05, 0.74), true)
+		UITheme.text(self, Vector2(icon.position.x, icon.end.y - 2.0), "未解锁", 7, Color(0.92, 0.64, 0.50), 1, icon.size.x)
+	var name_col: Color = UITheme.PARCH if unlocked else Color(0.54, 0.52, 0.48)
+	UITheme.text(self, Vector2(r.position.x, r.position.y + 43.0), UIText.clip(String(def.get("name", id)), 5), 9, name_col, 1, r.size.x)
+	if not unlocked:
+		UITheme.text(self, Vector2(r.position.x, r.position.y + 52.0), _armory_short_note(col, id), 7, Color(0.80, 0.52, 0.42), 1, r.size.x)
+	if on:
+		draw_rect(Rect2(r.position.x + 0.5, r.position.y + 0.5, r.size.x - 1.0, r.size.y - 1.0), Color(UITheme.GOLD_BRIGHT.r, UITheme.GOLD_BRIGHT.g, UITheme.GOLD_BRIGHT.b, 0.75), false, 1.0)
+		draw_rect(Rect2(r.position.x, r.position.y + 2.0, 2.0, r.size.y - 4.0), UITheme.GOLD_BRIGHT, true)
+
+func _draw_armory_detail() -> void:
+	var box := Rect2(10.0, 300.0, 620.0, 42.0)
+	UITheme.panel(self, box, 0.96, true)
+	var ids: Array = _armory_ids(armory_col)
+	if ids.is_empty():
+		return
+	var idx: int = clampi(_armory_sel(), 0, ids.size() - 1)
+	var id: String = String(ids[idx])
+	var def: Dictionary = _armory_def(armory_col, id)
+	var unlocked: bool = _armory_unlocked(armory_col, id)
+	var x: float = box.position.x + 14.0
+	var w: float = box.size.x - 28.0
+	var name_col: Color = UITheme.PARCH if unlocked else Color(0.70, 0.67, 0.60)
+	UITheme.text(self, Vector2(x, 316.0), String(def.get("name", id)), 13, name_col, 0, w * 0.55)
+	var state: String = "已解锁 · 可在局内领受"
+	var state_col := Color(0.58, 0.84, 0.60)
+	if not unlocked:
+		state = "未解锁"
+		state_col = Color(0.92, 0.56, 0.46)
+	UITheme.text(self, Vector2(x, 316.0), state, 10, state_col, 2, w)
+	UITheme.text(self, Vector2(x, 327.0), UIText.clip("经文 · " + String(def.get("scripture", "")), 26), 9, Color(0.76, 0.70, 0.54), 0, w * 0.48)
+	if not unlocked:
+		UITheme.text(self, Vector2(x + w * 0.48, 327.0), "条件 · " + _armory_note(armory_col, id), 9, Color(0.88, 0.60, 0.48), 2, w * 0.52)
+	UITheme.text(self, Vector2(x, 337.0), UIText.clip(String(def.get("desc", "")), 40), 9, Color(0.62, 0.61, 0.55), 0, w * 0.68)
+	if not unlocked:
+		var prog: String = _armory_progress(armory_col, id)
+		if prog != "":
+			UITheme.text(self, Vector2(x, 337.0), prog, 8, Color(0.62, 0.64, 0.58), 2, w)
+
 # ---------------------------------------------------------------- 自检
 
 func _selftest() -> void:
@@ -866,5 +1112,22 @@ func _selftest() -> void:
 	for i in range(GameData.stages.size()):
 		_cycle_stage(1)
 	print("[camp] stage_cycle_back=%s cursor=%d" % [str(stage_cursor == before), stage_cursor])
+	# 军械库（解锁 V4）：两栏解锁统计 + 未解锁样例 + L 开关/方向键自检。
+	var a_wu: int = _armory_unlocked_count(0)
+	var a_pu: int = _armory_unlocked_count(1)
+	var a_sample: String = ""
+	var a_note: String = ""
+	for aid in _armory_ids(0):
+		if not _armory_unlocked(0, String(aid)):
+			a_sample = String(aid)
+			a_note = _armory_note(0, String(aid))
+			break
+	_armory_toggle()
+	var a_opened: bool = armory_open
+	_armory_move(1, 0)
+	var a_moved: bool = _armory_sel() == 1
+	_armory_toggle()
+	var a_closed: bool = not armory_open
+	print("[camp] armory weapons=%d/%d passives=%d/%d sample=%s:%s toggle=%s/%s/%s" % [a_wu, _armory_ids(0).size(), a_pu, _armory_ids(1).size(), a_sample, a_note, str(a_opened), str(a_moved), str(a_closed)])
 	print("[camp] SELFTEST_DONE")
 	get_tree().quit()

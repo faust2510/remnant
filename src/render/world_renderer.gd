@@ -11,8 +11,14 @@ const DMG_LIFE := 0.75     # 与 run.DMG_EVENT_LIFE 一致，淡出比例才对�
 const DMG_MAX := 40
 const SPARK_LIFE := 0.25
 const SPARK_MAX := 160
+const CORPSE_LIFE := 0.20     # 击杀尸体残影：短促缩放淡出，比伤害数字先消失
+const CORPSE_MAX := 24
+const HIT_FX_LIFE := 0.16     # 命中火花
+const HIT_FX_MAX := 96
 
 # ---- 纹理缓存：只在 _draw 里取。--sim 下世界层隐藏、_draw 不跑，模拟完全不碰纹理。
+var _tex_proj: Texture2D = null
+var _proj_tried: bool = false
 var _tex_enemy: Texture2D = null
 var _tex_enemy_flip: Texture2D = null
 var _tex_wit: Texture2D = null
@@ -21,6 +27,8 @@ var _tex_prop: Texture2D = null
 var _flip_tried_enemy: bool = false
 var _flip_tried_wit: bool = false
 var _row_cache: PackedInt32Array = PackedInt32Array()
+## 每种敌人一个微弱色偏：36 种敌人共用 8 个剪影，靠色偏区分「同族不同种」
+var _tint_cache: PackedColorArray = PackedColorArray()
 
 # ---- 火把火星（纯视觉，只在可见时推进；无 rng，确定性的整数哈希抖动）
 var _sparks: Array = []
@@ -40,11 +48,26 @@ var _fb_hp: PackedFloat32Array = PackedFloat32Array()
 
 var _dt: float = 1.0 / 60.0
 
+# ---- 击杀尸体：本帧消失的敌人留一具 0.20s 的缩放淡出残影。
+# 存活快照用 Vector2i 格键（8px 格）→ Vector3(x, y, typ)，3x3 邻居容差吸收一帧内的移位，
+# 纯渲染层推导：不新增模拟字段、不读 run 的 deaths 队列（那个队列在 _tick 里就被清空了）。
+var _alive_prev: Dictionary = {}
+var _alive_cur: Dictionary = {}
+var _corpses: Array = []
+
+# ---- 命中火花：从 run.dmg_events 的新增条目推导（渲染层只读，不删事件）
+var _hit_fx: Array = []
+var _dmg_seen: int = 0
+var _dmg_tail_x: float = -99999.0
+var _dmg_tail_amt: float = -99999.0
+
 func _process(delta: float) -> void:
 	_dt = clampf(delta, 0.001, 0.05)
 	# 世界层隐藏时（--sim / 截图快进）不推进任何视觉粒子：模拟路径零开销
 	if visible and run != null:
 		_update_sparks(_dt)
+		_tick_corpses(_dt)
+		_update_hit_fx(_dt)
 	queue_redraw()
 
 func _draw() -> void:
@@ -57,7 +80,9 @@ func _draw() -> void:
 	_draw_zones()
 	_draw_mechanics()
 	_draw_enemies()
+	_draw_corpses()
 	_draw_shots()
+	_draw_hit_fx()
 	_draw_fx()
 	_draw_hazard_fx()
 	_draw_player()
@@ -70,7 +95,6 @@ func _draw_ground() -> void:
 	var g: Dictionary = run.stage.get("ground", {})
 	var c_base: Color = Color(String(g.get("base", "#2A2419")))
 	var c_speck: Color = Color(String(g.get("speckle", "#3A3122")))
-	var c_line: Color = c_base.lightened(0.05)
 	draw_rect(r, c_base, true)
 	# 装饰只画相机可视矩形（外扩 48）：可见区之外交给底色，600 敌人时省下大半地面开销
 	var view: Rect2 = _view_rect().grow(48.0)
@@ -85,9 +109,32 @@ func _draw_ground() -> void:
 	var c_river: Color = c_base.lerp(c_speck, 0.55).darkened(0.22)
 	c_river.a = 0.20
 	var rocks: bool = bool(g.get("rocks", false))
+	# 低频明暗斑（64px 格）：旧版每 64px 一条 1px 竖网格线（c_line），暗底上读作「坐标纸」，
+	# 是画面 UI 味的主要来源。改成按格哈希撒 12..43px 宽、3..10px 高的暗斑/亮斑，
+	# 只提供大尺度色块层次，不带任何规则直线。
+	var mx0: int = int(floor(view.position.x / 64.0))
+	var my0: int = int(floor(view.position.y / 64.0))
+	var mx1: int = int(ceil(view.end.x / 64.0))
+	var my1: int = int(ceil(view.end.y / 64.0))
+	for mx in range(mx0, mx1):
+		for my in range(my0, my1):
+			var hm: int = _hash2(mx + 811, my + 1973)
+			var mb: int = hm & 63
+			if mb >= 20:
+				continue
+			var mw: float = 10.0 + float((hm >> 6) & 15)
+			var mh: float = 2.0 + float((hm >> 11) & 3)
+			var mox: float = float(mx) * 64.0 + float((hm >> 14) & 31)
+			var moy: float = float(my) * 64.0 + float((hm >> 20) & 31)
+			var mcol: Color
+			if (mb & 1) == 0:
+				mcol = c_base.darkened(0.12)
+				mcol.a = 0.26
+			else:
+				mcol = c_base.lightened(0.06)
+				mcol.a = 0.18
+			draw_rect(Rect2(mox, moy, mw, mh), mcol, true)
 	for gx in range(x0, x1):
-		if (gx & 1) == 0:
-			draw_line(Vector2(float(gx) * 32.0, view.position.y), Vector2(float(gx) * 32.0, view.end.y), c_line, 1.0)
 		for gy in range(y0, y1):
 			# 一次整数哈希，切成 4 个 6 位字段，分别驱动四层装饰（全程无 rng，--sim 确定性不受影响）
 			var h: int = _hash2(gx, gy)
@@ -99,7 +146,7 @@ func _draw_ground() -> void:
 			if b0 < 5:
 				var sx: float = float(gx) * 32.0 + float((h >> 24) & 31)
 				var sy: float = float(gy) * 32.0 + float((h >> 30) & 31)
-				draw_rect(Rect2(sx, sy, 2, 2), c_line, true)
+				draw_rect(Rect2(sx, sy, 2, 2), c_speck, true)
 			# 层 1：枯草（两三根斜断线一簇）
 			if b1 < 9:
 				var gsx: float = float(gx) * 32.0 + float((h >> 36) & 27) + 2.0
@@ -123,7 +170,9 @@ func _draw_ground() -> void:
 				var cy: float = float(gy) * 32.0 + 6.0 + float((h >> 18) & 15)
 				draw_line(Vector2(cx, cy), Vector2(cx + 4.5, cy + 2.0), c_crack, 1.0)
 				draw_line(Vector2(cx + 4.5, cy + 2.0), Vector2(cx + 7.0, cy - 1.5), c_crack, 1.0)
-	# 层 4：干涸河床暗纹（64px 瓦片上的长条暗痕，按章节 ground 配色轻微混色）
+	# 层 4：干涸河床（64px 瓦片）。旧版是一条 26..57px 的 2px 水平直线 + 一条 1px 副线，
+	# 在暗地上读作「UI 分隔条」。改成三段折线的蜿蜒枯沟：段长/斜率按瓦片哈希取，
+	# 沟底再压一条更暗的细线制造深度，沟沿散 3 颗碎石，整体不再是等距横条。
 	var tx0: int = int(floor(view.position.x / 64.0))
 	var ty0: int = int(floor(view.position.y / 64.0))
 	var tx1: int = int(ceil(view.end.x / 64.0))
@@ -133,11 +182,25 @@ func _draw_ground() -> void:
 			var hr: int = _hash2(tx + 3571, ty + 9151)
 			if (hr & 3) != 0:
 				continue
-			var rx0: float = float(tx) * 64.0 + float(hr & 23)
-			var ry0: float = float(ty) * 64.0 + float((hr >> 5) & 40) + 6.0
-			var ln: float = 26.0 + float((hr >> 11) & 31)
-			draw_line(Vector2(rx0, ry0), Vector2(rx0 + ln, ry0 + 1.5), c_river, 2.0)
-			draw_line(Vector2(rx0 + ln * 0.35, ry0 + 3.0), Vector2(rx0 + ln * 0.85, ry0 + 3.4), c_river, 1.0)
+			var px0: float = float(tx) * 64.0 + float(hr & 15) + 4.0
+			var py0: float = float(ty) * 64.0 + float((hr >> 5) & 31) + 8.0
+			var cx: float = px0
+			var cy: float = py0
+			for seg in range(3):
+				var sd: int = (hr >> (seg * 7 + 9)) & 63
+				var sl: float = 7.0 + float(sd & 7)
+				var rise: float = float((sd >> 3) & 3) - 1.5
+				draw_line(Vector2(roundf(cx), roundf(cy)), Vector2(roundf(cx + sl), roundf(cy + rise)), c_river, 1.0)
+				cx += sl
+				cy += rise
+			var gd: int = (hr >> 27) & 63
+			var gx0: float = px0 + 3.0 + float(gd & 7)
+			draw_line(Vector2(roundf(gx0), roundf(py0 + 1.0)), Vector2(roundf(gx0 + 6.0 + float((gd >> 3) & 7)), roundf(py0 + 2.0)), c_river.darkened(0.35), 1.0)
+			for k in range(3):
+				var pd: int = (hr >> (k * 6 + 33)) & 63
+				var pex: float = px0 + 2.0 + float(pd & 15)
+				var pey: float = py0 - 2.0 - float((pd >> 4) & 1)
+				draw_rect(Rect2(roundf(pex), roundf(pey), 1.0 + float(pd & 1), 1.0), c_rock, true)
 
 func _draw_altars() -> void:
 	for a in run.altars:
@@ -201,6 +264,10 @@ func _draw_zones() -> void:
 func _draw_enemies() -> void:
 	var e: EnemySim = run.enemies
 	if e == null or e.count <= 0:
+		# 全清场：把上一帧还活着的一次性结算成尸体，别把陈旧快照留到下一波
+		if not _alive_prev.is_empty():
+			_alive_cur.clear()
+			_harvest_corpses()
 		return
 	var view: Rect2 = _view_rect().grow(56.0)
 	var pp: Vector2 = run.player_pos()
@@ -208,6 +275,9 @@ func _draw_enemies() -> void:
 	var tex: Texture2D = _enemy_tex()
 	var flip: Texture2D = _tex_enemy_flip
 	_sync_row_cache(e, tex != null)
+	# 清单行列与贴图实际尺寸对不上（美术还在写文件）时按贴图收敛，绝不采样到格子外
+	var sheet_rows: int = _sheet_rows(tex, "enemies")
+	_alive_cur.clear()
 	# 契约 v3：受击闪白读 enemies.flash；数组长度不足时回退到 hp 变化判定
 	var flash_ok: bool = e.flash.size() >= e.count
 	if not flash_ok:
@@ -241,39 +311,55 @@ func _draw_enemies() -> void:
 		var row: int = -1
 		if tex != null and e.typ[i] < _row_cache.size():
 			row = _row_cache[e.typ[i]]
+			if row >= sheet_rows:
+				row = -1
+		# 存活快照：给「这一帧消失的敌人」留尸体残影用
+		_alive_cur[Vector2i(int(x) >> 3, int(y) >> 3)] = Vector3(x, y, float(e.typ[i]))
 		# 图集只按 1:1 或 2 倍整数放大（禁止模糊缩放）；r>=9 的精英/BOSS 用 2 倍
 		var scl: float = 2.0 if r >= 9.0 else 1.0
-		var vr: float = 16.0 * scl if row >= 0 else r
+		var ecell: float = float(SpriteBank.cell_of("enemies"))
+		var ehalf: float = ecell * 0.5
+		var vr: float = ehalf * scl if row >= 0 else r
 		var boss: bool = e.is_boss(i)
 		var feet: float = y + r * 0.62 if row >= 0 else y + r * 0.75
-		var vcy: float = feet - 13.0 * scl if row >= 0 else y
+		var vcy: float = feet - ehalf * 0.82 * scl if row >= 0 else y
 		# 落地投影（先于本体与光环）
 		draw_rect(Rect2(x - vr * 0.72, feet - 1.0, vr * 1.44, maxf(2.0, vr * 0.20)), Color(0, 0, 0, 0.25), true)
 		if boss:
 			# 光环贴住精灵中心（回退几何的 vcy 就等于 y）
 			_draw_boss_aura(x, vcy, vr, e, i)
 		if row >= 0:
-			_draw_enemy_sprite(x, feet, scl, row, tex, flip, i, spd, elapsed, fi)
+			var btint := Color(1, 1, 1, 1)
+			if e.typ[i] >= 0 and e.typ[i] < _tint_cache.size():
+				btint = _tint_cache[e.typ[i]]
+			_draw_enemy_sprite(x, feet, scl, row, tex, flip, i, spd, elapsed, fi, btint)
 		elif boss:
 			_draw_enemy_boss_proc(x, y, r, col)
 		else:
 			_draw_enemy_proc(x, y, r, col, t, pp)
 		# 属性外观分型（飞行/披甲/召唤/自爆/精英）+ 致盲
 		_draw_enemy_marks(x, vcy, vr, col, t, elapsed, e.blind_t[i] > 0.0)
+	_harvest_corpses()
 
 ## 每只敌人只发一次 draw_texture_rect_region：图集区域 + 一次性烘焙的镜像图集，不用 draw_set_transform
-func _draw_enemy_sprite(x: float, feet: float, scl: float, row: int, tex: Texture2D, flip: Texture2D, i: int, spd: float, elapsed: float, fi: float) -> void:
+func _draw_enemy_sprite(x: float, feet: float, scl: float, row: int, tex: Texture2D, flip: Texture2D, i: int, spd: float, elapsed: float, fi: float, base_tint: Color = Color(1, 1, 1, 1)) -> void:
 	var body: Texture2D = tex
 	if _face[i] == 1 and flip != null:
 		body = flip
 	# 4 帧循环：速度比越快步频越高；每只按索引错开相位，避免整屏同步
-	var frame: int = SpriteBank.frame_index(elapsed + float((i * 37) % 97) * 0.01, clampf(spd / 60.0, 0.0, 2.0))
-	var src: Rect2 = SpriteBank.frame_rect(row, frame)
-	var dst := Rect2(x - 16.0 * scl, feet - 29.0 * scl, 32.0 * scl, 32.0 * scl)
-	var tint := Color(1, 1, 1, 1)
+	var frames_ok: int = _sheet_frames(tex, "enemies")
+	var frame: int = SpriteBank.enemy_frame(elapsed + float((i * 37) % 97) * 0.01, clampf(spd / 60.0, 0.0, 2.0))
+	frame = frame % maxi(frames_ok, 1)
+	var ecell2: float = float(SpriteBank.cell_of("enemies"))
+	var efeet: float = float(SpriteBank.feet_of("enemies"))
+	var src: Rect2 = SpriteBank.frame_rect(row, frame, "enemies")
+	# 整数倍缩放 + 整像素落位：nearest 采样下只有整像素才不会糊
+	var dst := Rect2(roundf(x - ecell2 * 0.5 * scl), roundf(feet - efeet * scl), ecell2 * scl, ecell2 * scl)
+	var tint := base_tint
 	if fi > 0.0:
-		# 契约 v3：flash * 6 夹到 1.6 上限（modulate 直接乘会过曝）
-		var k: float = clampf(1.0 + fi * 6.0, 1.0, 1.6)
+		# 受击白闪：flash 从 0.12 线性衰减，前 3 帧几乎纯白（k 到 2.4 再回落），
+		# 比旧版 1.6 上限明显得多，且不会把 32px 图集糊成一团白。
+		var k: float = clampf(1.0 + fi * 18.0, 1.0, 2.6)
 		tint = Color(k, k, k, 1.0)
 	draw_texture_rect_region(body, dst, src, tint)
 
@@ -284,8 +370,20 @@ func _sync_row_cache(e: EnemySim, has_tex: bool) -> void:
 	if _row_cache.size() == e.type_ids.size():
 		return
 	_row_cache.resize(e.type_ids.size())
+	_tint_cache.resize(e.type_ids.size())
 	for k in range(e.type_ids.size()):
-		_row_cache[k] = SpriteBank.enemy_row(String(e.type_ids[k]))
+		var sid: String = String(e.type_ids[k])
+		_row_cache[k] = SpriteBank.enemy_row(sid)
+		# 色偏只做 ±10% 级别的微调：不破坏图集原画，但让 36 个 id 不至于长得一模一样
+		var th: int = absi(sid.hash())
+		var dr: float = float((th >> 3) % 17 - 8) * 0.010
+		var dg: float = float((th >> 9) % 13 - 6) * 0.008
+		var db: float = float((th >> 15) % 17 - 8) * 0.012
+		_tint_cache[k] = Color(
+			clampf(1.0 + dr, 0.88, 1.10),
+			clampf(1.0 + dg, 0.90, 1.08),
+			clampf(1.0 + db, 0.86, 1.14),
+			1.0)
 
 func _draw_boss_aura(x: float, y: float, vr: float, e: EnemySim, i: int) -> void:
 	var bfrac: float = clampf(e.hp[i] / maxf(e.max_hp[i], 1.0), 0.0, 1.0)
@@ -362,29 +460,164 @@ func _draw_enemy_marks(x: float, vcy: float, vr: float, col: Color, t: Dictionar
 	if blind:
 		draw_circle(Vector2(x, vcy - vr * 1.6), 1.5, Color(0.9, 0.9, 1.0, 0.8))
 
+## 弹道：走 ProjectileVisuals 的 weapon→{row,tint,scale,trail} 映射。
+## 图集到手 → 贴图 + 发光描边 + 4 段残影；图集/行缺失 → 同色系的程序化剪影（形状按行区分），
+## 两条路径都保住「4 段残影 + 发光 + 命中火花」，所以占位期也不会退化成一根方条。
 func _draw_shots() -> void:
 	var s: ProjectileSim = run.shots
-	if s == null:
+	if s == null or s.count <= 0:
 		return
-	var view: Rect2 = _view_rect().grow(24.0)
+	var tex: Texture2D = _proj_tex()
+	if tex != null:
+		ProjectileVisuals.rebuild_index(_equipped_weapon_ids())
+	var view: Rect2 = _view_rect().grow(28.0)
+	var cell: float = float(SpriteBank.cell_of(ProjectileVisuals.SHEET))
+	var elapsed: float = run.elapsed
 	for i in range(s.count):
 		var x: float = s.px[i]
 		var y: float = s.py[i]
 		# 拖尾与本体都只画可视矩形内
 		if x < view.position.x or x > view.end.x or y < view.position.y or y > view.end.y:
 			continue
-		var c: Color = _shot_color(int(s.color[i]))
 		var vx: float = s.vx[i]
 		var vy: float = s.vy[i]
 		var sz: float = maxf(s.size[i], 1.6)
-		# 拖尾：line_projectile 与 homing 都在内；按 p - v*k*dt 反推 4 个残影点，alpha 从 0.45 递减
-		if vx * vx + vy * vy > 2500.0:
-			for k in range(1, 5):
-				var ta: float = 0.45 * (1.0 - float(k - 1) * 0.25)
-				var tx: float = x - vx * (0.01667 * float(k))
-				var ty: float = y - vy * (0.01667 * float(k))
-				draw_circle(Vector2(tx, ty), maxf(0.9, sz * 0.34), Color(c.r, c.g, c.b, ta))
-		draw_rect(Rect2(x - sz * 0.5, y - sz * 0.5, sz, sz), c, true)
+		var prof: Dictionary = ProjectileVisuals.resolve(int(s.color[i]), int(s.status[i]), sz, int(s.friendly[i]) != 0)
+		var row: int = ProjectileVisuals.row_index(String(prof.get("row", "stone")), tex)
+		if row >= 0:
+			_draw_shot_sprite(x, y, vx, vy, prof, row, tex, cell, elapsed, i)
+		else:
+			_draw_shot_proc(x, y, vx, vy, sz, prof, int(s.color[i]))
+
+
+## 图集路径：两层发光底 → 4 段残影 → 本体。全部整像素落位（nearest 采样下不糊边）
+func _draw_shot_sprite(x: float, y: float, vx: float, vy: float, prof: Dictionary, row: int, tex: Texture2D, cell: float, elapsed: float, i: int) -> void:
+	var scl: float = float(prof.get("scale", 1))
+	var tint: Color = prof.get("tint", Color(1, 1, 1, 1)) as Color
+	var glow: Color = prof.get("glow", Color("#F0D890")) as Color
+	var frames_ok: int = _sheet_frames(tex, ProjectileVisuals.SHEET)
+	var frame: int = ProjectileVisuals.frame_for(elapsed, i, tex) % maxi(frames_ok, 1)
+	var src: Rect2 = SpriteBank.frame_rect(row, frame, ProjectileVisuals.SHEET)
+	var half: float = cell * 0.5 * scl
+	# 发光描边：紧贴 sprite 的两层暖光（半径太大会糊成一圈土黄色晕，16px 图配 0.55/0.34 正好）
+	draw_circle(Vector2(roundf(x), roundf(y)), maxf(cell * 0.55, 4.0) * scl, Color(glow.r, glow.g, glow.b, 0.14))
+	draw_circle(Vector2(roundf(x), roundf(y)), maxf(cell * 0.34, 2.5) * scl, Color(glow.r, glow.g, glow.b, 0.26))
+	# 4 段残影：按速度回溯 gap*k 秒（残影段数由档案给，默认 4）
+	var n: int = int(prof.get("trail", 4))
+	var gap: float = float(prof.get("gap", 0.014))
+	for k in range(1, n + 1):
+		var back: float = gap * float(k)
+		var tx: float = roundf(x - vx * back - half)
+		var ty: float = roundf(y - vy * back - half)
+		var a: float = 0.34 * pow(0.60, float(k - 1))
+		draw_texture_rect_region(tex, Rect2(tx, ty, half * 2.0, half * 2.0), src, Color(tint.r, tint.g, tint.b, a))
+	draw_texture_rect_region(tex, Rect2(roundf(x - half), roundf(y - half), half * 2.0, half * 2.0), src, tint)
+
+
+## 回退路径：图集未交付时按行给同色系剪影（石块/箭/火/刃/音符/水/冲击/火花），
+## 形状跟着 row 走，所以读屏时能分清是「石弹」还是「火球」。
+func _draw_shot_proc(x: float, y: float, vx: float, vy: float, sz: float, prof: Dictionary, color_code: int) -> void:
+	# 回退路径也吃 weapon 档案的 tint：同是 burn，火把的暖白和战车的橘红要能分开，
+	# 这样在 projectiles.png 还没交付时，20 把武器的弹道也不是一坨同色圆点。
+	var c: Color = _shot_color(color_code)
+	var tint: Color = prof.get("tint", Color(1, 1, 1, 1)) as Color
+	c = c.lerp(tint, 0.55)
+	var glow: Color = prof.get("glow", c) as Color
+	var row: String = String(prof.get("row", "stone"))
+	if color_code == ProjectileSim.COL_ENEMY:
+		glow = Color("#B4472F")
+	# 发光描边
+	draw_circle(Vector2(x, y), sz * 1.9, Color(glow.r, glow.g, glow.b, 0.10))
+	draw_circle(Vector2(x, y), sz * 1.15, Color(glow.r, glow.g, glow.b, 0.18))
+	# 4 段残影：段与段之间用锥形描线连起来，否则等距圆点读起来是「子弹 + 一串珠子」而不是拖尾。
+	# 顺序从最远段往回画，近段压在上面，自然形成亮头暗尾。
+	var spd2: float = vx * vx + vy * vy
+	if spd2 > 900.0:
+		var n: int = int(prof.get("trail", 4))
+		var gap: float = float(prof.get("gap", 0.014))
+		var p0 := Vector2(x, y)
+		for k in range(n, 0, -1):
+			var pa := Vector2(x - vx * gap * float(k - 1), y - vy * gap * float(k - 1))
+			var pb := Vector2(x - vx * gap * float(k), y - vy * gap * float(k))
+			var a: float = 0.30 * pow(0.64, float(k - 1))
+			var w: float = maxf(0.9, sz * 0.86 * (1.0 - 0.17 * float(k - 1)))
+			draw_line(pa, pb, Color(c.r, c.g, c.b, a), w)
+		draw_circle(p0 - Vector2(vx, vy).normalized() * sz * 0.5, maxf(0.8, sz * 0.34), Color(c.r, c.g, c.b, 0.30))
+	var d := Vector2.RIGHT
+	if spd2 > 1.0:
+		d = Vector2(vx, vy).normalized()
+	match row:
+		"arrow":
+			draw_line(Vector2(x, y) - d * sz * 1.3, Vector2(x, y) + d * sz * 0.9, c, maxf(1.0, sz * 0.42))
+			draw_circle(Vector2(x, y) + d * sz * 0.9, maxf(0.9, sz * 0.30), c.lightened(0.35))
+		"blade":
+			var nd := Vector2(-d.y, d.x)
+			draw_primitive(
+				PackedVector2Array([Vector2(x, y) + d * sz * 1.5, Vector2(x, y) + nd * sz * 0.52, Vector2(x, y) - d * sz * 0.9, Vector2(x, y) - nd * sz * 0.52]),
+				PackedColorArray([c.lightened(0.34), c, c, c.lightened(0.34)]),
+				PackedVector2Array()
+			)
+		"flame":
+			for k in range(3):
+				var ph: float = fmod(run.elapsed * 7.0 + float(k) * 0.34 + x * 0.02, 1.0)
+				draw_circle(Vector2(x + sin(ph * 6.0) * sz * 0.34, y + sz * 0.5 - ph * sz * 1.5), sz * (0.55 - ph * 0.30), Color(1.0, 0.60 + ph * 0.28, 0.20, 0.55 + 0.35 * ph))
+			draw_circle(Vector2(x, y), sz * 0.62, c)
+		"note":
+			draw_arc(Vector2(x, y), sz * 1.05, -2.4, 0.7, 10, c, maxf(1.0, sz * 0.30))
+			draw_arc(Vector2(x, y), sz * 0.58, -2.4, 0.7, 10, c.lightened(0.28), 1.0)
+		"water":
+			draw_circle(Vector2(x, y), sz * 0.58, c)
+			draw_circle(Vector2(x - sz * 0.20, y - sz * 0.20), sz * 0.22, c.lightened(0.45))
+		"shock":
+			draw_circle(Vector2(x, y), sz * 0.78, c, false, maxf(1.0, sz * 0.30))
+			draw_circle(Vector2(x, y), sz * 1.30, Color(c.r, c.g, c.b, 0.42), false, 1.0)
+		"spark":
+			draw_rect(Rect2(roundf(x - sz * 0.42), roundf(y - sz * 0.42), maxf(1.0, sz * 0.84), maxf(1.0, sz * 0.84)), c, true)
+			draw_circle(Vector2(x, y), sz * 0.26, Color(1, 1, 1, 0.85))
+		_:  # stone：主力弹（投石/颚骨/敌方重弹）
+			draw_circle(Vector2(x, y), sz * 0.62, c)
+			draw_circle(Vector2(x - sz * 0.18, y - sz * 0.18), sz * 0.24, c.lightened(0.40))
+
+
+## 投影物图集（缺失 → null，全走程序化回退）
+func _proj_tex() -> Texture2D:
+	if not _proj_tried:
+		_proj_tried = true
+		_tex_proj = SpriteBank.projectiles()
+	return _tex_proj
+
+
+## 当前装备的武器 id（弹幕不携带 weapon id，只能靠 (color,status,size) 反查档案）
+func _equipped_weapon_ids() -> Array:
+	var out: Array = []
+	var st = run.get("state")
+	if st == null:
+		return out
+	var ws = st.get("weapons")
+	if ws is Array:
+		for w in ws:
+			if w is Dictionary:
+				out.append(String((w as Dictionary).get("id", "")))
+	return out
+
+
+## 清单行列数 vs 贴图实际尺寸：美术还在写文件时以贴图为准，绝不采样到格子外
+func _sheet_rows(tex: Texture2D, sheet: String) -> int:
+	if tex == null:
+		return 0
+	var c: int = SpriteBank.cell_of(sheet)
+	if c <= 0:
+		return 0
+	return int(tex.get_height() / c)
+
+
+func _sheet_frames(tex: Texture2D, sheet: String) -> int:
+	if tex == null:
+		return 1
+	var c: int = SpriteBank.cell_of(sheet)
+	if c <= 0:
+		return 1
+	return clampi(int(tex.get_width() / c), 1, maxi(SpriteBank.frames_of(sheet), 1))
 
 ## 三类基准色：圣石土金 / 音刃淡金 / 敌方红；火水沿用自己的色
 func _shot_color(code: int) -> Color:
@@ -469,14 +702,20 @@ func _draw_player() -> void:
 	var row: int = -1
 	if tex != null:
 		row = SpriteBank.witness_row(String(run.character_id))
+		if row >= _sheet_rows(tex, "witnesses"):
+			row = -1
 	if row >= 0:
 		# 图集 1:1，脚底对齐 p.y + 8（格内脚底 y≈29）
 		var body: Texture2D = tex
 		if _player_face == 1 and _tex_wit_flip != null:
 			body = _tex_wit_flip
 		var moving: bool = run.dash_time > 0.0 or mv_v.length() > 0.05
-		var frame: int = SpriteBank.frame_index(run.elapsed, 1.4 if moving else 0.0)
-		draw_texture_rect_region(body, Rect2(p.x - 16.0, p.y - 21.0, 32.0, 32.0), SpriteBank.frame_rect(row, frame))
+		var frame: int = SpriteBank.witness_frame(run.elapsed, moving)
+		frame = frame % maxi(_sheet_frames(tex, "witnesses"), 1)
+		var wcell: float = float(SpriteBank.cell_of("witnesses"))
+		var wfeet: float = float(SpriteBank.feet_of("witnesses"))
+		# 整数倍缩放（48px 格 1:1）+ 整像素落位：脚底对齐 p.y + 8
+		draw_texture_rect_region(body, Rect2(roundf(p.x - wcell * 0.5), roundf(p.y + 8.0 - wfeet), wcell, wcell), SpriteBank.frame_rect(row, frame))
 		# 精灵本身没有武器朝向：手动瞄准时点一颗石子作指示
 		var aim: Vector2 = run.aim_dir
 		if aim.length() > 0.1:
@@ -931,7 +1170,7 @@ func _enemy_tex() -> Texture2D:
 		_tex_enemy = SpriteBank.enemies()
 	if _tex_enemy != null and _tex_enemy_flip == null and not _flip_tried_enemy:
 		_flip_tried_enemy = true
-		_tex_enemy_flip = _make_flip(_tex_enemy)
+		_tex_enemy_flip = _make_flip(_tex_enemy, SpriteBank.cell_of("enemies"))
 	return _tex_enemy
 
 func _witness_tex() -> Texture2D:
@@ -939,7 +1178,7 @@ func _witness_tex() -> Texture2D:
 		_tex_wit = SpriteBank.witnesses()
 	if _tex_wit != null and _tex_wit_flip == null and not _flip_tried_wit:
 		_flip_tried_wit = true
-		_tex_wit_flip = _make_flip(_tex_wit)
+		_tex_wit_flip = _make_flip(_tex_wit, SpriteBank.cell_of("witnesses"))
 	return _tex_wit
 
 func _prop_tex() -> Texture2D:
@@ -949,7 +1188,7 @@ func _prop_tex() -> Texture2D:
 
 ## 水平镜像图集：一次性烘焙，避免每只敌人多一条 draw_set_transform（保住「一敌人一 draw」）。
 ## 注意要逐 32px 单元镜像、不能整图 flip_x：整图翻转会把 4 帧的列序也反过来（动画倒放）。
-func _make_flip(tex: Texture2D) -> Texture2D:
+func _make_flip(tex: Texture2D, cell_size: int = 32) -> Texture2D:
 	if tex == null:
 		return null
 	var src: Image = tex.get_image()
@@ -963,7 +1202,7 @@ func _make_flip(tex: Texture2D) -> Texture2D:
 	if src.is_compressed():
 		src = src.duplicate() as Image
 		src.decompress()
-	var cell: int = SpriteBank.CELL
+	var cell: int = cell_size
 	var cols: int = src.get_width() / cell
 	var rows: int = src.get_height() / cell
 	for ry in range(rows):
@@ -1037,6 +1276,172 @@ func _update_sparks(delta: float) -> void:
 			for k in range(2):
 				_sparks.append({ "x": float(pt["x"]), "y": float(pt["y"]), "vx": tan.x + jx + rel.x * 0.6, "vy": tan.y + jy + rel.y * 0.6, "life": SPARK_LIFE, "r": 1.4 + 0.6 * float(k) })
 
+# ---------------------------------------------------------------- 击杀尸体 / 命中火花
+
+## 本帧消失的敌人 → 留一具 0.20s 的尸体残影（缩放 1.0→0.72 + 淡出）。
+## 死亡靠「上一帧在、这一帧不在」推导：run 的 deaths 队列在 _tick 内部就清空了，
+## 渲染层读不到，也不该夺回它。3x3 格邻居容差吸收一帧内的正常位移。
+func _harvest_corpses() -> void:
+	if not _alive_prev.is_empty():
+		var view: Rect2 = _view_rect().grow(-32.0)
+		for k in _alive_prev.keys():
+			if _alive_cur.has(k):
+				continue
+			var cell: Vector2i = k
+			var shifted: bool = false
+			for dx in [-1, 0, 1]:
+				for dy in [-1, 0, 1]:
+					if _alive_cur.has(cell + Vector2i(dx, dy)):
+						shifted = true
+						break
+				if shifted:
+					break
+			if shifted:
+				continue
+			var v: Vector3 = _alive_prev[k]
+			# 视口外的「消失」是镜头平移，不是死亡：别浪费尸体配额
+			if not view.has_point(Vector2(v.x, v.y)):
+				continue
+			_add_corpse(v.x, v.y, int(v.z))
+	# 双缓冲交换（复用 Dictionary 对象，避免每帧新建）
+	var t: Dictionary = _alive_prev
+	_alive_prev = _alive_cur
+	_alive_cur = t
+	_alive_cur.clear()
+
+
+func _add_corpse(x: float, y: float, typ: int) -> void:
+	if _corpses.size() >= CORPSE_MAX:
+		_corpses.remove_at(0)
+	_corpses.append({ "x": x, "y": y, "typ": typ, "t": CORPSE_LIFE })
+
+
+func _tick_corpses(delta: float) -> void:
+	var i: int = _corpses.size() - 1
+	while i >= 0:
+		var c: Dictionary = _corpses[i]
+		var t: float = float(c["t"]) - delta
+		if t <= 0.0:
+			_corpses.remove_at(i)
+		else:
+			c["t"] = t
+		i -= 1
+
+
+func _draw_corpses() -> void:
+	if _corpses.is_empty():
+		return
+	var e: EnemySim = run.enemies
+	var tex: Texture2D = _enemy_tex()
+	var sheet_rows: int = _sheet_rows(tex, "enemies")
+	var cell: float = float(SpriteBank.cell_of("enemies"))
+	var efeet: float = float(SpriteBank.feet_of("enemies"))
+	for c in _corpses:
+		var k: float = clampf(float(c["t"]) / CORPSE_LIFE, 0.0, 1.0)   # 1 → 0
+		var typ: int = int(c["typ"])
+		var row: int = -1
+		if tex != null and typ >= 0 and typ < _row_cache.size():
+			row = _row_cache[typ]
+			if row >= sheet_rows:
+				row = -1
+		var x: float = float(c["x"])
+		var y: float = float(c["y"])
+		var rs: float = 6.0 * (0.72 + 0.28 * k)
+		var a: float = 0.85 * k
+		if row >= 0:
+			var sc: float = 0.72 + 0.28 * k
+			draw_texture_rect_region(
+				tex,
+				Rect2(roundf(x - cell * 0.5 * sc), roundf(y + 3.0 - efeet * sc), cell * sc, cell * sc),
+				SpriteBank.frame_rect(row, 0, "enemies"),
+				Color(1.0, 1.0, 1.0, a)
+			)
+		else:
+			var base := Color("#8A7F6D")
+			if e != null and typ >= 0 and typ < e.types.size():
+				base = Color(String((e.types[typ] as Dictionary).get("color", "#8A7F6D")))
+			draw_rect(Rect2(roundf(x - rs), roundf(y - rs), maxf(1.0, roundf(rs * 2.0)), maxf(1.0, roundf(rs * 2.0))), Color(base.r, base.g, base.b, a), true)
+
+
+## 命中火花：从 dmg_events 的新增条目推导（只读事件数组，绝不 pop_front 别人的数据）。
+## 事件数组有 200 上限、满了会从头部丢，所以「条数」不能单独当游标：再比一次尾条目的 x/amt。
+func _update_hit_fx(delta: float) -> void:
+	var i: int = _hit_fx.size() - 1
+	while i >= 0:
+		var h: Dictionary = _hit_fx[i]
+		var life: float = float(h["life"]) - delta
+		if life <= 0.0:
+			_hit_fx.remove_at(i)
+			i -= 1
+			continue
+		h["life"] = life
+		h["x"] = float(h["x"]) + float(h["vx"]) * delta
+		h["y"] = float(h["y"]) + float(h["vy"]) * delta
+		h["vx"] = float(h["vx"]) * 0.88
+		h["vy"] = float(h["vy"]) * 0.88 + 96.0 * delta
+		i -= 1
+	var arr = run.get("dmg_events")
+	if not (arr is Array):
+		return
+	var evs: Array = arr
+	var n: int = evs.size()
+	var fresh: int = n - _dmg_seen
+	if fresh < 0:
+		fresh = 1
+	if n > 0:
+		var last = evs[n - 1]
+		if last is Dictionary:
+			var lx: float = float((last as Dictionary).get("x", 0.0))
+			var la: float = float((last as Dictionary).get("amt", 0.0))
+			if fresh <= 0 and (absf(lx - _dmg_tail_x) > 0.01 or absf(la - _dmg_tail_amt) > 0.01):
+				fresh = 1
+			_dmg_tail_x = lx
+			_dmg_tail_amt = la
+	_dmg_seen = n
+	if fresh <= 0 or _hit_fx.size() >= HIT_FX_MAX:
+		return
+	var n0: int = maxi(0, n - mini(fresh, 8))
+	for k in range(n0, n):
+		var ev = evs[k]
+		if not (ev is Dictionary):
+			continue
+		var d: Dictionary = ev
+		_spawn_hit_fx(float(d.get("x", 0.0)), float(d.get("y", 0.0)) - 4.0, bool(d.get("crit", false)))
+
+
+func _spawn_hit_fx(x: float, y: float, crit: bool) -> void:
+	var base: Color = Color("#FFE9A8") if crit else Color("#F0D890")
+	var cnt: int = 5 if crit else 3
+	var h: int = _hash2(int(x), int(y))
+	for k in range(cnt):
+		if _hit_fx.size() >= HIT_FX_MAX:
+			return
+		var ang: float = TAU * float(k) / float(cnt) + float(h & 255) * 0.012
+		var spd: float = (58.0 if crit else 42.0) * (0.72 + float((h >> (k * 3 + 2)) & 15) * 0.05)
+		_hit_fx.append({
+			"x": x, "y": y,
+			"vx": cos(ang) * spd, "vy": sin(ang) * spd - 26.0,
+			"life": HIT_FX_LIFE,
+			"r": 1.9 if crit else 1.3,
+			"c": base,
+		})
+
+
+func _draw_hit_fx() -> void:
+	if _hit_fx.is_empty():
+		return
+	for h in _hit_fx:
+		var a: float = clampf(float(h["life"]) / HIT_FX_LIFE, 0.0, 1.0)
+		if a <= 0.02:
+			continue
+		var c: Color = h["c"]
+		var px: float = roundf(float(h["x"]))
+		var py: float = roundf(float(h["y"]))
+		var rr: float = float(h["r"]) * (1.5 - a * 0.5)
+		draw_circle(Vector2(px, py), rr, Color(c.r, c.g, c.b, 0.85 * a))
+		draw_circle(Vector2(px, py), maxf(0.7, rr * 0.42), Color(1.0, 1.0, 0.94, 0.90 * a))
+
+
 ## 浮动伤害数字：读 run.dmg_events（x/y/amt/crit）+ run.dmg_life（剩余寿命）。
 ## 渲染层只读、绝不删除：run 的 _tick_dmg_events 按 dmg_life 自行过期（run.gd:1070 明确要求渲染层不删），
 ## 这里清空会让两条并行数组错位。同屏硬上限 40：只画最新的 40 条，其余自然被上限挡掉。
@@ -1071,14 +1476,22 @@ func _draw_damage_numbers() -> void:
 			continue
 		var k: float = 1.0 - a
 		var crit: bool = bool(d.get("crit", false))
-		var fs: int = 11 if crit else 8
+		# 暴击：更大号更亮的金字（14 vs 8）+ 更重的描边，一眼能和普通伤害分开
+		var fs: int = 14 if crit else 8
 		var txt: String = str(int(round(amt)))
-		var col: Color = Color("#E0B85A") if crit else Color("#F2E3B8")
+		var col: Color = Color("#FFD98A") if crit else Color("#F2E3B8")
 		var w: float = f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var x: float = float(d.get("x", 0.0)) - w * 0.5
-		var y: float = float(d.get("y", 0.0)) - 8.0 - k * 16.0
-		draw_string(f, Vector2(x + 1.0, y + 1.0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.45 * a))
-		draw_string(f, Vector2(x, y), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(col.r, col.g, col.b, a))
+		var rise: float = 20.0 if crit else 16.0
+		var x: float = roundf(float(d.get("x", 0.0)) - w * 0.5)
+		var y: float = roundf(float(d.get("y", 0.0)) - 8.0 - k * rise)
+		if crit:
+			# 暴击落点再加一圈金晕，配合更大的字号
+			draw_circle(Vector2(x + w * 0.5, y - fs * 0.35), fs * 0.72, Color(1.0, 0.86, 0.42, 0.10 * a))
+			draw_string(f, Vector2(x + 1.0, y + 1.0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.34, 0.10, 0.02, 0.55 * a))
+			draw_string(f, Vector2(x, y), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(col.r, col.g, col.b, a))
+		else:
+			draw_string(f, Vector2(x + 1.0, y + 1.0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.45 * a))
+			draw_string(f, Vector2(x, y), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(col.r, col.g, col.b, a))
 
 ## 地面银币：run.ground_coins = [{x, y, v, t}]，渲染层只读不写
 func _draw_ground_coins() -> void:

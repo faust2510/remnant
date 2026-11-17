@@ -193,8 +193,10 @@ func _draw_card(f: Font, i: int, o: Dictionary) -> void:
 		# 实测（modal_v3 逐行像素剖面）：draw_multiline_string 的 pos 是**首行基线**，不是左上角。
 		# 名字基线 +24（字高 11 → 占 16..24），简介首行基线必须 ≥ +32 才不会压名字下沿；+34 留 2px 呼吸。
 		# 宽度同时让开右上角状态角标（否则两行字会钻到「新得 Lv.N」下面）。
+		# 字号 8 → 9：8px 中文在 640x360 下的横画只有 1 个物理像素，宋体渲染后糊成一条线；
+		# 9px 首行墨迹占 25..34、次行 36..45，仍在名字下沿(24)与出处条(50)之间。
 		draw_multiline_string(f, Vector2(r.position.x + TEXT_LEFT, r.position.y + 34.0), desc,
-			HORIZONTAL_ALIGNMENT_LEFT, maxf(120.0, name_w), 8, 2,
+			HORIZONTAL_ALIGNMENT_LEFT, maxf(120.0, name_w), 9, 2,
 			Color(UITheme.INK.r, UITheme.INK.g, UITheme.INK.b, 0.75))
 	# 状态角标
 	if chip.size.x > 0.0:

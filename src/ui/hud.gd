@@ -318,6 +318,12 @@ func _draw_top(st) -> void:
 	_draw_hourglass(Vector2(gx, HEAD_TIME_Y - HOURGLASS_H + 1.0), HOURGLASS_H)
 	_txt(Vector2(gx + HOURGLASS_H + 4.0, HEAD_TIME_Y), tstr, 14, UITheme.GOLD_BRIGHT)
 	# 右上：击杀 / 银两 / 火炭（自动缩字号，绝不溢出）
+	# 先铺一条暗底石槽：原来数字直接压在战场像素上，敌人从字背后穿过时读不清
+	# （v4_art6 顶部裁剪图：一只 beast 正好从「银两」后面走过）。
+	var plate: Rect2 = Rect2(STAT_RECT.position.x - 2.0, STAT_Y - 17.0, STAT_RECT.size.x + 6.0, 20.0)
+	draw_rect(plate, Color(UITheme.INK_DEEP.r, UITheme.INK_DEEP.g, UITheme.INK_DEEP.b, 0.58), true)
+	draw_rect(Rect2(plate.position.x, plate.position.y, plate.size.x, 1.0), Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.18), true)
+	draw_rect(Rect2(plate.position.x, plate.end.y - 1.0, plate.size.x, 1.0), Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.26), true)
 	var line: String = "击杀 %d  ·  银两 %d  ·  火炭 %d" % [st.kills, _picked_shillings(), st.coals]
 	var fs: int = 9
 	while fs > 6 and f.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > STAT_RECT.size.x:
@@ -429,9 +435,22 @@ func _draw_witness() -> void:
 	var tex: Texture2D = SpriteBank.witnesses()
 	var wrow: int = SpriteBank.witness_row(cid)
 	draw_rect(r, Color(0.05, 0.06, 0.09, 0.96), true)
+	# 头像一律 1:1 整数像素：48px 格直接塞进 32px 框会变成 0.667x 非整数缩放（糊边、眼神散）
+	# 所以按格取「头部 32x32 裁剪」；prompt: V4 图集 48px / 脚底 y=44。
+	var has_body: bool = false
 	if tex != null and wrow >= 0:
-		draw_texture_rect_region(tex, r, SpriteBank.frame_rect(wrow, 0))
-	else:
+		var cell: int = SpriteBank.cell_of("witnesses")
+		var rows_ok: int = int(tex.get_height() / maxi(cell, 1))
+		if cell > 0 and wrow < rows_ok:
+			var src: Rect2 = SpriteBank.frame_rect(wrow, 0)
+			if cell == 32:
+				draw_texture_rect_region(tex, r, src)
+			else:
+				var crop: float = 32.0
+				var ox: float = floorf((float(cell) - crop) * 0.5)
+				draw_texture_rect_region(tex, r, Rect2(src.position.x + ox, src.position.y + 6.0, crop, crop))
+			has_body = true
+	if not has_body:
 		# 纹理缺失：程序化回退（头 + 肩），绝不 push_error
 		draw_circle(r.position + Vector2(16.0, 12.0), 6.0, Color(0.74, 0.68, 0.54, 0.92))
 		draw_rect(Rect2(r.position + Vector2(6.0, 20.0), Vector2(20.0, 10.0)), Color(0.52, 0.47, 0.38, 0.92), true)
@@ -724,7 +743,7 @@ func _draw_pause_stats(st) -> void:
 		var row: Array = rows[i]
 		_txt(Vector2(PAUSE_RX, y), String(row[0]), 8, C_PANEL_TEXT)
 		_txt(Vector2(PAUSE_RX, y), String(row[1]), 8, UITheme.PARCH, HORIZONTAL_ALIGNMENT_RIGHT, PAUSE_RW)
-	_txt(Vector2(PAUSE_RX, PAUSE_PICK_Y), "本局拾取 舍客勒  +%d" % _picked_shillings(), 8, UITheme.GOLD_BRIGHT)
+	_txt(Vector2(PAUSE_RX, PAUSE_PICK_Y), "本局拾取 舍客勒  +%d" % _picked_total(), 8, UITheme.GOLD_BRIGHT)
 	_txt(Vector2(PAUSE_RX, PAUSE_TIME_Y), "计时 %s   ·   击杀 %d" % [_fmt_time(float(run.get("elapsed"))), st.kills],
 		8, C_PANEL_TEXT)
 
@@ -762,7 +781,7 @@ func _draw_result(st) -> void:
 	_txt(Vector2(0.0, 184.0), "舍客勒合计  +%d   （局内拾取 %d · 局外 %d）" % [int(run.get("reward")), pick_scaled, _meta_silver_bonus()],
 		12, UITheme.GOLD_BRIGHT, HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 	# 新增：本局拾取
-	_txt(Vector2(0.0, 202.0), "本局拾取 舍客勒  +%d" % _picked_shillings(), 10, UITheme.GOLD_PALE,
+	_txt(Vector2(0.0, 202.0), "本局拾取 舍客勒  +%d" % _picked_total(), 10, UITheme.GOLD_PALE,
 		HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 	# 成就
 	var entries: Array = _result_achievement_entries()
