@@ -205,7 +205,7 @@ func _notify(text: String) -> void:
 	notice_t = 2.8
 
 func _witness_name() -> String:
-	var cid: String = RunCfg.character_id if RunCfg.character_id != "" else "david"
+	var cid: String = RunCfg.character_id if RunCfg.character_id != "" else "adam"
 	var c: Dictionary = GameData.characters_by_id.get(cid, {})
 	return String(c.get("name", cid))
 
@@ -280,10 +280,10 @@ func _enter() -> void:
 	Meta.stage_id = sid
 	Meta.save_save()
 	RunCfg.stage_id = sid
-	var cid: String = RunCfg.character_id if RunCfg.character_id != "" else "david"
+	var cid: String = RunCfg.character_id if RunCfg.character_id != "" else "adam"
 	var c: Dictionary = GameData.characters_by_id.get(cid, {})
 	if c.is_empty() or not UIText.character_unlocked(c):
-		cid = "david"
+		cid = "adam"
 	RunCfg.character_id = cid
 	sfx.play("dash", -6.0)
 	get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
@@ -752,6 +752,8 @@ func _draw_background() -> void:
 	_draw_embers()
 	for i in range(7):
 		draw_rect(Rect2(float(i) * 3.0, float(i) * 2.0, 640.0 - float(i) * 6.0, 360.0 - float(i) * 4.0), Color(0, 0, 0, 0.03), false, 2.0)
+	# 暗角：把视线收进中栏，同时压住左右边角的石板噪点（背后是静态绘制，每帧代价可忽略）
+	UITheme.vignette(self, 0.34, 76.0)
 
 func _draw_embers() -> void:
 	for i in range(EMBER_COUNT):
@@ -784,8 +786,8 @@ func _draw_tabs(font: Font) -> void:
 			base = Color(0.11, 0.12, 0.14)
 		draw_rect(r, base, true)
 		draw_rect(r, UITheme.GOLD_BRIGHT if on else (UITheme.GOLD if hv else Color(0.24, 0.25, 0.27)), false, 1.0)
-		UITheme.text(self, Vector2(r.position.x, r.position.y + 15.0), PAGE_NAMES[i], 11, Color(0.96, 0.92, 0.80) if on else Color(0.60, 0.61, 0.60), 1, r.size.x)
-	UITheme.text(self, Vector2(304, 66), "↑↓ 选择 · Enter 购买 · Tab 切页 · V 图鉴 · L 军械库", 9, Color(0.46, 0.48, 0.46), 2, 312.0)
+		UITheme.text(self, Vector2(r.position.x, r.position.y + 15.0), PAGE_NAMES[i], 12, Color(0.96, 0.92, 0.80) if on else Color(0.60, 0.61, 0.60), 1, r.size.x)
+	UITheme.text(self, Vector2(304, 66), "↑↓ 选择 · Enter 购买 · Tab 切页 · V 图鉴 · L 军械库", 10, Color(0.48, 0.50, 0.48), 2, 312.0)
 
 func _draw_cards(font: Font) -> void:
 	for i in range(6):
@@ -820,7 +822,7 @@ func _draw_card(i: int, font: Font) -> void:
 	var ir := Rect2(r.position.x + 6.0, r.position.y + 1.0, 32.0, 32.0)
 	UITheme.icon_frame(self, ir, null, Rect2(), 0.9 if on else 0.0)
 	_draw_glyph(String(v["glyph"]), ir.position.x + 16.0, ir.position.y + 16.0, Color(0.94, 0.84, 0.58) if lit else Color(0.60, 0.57, 0.50))
-	UITheme.text(self, Vector2(r.position.x + 44.0, r.position.y + 14.0), UIText.clip(String(v["name"]), 6), 11, UITheme.PARCH if lit else Color(0.66, 0.64, 0.58), 0, 152.0)
+	UITheme.text(self, Vector2(r.position.x + 44.0, r.position.y + 15.0), UIText.clip(String(v["name"]), 6), 12, UITheme.PARCH if lit else Color(0.66, 0.64, 0.58), 0, 152.0)
 	var note: String = ""
 	var note_c := Color(0.95, 0.80, 0.35)
 	var cost: int = int(v["cost"])
@@ -846,7 +848,7 @@ func _draw_card(i: int, font: Font) -> void:
 	var desc_text: String = String(v["desc"])
 	if state == "locked":
 		desc_text = String(v.get("unlocks", "")) + " · " + desc_text
-	UITheme.text(self, Vector2(r.position.x + 44.0, r.position.y + 28.0), UIText.clip(desc_text, 15), 10, Color(0.58, 0.60, 0.56) if lit else Color(0.46, 0.47, 0.46), 0, 158.0)
+	UITheme.text(self, Vector2(r.position.x + 44.0, r.position.y + 29.0), UIText.clip(desc_text, 15), 10, Color(0.58, 0.60, 0.56) if lit else Color(0.46, 0.47, 0.46), 0, 158.0)
 	_draw_level_stars(r.position.x + r.size.x - 12.0, r.position.y + 27.0, int(v["level"]), int(v["max"]), lit)
 
 func _draw_level_stars(right_x: float, y: float, level: int, max_level: int, lit: bool) -> void:
@@ -911,7 +913,7 @@ func _draw_seals(font: Font) -> void:
 	UITheme.panel(self, r, 1.0, true)
 	var cur: int = Meta.effective_tier()
 	var hi: int = Meta.max_tier_allowed()
-	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 18.0), "七 印", 12, UITheme.GOLD_PALE, 0, -1.0)
+	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 18.0), "七 印", 13, UITheme.GOLD_PALE, 0, -1.0)
 	UITheme.text(self, Vector2(r.position.x + 80.0, r.position.y + 18.0), "灾变阶 · " + UIText.clip(Meta.tier_name(), 9), 10, Color(0.82, 0.74, 0.54), 2, r.size.x - 94.0)
 	for side in range(2):
 		var ar: Rect2 = _seal_arrow_rect(side)
@@ -949,7 +951,7 @@ func _draw_stage_card(font: Font) -> void:
 	if on:
 		draw_rect(r.grow(-3.0), Color(UITheme.GOLD_BRIGHT.r, UITheme.GOLD_BRIGHT.g, UITheme.GOLD_BRIGHT.b, 0.5), false, 1.0)
 	var name_c := Color(0.92, 0.94, 0.98) if unlocked else Color(0.86, 0.64, 0.56)
-	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 20.0), "第 %d 章 · %s" % [int(s.get("chapter", 0)), UIText.clip(String(s.get("name", "—")), 10)], 12, name_c, 0, 200.0)
+	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 20.0), "第 %d 章 · %s" % [int(s.get("chapter", 0)), UIText.clip(String(s.get("name", "—")), 10)], 13, name_c, 0, 200.0)
 	for side in range(2):
 		var ar: Rect2 = _stage_arrow_rect(side)
 		var hv: bool = stage_arrow_hover == side
@@ -1038,12 +1040,12 @@ func _draw_armory_cell(col: int, idx: int) -> void:
 		UITheme.text(self, Vector2(icon.position.x, icon.position.y + 23.0), String(def.get("name", "?")).substr(0, 1), 13, fc, 1, icon.size.x)
 	if not unlocked:
 		draw_rect(icon, Color(0.030, 0.034, 0.045, 0.55), true)
-		draw_rect(Rect2(icon.position.x, icon.end.y - 9.0, icon.size.x, 9.0), Color(0.20, 0.07, 0.05, 0.74), true)
-		UITheme.text(self, Vector2(icon.position.x, icon.end.y - 2.0), "未解锁", 7, Color(0.92, 0.64, 0.50), 1, icon.size.x)
+		draw_rect(Rect2(icon.position.x, icon.end.y - 12.0, icon.size.x, 12.0), Color(0.20, 0.07, 0.05, 0.78), true)
+		UITheme.text(self, Vector2(icon.position.x, icon.end.y - 2.0), "未解锁", 9, Color(0.94, 0.66, 0.52), 1, icon.size.x)
 	var name_col: Color = UITheme.PARCH if unlocked else Color(0.54, 0.52, 0.48)
-	UITheme.text(self, Vector2(r.position.x, r.position.y + 43.0), UIText.clip(String(def.get("name", id)), 5), 9, name_col, 1, r.size.x)
+	UITheme.text(self, Vector2(r.position.x, r.position.y + 42.0), UIText.clip(String(def.get("name", id)), 5), 10, name_col, 1, r.size.x)
 	if not unlocked:
-		UITheme.text(self, Vector2(r.position.x, r.position.y + 52.0), _armory_short_note(col, id), 7, Color(0.80, 0.52, 0.42), 1, r.size.x)
+		UITheme.text(self, Vector2(r.position.x, r.position.y + 54.0), _armory_short_note(col, id), 9, Color(0.82, 0.54, 0.44), 1, r.size.x)
 	if on:
 		draw_rect(Rect2(r.position.x + 0.5, r.position.y + 0.5, r.size.x - 1.0, r.size.y - 1.0), Color(UITheme.GOLD_BRIGHT.r, UITheme.GOLD_BRIGHT.g, UITheme.GOLD_BRIGHT.b, 0.75), false, 1.0)
 		draw_rect(Rect2(r.position.x, r.position.y + 2.0, 2.0, r.size.y - 4.0), UITheme.GOLD_BRIGHT, true)
@@ -1075,7 +1077,7 @@ func _draw_armory_detail() -> void:
 	if not unlocked:
 		var prog: String = _armory_progress(armory_col, id)
 		if prog != "":
-			UITheme.text(self, Vector2(x, 337.0), prog, 8, Color(0.62, 0.64, 0.58), 2, w)
+			UITheme.text(self, Vector2(x, 337.0), prog, 9, Color(0.62, 0.64, 0.58), 2, w)
 
 # ---------------------------------------------------------------- 自检
 

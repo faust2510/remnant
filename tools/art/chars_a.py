@@ -451,62 +451,164 @@ def halo(d, cx, cy, r=8):
         px(d, cx + dx, cy + dy, GOLD)
 
 
-# ---------------------------------------------------------------- 1 大卫
+# ---------------------------------------------------------------- 1 大卫（牧童）
 def david(p):
+    """牧童大卫 v6（2026-11-17 重画）。
+
+    用户质疑「大卫当时的身份是牧羊童，现在的形象贴切吗」——旧版画的是「大卫王」：
+    金冠 + 紫袍 + 竖琴。本版按撒上 16-17 章的牧童身份重画：
+    少年脸（无胡须）/ 短卷发 / 亚麻短袍 + 皮束腰 / 赤脚 / 左手牧杖（弯钩）/
+    右手投石索（皮兜 + 石弹）/ 肩挎麻布袋 / 脚边一只小羊。
+    配色：亚麻米白 + 土黄 + 少量红棕；去金冠、去紫袍。
+    """
     im = new_cell()
     d = ImageDraw.Draw(im)
     g = geo(p["bob"], p["sway"])
-    cx, sh, ht = g["cx"], g["sh"], g["ht"]
-    e = p["ex"]
-    CAPE = mix(ROYAL, OUTLINE, 0.40)
-    poly(d, [(cx - 4, sh), (cx + 2, sh + 2), (cx + 3, 33), (cx - 8 - e, 41), (cx - 3, 41)], CAPE)
-    poly(d, [(cx - 4, sh + 1), (cx + 1, sh + 3), (cx + 1, 32), (cx - 6 - e, 39)], light(CAPE, 1.18))
-    ln(d, cx - 8 - e, 41, cx - 3, 41, GOLD_D, 1)
-    ln(d, cx - 6 - e, 26, cx - 7 - e, 38, dark(CAPE, 0.70), 1)
-    px(d, cx - 7 - e, 36, GOLD)
-    legs(d, p, cx, TAN_SKIN, TAN_SKIN, LEATHER)
-    prof = [(sh, 5), (sh + 1, 5), (sh + 2, 5), (sh + 3, 5), (sh + 4, 5), (sh + 5, 4),
-            (sh + 6, 4), (sh + 7, 4), (sh + 8, 4), (sh + 9, 5), (sh + 10, 5), (sh + 11, 5)]
-    body(d, cx, prof, PURPLE, 0.68, 1.20)
-    taper(d, cx, sh + 12, 35, 5, 6, PURPLE, 0.68, 1.18)
-    ln(d, cx - 3, sh + 2, cx - 2, sh + 10, dark(PURPLE, 0.54), 1)
-    ln(d, cx + 1, sh + 4, cx + 2, sh + 10, dark(PURPLE, 0.58), 1)
-    ln(d, cx - 2, 24, cx + 1, 31, dark(PURPLE, 0.60), 1)
-    ln(d, cx + 2, 33, cx + 4, 34, dark(PURPLE, 0.60), 1)
-    rct(d, cx - 1, sh, cx - 1, sh + 9, GOLD_D)
-    px(d, cx - 1, sh, GOLD_L)
-    rct(d, cx - 6, 34, cx + 6, 35, GOLD)
-    rct(d, cx - 6, 35, cx + 6, 35, GOLD_D)
-    rct(d, cx - 6, 34, cx - 4, 34, GOLD_L)
-    rct(d, cx - 6, 28, cx + 6, 29, GOLD)
-    rct(d, cx - 6, 28, cx + 6, 28, GOLD_L)
-    rct(d, cx - 6, 29, cx + 6, 29, GOLD_D)
-    rct(d, cx - 1, 28, cx + 1, 29, light(GOLD, 1.12))
-    arm_far(d, cx, sh, PURPLE, p["aly"], SKIN)
-    nx, ny = arm_near(d, cx, sh, PURPLE, p["ary"], SKIN, dk=0.82)
-    face(d, g, SKIN)
-    hair_long(d, cx, ht, AUB, [(2, -5, -4), (3, -5, -3), (4, -5, -3), (5, -5, -4),
-                               (6, -5, -4), (7, -5, -4), (8, -6, -4), (9, -6, -5),
-                               (10, -6, -5), (11, -6, -6), (12, -6, -6), (13, -6, -5)],
-              cap_rows=(-1, 0))
-    rct(d, cx - 5, ht + 2, cx - 4, ht + 4, light(AUB, 1.14))
-    px(d, cx - 3, ht + 3, AUB_L)
-    px(d, cx + 3, ht + 2, AUB)
-    px(d, cx + 3, ht + 3, AUB_D)
-    rct(d, cx - 5, ht - 2, cx + 5, ht, GOLD)
-    rct(d, cx - 5, ht - 2, cx + 5, ht - 2, GOLD_L)
-    rct(d, cx - 5, ht, cx + 5, ht, GOLD_D)
-    for k in (-4, 0, 4):
-        rct(d, cx + k, ht - 4, cx + k, ht - 3, GOLD_L)
-        px(d, cx + k, ht - 5, GOLD)
-    px(d, cx - 2, ht - 1, CRIMSON)
-    px(d, cx + 2, ht - 1, CRIMSON)
-    px(d, cx, ht - 1, HOLY)
-    harp(d, cx - 17, ht + 4)
-    hand(d, cx - 9, ht + 13, SKIN)
-    sling(d, nx, ny, sw=e)
-    hand(d, nx, ny, SKIN)
+    cx, sh, ht, hb = g["cx"], g["sh"], g["ht"], g["hb"]
+    bob, aly, ary = p["bob"], p["aly"], p["ary"]
+
+    LN    = hx("#D8CEB2")       # 亚麻米白（主）
+    LN_D  = hx("#A79B7B")
+    LN_L  = hx("#F4EDD9")
+    OC    = hx("#BE9249")       # 土黄（次）
+    RB    = hx("#8C3D25")       # 红棕（发 / 束腰结）
+    RB_L  = hx("#B65F38")
+    SK    = SKIN
+    FLE   = hx("#E4DCC4")       # 羊毛
+    FLE_L = hx("#F8F2E0")
+    FLE_D = hx("#A29A80")
+    DKB   = hx("#54402C")       # 羊脸 / 羊腿
+    WD    = hx("#6A4A2B")       # 深木（杖；比旧版 WOOD 深，避免与亚麻糊在一起）
+    WD_L  = hx("#8C6738")
+    WD_D  = hx("#3E2A12")
+    BAG   = hx("#A8804C")       # 麻布口袋
+    BAG_L = hx("#C7A26C")
+    BAG_D = hx("#6E4F2C")
+    STR   = hx("#4A3320")       # 挎带
+
+    # ------------------------------------------------------ 牧杖（左手 / 弯钩）
+    sx = cx - 7                                   # 16
+    rct(d, sx, 12, sx + 1, 44, WD)
+    rct(d, sx, 12, sx, 44, WD_L)                  # 受光侧
+    rct(d, sx + 1, 12, sx + 1, 44, WD_D)          # 背光侧
+    rct(d, sx - 3, 10, sx, 10, WD)                # 钩顶横过
+    rct(d, sx - 4, 11, sx - 3, 11, WD)
+    rct(d, sx - 5, 12, sx - 4, 14, WD)            # 外侧下落
+    rct(d, sx - 4, 15, sx - 3, 15, WD)
+    rct(d, sx - 3, 16, sx - 2, 16, WD)            # 底部勾回
+    rct(d, sx - 2, 17, sx - 1, 17, WD)            # 钩尖
+    rct(d, sx - 3, 10, sx, 10, WD_L)              # 顶弧高光
+    px(d, sx - 5, 12, WD_L)
+    px(d, sx - 4, 14, WD_D)
+    px(d, sx - 3, 15, WD_D)
+    px(d, sx - 2, 16, WD_D)
+
+    # ------------------------------------------------------ 小羊（左脚边）
+    lx, ly = 2, 36 + bob
+    ell(d, lx + 1, ly + 1, lx + 6, ly + 5, FLE)
+    px(d, lx + 2, ly, FLE)
+    px(d, lx + 4, ly, FLE)
+    px(d, lx + 5, ly + 1, FLE_L)
+    px(d, lx + 1, ly + 4, FLE_D)
+    px(d, lx + 4, ly + 5, FLE_D)
+    px(d, lx, ly + 3, FLE_D)                      # 尾
+    rct(d, lx + 6, ly + 1, lx + 8, ly + 5, DKB)   # 头（朝右）
+    px(d, lx + 6, ly, DKB)                        # 后耳
+    px(d, lx + 7, ly, DKB)                        # 前耳（贴在头顶，别竖成角）
+    px(d, lx + 8, ly + 2, FLE_L)                  # 眼
+    px(d, lx + 8, ly + 4, light(DKB, 1.45))       # 吻
+    rct(d, lx + 2, ly + 6, lx + 2, 44, DKB)       # 腿
+    rct(d, lx + 5, ly + 6, lx + 5, 44, DKB)
+
+    # ------------------------------------------------------ 腿（赤脚）
+    legs(d, p, cx, SK, SK, SK)
+
+    # ------------------------------------------------------ 亚麻短袍
+    prof = [(sh, 5), (sh + 1, 5), (sh + 2, 5), (sh + 3, 4), (sh + 4, 4), (sh + 5, 4),
+            (sh + 6, 4), (sh + 7, 5), (sh + 8, 5), (sh + 9, 5), (sh + 10, 5)]
+    body(d, cx, prof, LN, 0.72, 1.15)
+    taper(d, cx, sh + 11, sh + 13, 6, 6, LN, 0.72, 1.15)
+    ln(d, cx - 6, sh + 13, cx + 6, sh + 13, OC, 1)             # 土黄下摆缘（1px）
+    ln(d, cx - 3, sh + 5, cx - 2, sh + 11, dark(LN, 0.88), 1)  # 衣褶（短而淡，避免像吊带）
+    ln(d, cx + 2, sh + 6, cx + 3, sh + 11, dark(LN, 0.84), 1)
+    ln(d, cx - 3, sh, cx + 3, sh, dark(LN, 0.60), 1)           # 领口
+    # 颈
+    rct(d, cx - 2, 17, cx + 2, 18, SK)
+    px(d, cx - 2, 17, dark(SK, 0.80))
+    px(d, cx - 2, 18, dark(SK, 0.80))
+    px(d, cx - 1, 18, dark(SK, 0.90))
+
+    # ------------------------------------------------------ 布袋（左胯 / 麻布）
+    bx, by = 11, 29
+    rct(d, bx + 1, by, bx + 3, by, BAG_D)         # 收口
+    px(d, bx + 2, by - 1, BAG_D)                  # 系绳头
+    rct(d, bx, by + 1, bx + 4, by + 3, BAG)       # 袋身
+    rct(d, bx + 1, by + 4, bx + 3, by + 4, BAG)   # 圆底
+    rct(d, bx, by + 1, bx + 4, by + 1, BAG_L)     # 顶面受光
+    px(d, bx, by + 3, BAG_D)                      # 圆角暗
+    px(d, bx + 4, by + 3, BAG_D)
+    px(d, bx + 3, by + 2, BAG_L)
+    px(d, bx + 1, by + 2, BAG_D)
+    px(d, bx + 2, by + 4, BAG_D)                  # 袋底阴影
+    # 挎带（右肩 → 左胯袋口）
+    ln(d, cx + 4, sh + 1, bx + 2, by, STR, 1)
+
+    # ------------------------------------------------------ 皮束腰
+    rct(d, cx - 5, 27, cx + 5, 28, LEATHER)
+    rct(d, cx - 5, 27, cx + 5, 27, LEATHER_L)
+    rct(d, cx - 5, 28, cx + 5, 28, dark(LEATHER, 0.60))
+    rct(d, cx - 1, 27, cx, 28, hx("#A9884A"))                   # 皮扣（去掉旧版垂到裆部的红结穗）
+    px(d, cx, 27, hx("#CBA96A"))
+
+    # ------------------------------------------------------ 远侧手臂（左手握杖）
+    fx = cx - 6                                   # 17
+    rct(d, fx, sh, fx + 1, sh + 2, dark(LN, 0.82))              # 短袖
+    rct(d, fx, sh + 3, fx + 1, sh + 5 + aly, dark(SK, 0.86))    # 上臂
+    rct(d, fx - 1, sh + 6 + aly, fx, sh + 7 + aly, dark(SK, 0.90))  # 前臂内收
+    hand(d, fx - 1, sh + 8 + aly, SK)                           # 手 16-17 → 正好握住杖身
+
+    # ------------------------------------------------------ 近侧手臂（右手投石索）
+    ax = cx + 6                                   # 29
+    rct(d, ax, sh, ax + 1, sh + 2, LN)
+    px(d, ax, sh, dark(LN, 0.74))
+    px(d, ax + 1, sh, LN_L)
+    ay = sh + 3 + ary
+    rct(d, ax, ay, ax + 1, ay + 4, SK)
+    px(d, ax, ay, dark(SK, 0.84))
+    px(d, ax + 1, ay, light(SK, 1.10))
+    rct(d, ax, ay + 4, ax + 1, ay + 4, dark(SK, 0.92))
+    hand(d, ax, ay + 5, SK)
+    hxx, hyy = ax, ay + 5
+
+    # ------------------------------------------------------ 头 + 短卷发
+    face(d, g, SK)
+    HR = RB
+    rct(d, cx - 4, ht - 1, cx + 3, ht, HR)        # 发顶盖 2 行
+    rct(d, cx - 4, ht + 1, cx - 4, ht + 3, HR)    # 左侧鬓发
+    rct(d, cx + 3, ht + 1, cx + 3, ht + 2, HR)    # 右侧短鬓
+    rct(d, cx - 3, ht - 2, cx - 2, ht - 2, HR)    # 卷发凸起（连成两团）
+    rct(d, cx + 1, ht - 2, cx + 2, ht - 2, HR)
+    px(d, cx - 3, ht - 1, HR)
+    px(d, cx - 2, ht - 1, light(HR, 1.18))
+    px(d, cx + 1, ht - 1, light(HR, 1.14))
+    px(d, cx + 2, ht, dark(HR, 0.80))
+    px(d, cx - 4, ht + 1, light(HR, 1.10))
+    px(d, cx - 4, ht + 3, dark(HR, 0.78))
+    px(d, cx + 3, ht + 2, dark(HR, 0.84))
+    px(d, cx - 1, ht - 2, dark(HR, 0.70))         # 两团之间的凹
+
+    # ------------------------------------------------------ 投石索（右手垂握，整件垂在体侧轮廓外）
+    ln(d, hxx, hyy + 2, hxx + 1, hyy + 5, dark(LEATHER, 0.88), 1)          # 内绳
+    ln(d, hxx + 1, hyy + 2, hxx + 4, hyy + 5, dark(LEATHER, 0.88), 1)      # 外绳（张开成 V）
+    rct(d, hxx + 1, hyy + 6, hxx + 4, hyy + 6, LEATHER)                    # 兜口
+    px(d, hxx + 1, hyy + 7, LEATHER)                                       # 兜左壁
+    px(d, hxx + 4, hyy + 7, dark(LEATHER, 0.80))                           # 兜右壁
+    rct(d, hxx + 1, hyy + 8, hxx + 4, hyy + 8, LEATHER)                    # 兜底
+    rct(d, hxx + 2, hyy + 6, hxx + 3, hyy + 7, hx("#C2CAD4"))              # 石弹（嵌在兜里，高对比）
+    px(d, hxx + 3, hyy + 6, hx("#F2F5F8"))                                 # 石弹高光
+    px(d, hxx + 2, hyy + 7, hx("#7C8794"))                                 # 石弹暗面
     return im
+
 
 
 # ---------------------------------------------------------------- 2 挪亚

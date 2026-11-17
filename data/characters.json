@@ -2,6 +2,58 @@
   "_comment": "见证人表。perk 由 src/core/game_state.gd 解释（数值键相加，*_mult 键相乘）。awakening.hook 是给引擎的机制钩子声明（当前代码不读，属未知键，安全）。",
   "characters": [
     {
+      "id": "adam",
+      "name": "亚当",
+      "scripture": "创 2–3",
+      "hp": 150,
+      "speed": 70,
+      "weapon": "staff",
+      "perk": {
+        "max_hp_bonus": 10,
+        "damage_taken_mult": 0.9
+      },
+      "awakening": {
+        "name": "尘土与生气",
+        "desc": "常驻：最大生命 +25，受击时推开身边的敌人",
+        "perk": {
+          "max_hp_bonus": 25,
+          "hit_push": 20
+        }
+      },
+      "desc": "修理看守：最大生命 +10\n受到伤害 -10%",
+      "unlock": {
+        "stage": "",
+        "silver": 0,
+        "note": "默认解锁（初始可用）"
+      }
+    },
+    {
+      "id": "eve",
+      "name": "夏娃",
+      "scripture": "创 3",
+      "hp": 136,
+      "speed": 74,
+      "weapon": "torch",
+      "perk": {
+        "pickup_bonus": 0.3,
+        "level_heal_bonus": 0.1
+      },
+      "awakening": {
+        "name": "众生之母",
+        "desc": "常驻：升级回血 +15%，拾取范围再 +20%",
+        "perk": {
+          "level_heal_bonus": 0.15,
+          "pickup_bonus": 0.2
+        }
+      },
+      "desc": "园中随意吃：拾取范围 +30%\n升级时回复生命 +10%",
+      "unlock": {
+        "stage": "",
+        "silver": 0,
+        "note": "默认解锁（初始可用）"
+      }
+    },
+    {
       "id": "david",
       "name": "大卫",
       "scripture": "撒上 17",

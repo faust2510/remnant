@@ -24,9 +24,18 @@ window/size/viewport_width=640
 window/size/viewport_height=360
 window/size/window_width_override=1280
 window/size/window_height_override=720
-window/stretch/mode="viewport"
+window/stretch/mode="canvas_items"
 window/stretch/scale_mode="integer"
 window/stretch/aspect="keep"
+
+[gui]
+
+; UI/字体清晰度（v5）：canvas_items 拉伸让字形按窗口原生分辨率栅格化，
+; 再叠加全局字体 oversampling（4.4+），中文小字才有实心笔画。
+theme/default_font_antialiasing=1
+theme/default_font_hinting=0
+theme/default_font_subpixel_positioning=1
+fonts/dynamic_fonts/use_oversampling=true
 
 [input]
 

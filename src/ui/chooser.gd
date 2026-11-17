@@ -19,18 +19,18 @@ var _t: float = 0.0
 const SCREEN_W := 640.0
 const SCREEN_H := 360.0
 const CARD_W := 300.0
-const CARD_H := 72.0
-const CARD_GAP := 10.0
+const CARD_H := 78.0           # 72 → 78：给 12px 名字 + 两行 10px 简介留出真实行距
+const CARD_GAP := 8.0
 const CARD_X := 168.0          # 卡左沿：居中 170 再让出 2px，悬停右移 4px 后仍不越界
-const CARD_CENTER_Y := 206.0   # 三张卡整体的纵向中心 → 三张卡占 88..324
+const CARD_CENTER_Y := 198.0   # 三张卡整体的纵向中心 → 三张卡占 73..323（楣饰副标题 71、提示 330 各留 2/7px）
 const HOVER_SHIFT := 4.0       # 悬停/选中整卡右移量（只影响绘制与命中）
 const FRAME_PAD := 6.0         # 石刻外框 → 羊皮纸内页的内缩
-const SHEET_H := 44.0          # 羊皮纸内页高度（6..50）
-const FOOT_TOP := 50.0         # 底部出处条相对卡顶（50..68），18px 才装得下 10px 中文
+const SHEET_H := 50.0          # 羊皮纸内页高度（6..56）
+const FOOT_TOP := 56.0         # 底部出处条相对卡顶（56..74），18px 才装得下 10px 中文
 const FOOT_H := 18.0
-const ICON_SIZE := 32.0
+const ICON_SIZE := 32.0        # 图集格就是 32×32；再放大必然非整数缩放 → 保持 1:1 像素粒度
 const ICON_LEFT := 10.0
-const ICON_TOP := 10.0
+const ICON_TOP := 12.0
 const TEXT_LEFT := 50.0        # 文字列相对卡左沿
 const SHEAR := 0.16            # 斜体剪切量（GameFont 无 italic 字重，用剪切矩阵伪造；过大会让中文糊）
 const BAR_TOP := 28.0          # 楣饰卷轴上沿
@@ -105,7 +105,8 @@ func _draw() -> void:
 		return
 	_ensure_index()
 	var f: Font = UITheme.font()
-	draw_rect(Rect2(0, 0, SCREEN_W, SCREEN_H), Color(0.03, 0.04, 0.07, 0.78), true)
+	draw_rect(Rect2(0, 0, SCREEN_W, SCREEN_H), Color(0.03, 0.04, 0.07, 0.80), true)
+	UITheme.vignette(self, 0.58, 92.0)
 	_draw_lintel(f)
 	for i in range(options.size()):
 		_draw_card(f, i, options[i])
@@ -115,7 +116,7 @@ func _draw() -> void:
 func _draw_lintel(f: Font) -> void:
 	var label: String = _rite_label()
 	var sub: String = _rite_sub()
-	var tw: float = f.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15).x
+	var tw: float = f.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16).x
 	var bar_w: float = clampf(tw + 92.0, 168.0, 460.0)
 	var bar: Rect2 = Rect2((SCREEN_W - bar_w) * 0.5, BAR_TOP, bar_w, BAR_H)
 	# 投影 + 羊皮纸卷身
@@ -143,10 +144,10 @@ func _draw_lintel(f: Font) -> void:
 		draw_line(Vector2(rx0, mid_y), Vector2(rx1, mid_y), lc, 1.0)
 		draw_circle(Vector2(rx1 - 3.0, mid_y), 1.6, dc)
 	# 主标题：石刻深墨字
-	draw_string(f, Vector2(bar.position.x, mid_y + 5.0), label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 15, UITheme.INK_DEEP)
-	# 副标题（卷轴下的说明，如「Lv 3」/「乌陵与土明」）
+	draw_string(f, Vector2(bar.position.x, mid_y + 5.5), label, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 16, UITheme.INK_DEEP)
+	# 副标题（卷轴下的说明，如「Lv 3」/「乌陵与土明」）：10px，基线 71 → 墨迹 63..71，卡顶 73
 	if sub != "":
-		UITheme.text(self, Vector2(0, bar.end.y + 13.0), sub, 9, UITheme.PARCH_DIM, 1, SCREEN_W)
+		UITheme.text(self, Vector2(0, bar.end.y + 12.0), sub, 10, UITheme.PARCH_DIM, 1, SCREEN_W)
 
 ## 单张卡：石刻外框 → 羊皮纸内页 → 图标 → 名/简介 → 状态角标 → 出处条
 func _draw_card(f: Font, i: int, o: Dictionary) -> void:
@@ -176,28 +177,27 @@ func _draw_card(f: Font, i: int, o: Dictionary) -> void:
 	draw_rect(Rect2(foot.position, Vector2(foot.size.x, 1.0)), Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.55), true)
 	# 左侧图标框（武器/被动取图集，祭坛与成就类画金色十字纹章）
 	_draw_card_icon(Vector2(r.position.x + ICON_LEFT, r.position.y + ICON_TOP), o, glow)
-	# 图标与文字之间的类别色竖线
-	draw_rect(Rect2(r.position.x + 45.0, r.position.y + 12.0, 2.0, 34.0), Color(accent.r, accent.g, accent.b, 0.85), true)
+	# 图标与文字之间的类别色竖线（随内页加高到 40px）
+	draw_rect(Rect2(r.position.x + 45.0, r.position.y + 12.0, 2.0, 40.0), Color(accent.r, accent.g, accent.b, 0.85), true)
 	# 状态角标（Lv.N → Lv.N+1 / ★ 祝圣 / MAX）
 	var st: Dictionary = _status_of(o)
 	var chip: Rect2 = _status_chip_rect(f, r, st)
 	var name_w: float = r.size.x - TEXT_LEFT - 12.0
 	if chip.size.x > 0.0:
 		name_w = chip.position.x - (r.position.x + TEXT_LEFT) - 8.0
-	# 名字
-	draw_string(f, Vector2(r.position.x + TEXT_LEFT, r.position.y + 24.0), String(o.get("name", "")),
-		HORIZONTAL_ALIGNMENT_LEFT, maxf(24.0, name_w), 11, UITheme.INK)
+	# 名字（一级字：12px，基线 +28 → 墨迹 18..28）
+	draw_string(f, Vector2(r.position.x + TEXT_LEFT, r.position.y + 28.0), String(o.get("name", "")),
+		HORIZONTAL_ALIGNMENT_LEFT, maxf(24.0, name_w), 12, UITheme.INK)
 	# 简介：最多两行，按宽度自动折行
 	var desc: String = String(o.get("desc", ""))
 	if desc != "":
 		# 实测（modal_v3 逐行像素剖面）：draw_multiline_string 的 pos 是**首行基线**，不是左上角。
-		# 名字基线 +24（字高 11 → 占 16..24），简介首行基线必须 ≥ +32 才不会压名字下沿；+34 留 2px 呼吸。
+		# 名字基线 +28（12px → 墨迹 18..28），简介首行基线 +41、字高 10 行距 13 → 次行基线 54，
+		# 两行墨迹落在 31..54，内页到 56，正好不压名字下沿也不越出处条。
 		# 宽度同时让开右上角状态角标（否则两行字会钻到「新得 Lv.N」下面）。
-		# 字号 8 → 9：8px 中文在 640x360 下的横画只有 1 个物理像素，宋体渲染后糊成一条线；
-		# 9px 首行墨迹占 25..34、次行 36..45，仍在名字下沿(24)与出处条(50)之间。
-		draw_multiline_string(f, Vector2(r.position.x + TEXT_LEFT, r.position.y + 34.0), desc,
-			HORIZONTAL_ALIGNMENT_LEFT, maxf(120.0, name_w), 9, 2,
-			Color(UITheme.INK.r, UITheme.INK.g, UITheme.INK.b, 0.75))
+		draw_multiline_string(f, Vector2(r.position.x + TEXT_LEFT, r.position.y + 41.0), desc,
+			HORIZONTAL_ALIGNMENT_LEFT, maxf(120.0, name_w), 10, 2,
+			Color(UITheme.INK.r, UITheme.INK.g, UITheme.INK.b, 0.82))
 	# 状态角标
 	if chip.size.x > 0.0:
 		_draw_status_chip(chip, st)
@@ -211,24 +211,33 @@ func _draw_card(f: Font, i: int, o: Dictionary) -> void:
 		if need > room:
 			fsz = 9
 			need = f.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fsz).x + SHEAR * float(fsz) + 4.0
+		# 三级字号不再下探到 8px（8px 中文横画只有 1px，糊）：9px 仍超宽就用省略号截断，
+		# 保持「名字 12 / 简介 10 / 出处 9-10」三级清晰度。
 		if need > room:
-			fsz = 8
-			need = f.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fsz).x + SHEAR * float(fsz) + 4.0
+			var cut: String = line
+			while cut.length() > 4:
+				var probe: String = cut + "…"
+				var pw: float = f.get_string_size(probe, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 9).x + SHEAR * 9.0 + 4.0
+				if pw <= room:
+					break
+				cut = cut.substr(0, cut.length() - 1)
+			line = cut + "…"
+			need = f.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 9).x + SHEAR * 9.0 + 4.0
 		# pos 是 draw_string 的基线：+13 让 10px 字形落在条带 3..13，上下各留 3/5px
 		_italic_text(Vector2(foot.position.x + 4.0, foot.position.y + 13.0), line, fsz, UITheme.GOLD_BRIGHT, minf(room, maxf(need, 40.0)))
 	# 左侧行号（对应键盘 1/2/3）
-	draw_string(f, Vector2(r.position.x - 22.0, r.position.y + r.size.y * 0.5 + 4.0), str(i + 1),
-		HORIZONTAL_ALIGNMENT_CENTER, 14.0, 11, Color(UITheme.GOLD_PALE.r, UITheme.GOLD_PALE.g, UITheme.GOLD_PALE.b, 0.7))
+	draw_string(f, Vector2(r.position.x - 22.0, r.position.y + r.size.y * 0.5 + 5.0), str(i + 1),
+		HORIZONTAL_ALIGNMENT_CENTER, 14.0, 12, Color(UITheme.GOLD_PALE.r, UITheme.GOLD_PALE.g, UITheme.GOLD_PALE.b, 0.72))
 
 ## 底部提示：重掷次数 + 键盘说明
 func _draw_hint(f: Font) -> void:
 	var dim: Color = Color(UITheme.PARCH_DIM.r, UITheme.PARCH_DIM.g, UITheme.PARCH_DIM.b, 0.62)
 	var key_hint: String = "按 1 / 2 / 3 或点击卡片选择"
 	if rerolls > 0:
-		UITheme.text(self, Vector2(0, 338.0), "R 重新求问（剩余 %d 次）" % rerolls, 9, UITheme.GOLD_PALE, 1, SCREEN_W)
-		UITheme.text(self, Vector2(0, 352.0), key_hint, 8, dim, 1, SCREEN_W)
+		UITheme.text(self, Vector2(0, 340.0), "R 重新求问（剩余 %d 次）" % rerolls, 10, UITheme.GOLD_PALE, 1, SCREEN_W)
+		UITheme.text(self, Vector2(0, 354.0), key_hint, 10, dim, 1, SCREEN_W)
 	else:
-		UITheme.text(self, Vector2(0, 344.0), key_hint, 9, dim, 1, SCREEN_W)
+		UITheme.text(self, Vector2(0, 346.0), key_hint, 10, dim, 1, SCREEN_W)
 
 # ---------------------------------------------------------------- 图标
 
@@ -252,11 +261,17 @@ func _draw_card_icon(at: Vector2, o: Dictionary, glow: float) -> void:
 			tex = SpriteBank.passive_icons()
 			if tex != null:
 				src = SpriteBank.passive_icon_rect(pi)
-	if tex == null or src.size.x <= 0.0:
+	var empty_icon: bool = tex == null or src.size.x <= 0.0
+	if empty_icon:
 		UITheme.icon_frame(self, box, null, Rect2(), glow)
 		_draw_cross_emblem(box, glow)
-		return
-	UITheme.icon_frame(self, box, tex, src, glow)
+	else:
+		UITheme.icon_frame(self, box, tex, src, glow)
+	# 双圈镶边：外 1px 亮金 + 内 1px 暗压，四角各一颗小铆钉
+	draw_rect(box.grow(1.0), Color(UITheme.GOLD_PALE.r, UITheme.GOLD_PALE.g, UITheme.GOLD_PALE.b, 0.22 + 0.12 * glow), false, 1.0)
+	draw_rect(box.grow(-0.5), Color(0, 0, 0, 0.30), false, 1.0)
+	draw_rect(Rect2(box.position.x + 1.0, box.end.y - 1.0, box.size.x - 2.0, 1.0), Color(0, 0, 0, 0.26), true)
+	draw_rect(Rect2(box.position.x + 1.0, box.position.y + 1.0, box.size.x - 2.0, 1.0), Color(UITheme.GOLD_PALE.r, UITheme.GOLD_PALE.g, UITheme.GOLD_PALE.b, 0.10), true)
 
 ## 金色十字纹章：无图标的条目（祝圣 / 圣约 / 成就）统一标识
 func _draw_cross_emblem(box: Rect2, glow: float) -> void:
@@ -292,11 +307,11 @@ func _status_chip_rect(f: Font, r: Rect2, st: Dictionary) -> Rect2:
 	var txt: String = String(st.get("text", ""))
 	if txt == "":
 		return Rect2()
-	var size: int = 8
+	var size: int = 9
 	var tw: float = f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size).x
-	var star_w: float = 7.0 if bool(st.get("star", false)) else 0.0
-	var chip_w: float = tw + star_w + 10.0
-	return Rect2(r.end.x - 8.0 - chip_w, r.position.y + 8.0, chip_w, 13.0)
+	var star_w: float = 8.0 if bool(st.get("star", false)) else 0.0
+	var chip_w: float = tw + star_w + 12.0
+	return Rect2(r.end.x - 8.0 - chip_w, r.position.y + 9.0, chip_w, 15.0)
 
 func _draw_status_chip(chip: Rect2, st: Dictionary) -> void:
 	draw_rect(Rect2(chip.position + Vector2(1.0, 1.0), chip.size), Color(0, 0, 0, 0.28), true)
@@ -305,10 +320,10 @@ func _draw_status_chip(chip: Rect2, st: Dictionary) -> void:
 	var col: Color = st.get("color", UITheme.GOLD_PALE)
 	var tx: float = chip.position.x + 5.0
 	if bool(st.get("star", false)):
-		UITheme.star(self, Vector2(tx + 2.5, chip.position.y + chip.size.y * 0.5), 3.2, col)
-		tx += 7.0
-	draw_string(UITheme.font(), Vector2(tx, chip.position.y + chip.size.y - 3.5), String(st.get("text", "")),
-		HORIZONTAL_ALIGNMENT_LEFT, -1.0, 8, col)
+		UITheme.star(self, Vector2(tx + 3.0, chip.position.y + chip.size.y * 0.5), 3.6, col)
+		tx += 8.0
+	draw_string(UITheme.font(), Vector2(tx, chip.position.y + chip.size.y - 4.0), String(st.get("text", "")),
+		HORIZONTAL_ALIGNMENT_LEFT, -1.0, 9, col)
 
 # ---------------------------------------------------------------- 出处与配对提示（读 data/*.json）
 

@@ -111,6 +111,25 @@ static func button(ci: CanvasItem, rect: Rect2, label: String, active: bool, pul
 	text(ci, Vector2(r.position.x, r.position.y + r.size.y * 0.5 + 5.0), label, 13,
 		GOLD_BRIGHT if active else PARCH_DIM, 1, r.size.x)
 
+## 暗角：从四边向内叠黑的软渐层。遮罩类界面（暂停 / 结算 / 三选一）共用，
+## 让视线收在面板上，也盖住底下的战场像素噪声。depth 是渐层厚度（640×360 基准像素）。
+static func vignette(ci: CanvasItem, strength: float = 0.55, depth: float = 96.0) -> void:
+	var w: float = 640.0
+	var h: float = 360.0
+	var steps: int = 16
+	var step: float = depth / float(steps)
+	for i in range(steps):
+		var k: float = float(i) / float(steps)
+		var a: float = strength * pow(1.0 - k, 2.0)
+		if a <= 0.002:
+			continue
+		var off: float = float(i) * step
+		# 上下两条横带 + 左右两条竖带（四角自然叠深）
+		ci.draw_rect(Rect2(0.0, off, w, step + 0.5), Color(0, 0, 0, a), true)
+		ci.draw_rect(Rect2(0.0, h - off - step, w, step + 0.5), Color(0, 0, 0, a), true)
+		ci.draw_rect(Rect2(off, off, step + 0.5, h - off * 2.0), Color(0, 0, 0, a), true)
+		ci.draw_rect(Rect2(w - off - step, off, step + 0.5, h - off * 2.0), Color(0, 0, 0, a), true)
+
 static func star(ci: CanvasItem, center: Vector2, radius: float, col: Color) -> void:
 	var pts := PackedVector2Array()
 	for i in range(10):

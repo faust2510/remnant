@@ -14,6 +14,7 @@ var run: Node = null
 var _t: float = 0.0                  # 呼吸/脉动动画时钟（纯 UI，不参与模拟）
 var _hover_menu: int = -1            # 暂停菜单悬停按钮 0..3，-1 = 未悬停
 var _hover_pause_btn: bool = false   # 右上角 [||] 悬停
+var _hover_fx: bool = false          # 暂停面板「特效」行悬停
 
 # id → 图集下标（按 data/*.json 数组顺序；首次绘制时建表，GameData 未就绪则下次重试）
 static var _weapon_idx: Dictionary = {}
@@ -24,44 +25,47 @@ const VIEW := Vector2(640.0, 360.0)
 
 # ---- 顶部：经验金属槽 / 等级 / 章节·七印·沙漏石牌 / 击杀银两火炭 / [||]
 const XP_BAR := Rect2(4.0, 1.0, 632.0, 6.0)
-const LV_POS := Vector2(10.0, 28.0)
-const LV_SUB_POS := Vector2(10.0, 39.0)
-const HEAD_PLATE := Rect2(214.0, 9.0, 212.0, 32.0)
-const SEAL_CENTER := Vector2(232.0, 25.0)
-const SEAL_RADIUS := 10.0
-const HEAD_DIV_X := 248.0
-const HEAD_TEXT_RECT := Rect2(252.0, 9.0, 168.0, 32.0)
-const HEAD_NAME_Y := 20.0
-const HEAD_TIME_Y := 35.0
-const HOURGLASS_H := 11.0
-const STAT_RECT := Rect2(432.0, 15.0, 168.0, 14.0)
-const STAT_Y := 25.0
+const LV_POS := Vector2(10.0, 30.0)
+const LV_SUB_POS := Vector2(10.0, 43.0)
+# V5：顶部石牌加宽到 220×34，章节名 10px、计时 15px，字号升了也不挤。
+const HEAD_PLATE := Rect2(206.0, 7.0, 220.0, 35.0)
+const SEAL_CENTER := Vector2(226.0, 24.5)
+const SEAL_RADIUS := 10.5
+const HEAD_DIV_X := 244.0
+const HEAD_TEXT_RECT := Rect2(250.0, 7.0, 172.0, 35.0)
+const HEAD_NAME_Y := 21.0
+const HEAD_TIME_Y := 37.0
+const HOURGLASS_H := 12.0
+# V5：右上战况改成「小标签 + 大数字」三格（每格 56px），不再靠自动缩字号硬塞一行。
+const STAT_RECT := Rect2(428.0, 10.0, 174.0, 24.0)
+const STAT_Y := 28.0
+const STAT_SLOT := 56.0
 const PAUSE_BTN := Rect2(606.0, 8.0, 26.0, 18.0)
 
 # ---- BOSS 血条
-const BOSS_BAR := Rect2(168.0, 46.0, 304.0, 9.0)
+const BOSS_BAR := Rect2(168.0, 47.0, 304.0, 10.0)
 const BOSS_NAME_X := 168.0
-const BOSS_NAME_Y := 67.0
-const BOSS_SUB_RECT := Rect2(360.0, 58.0, 112.0, 12.0)
-const BOSS_PHASE_Y := 78.0
+const BOSS_NAME_Y := 69.0
+const BOSS_SUB_RECT := Rect2(352.0, 60.0, 120.0, 12.0)
+const BOSS_PHASE_Y := 80.0
 
 # ---- 约卡（左上，BOSS 血条左侧）
-const COV_ORIGIN := Vector2(8.0, 48.0)
-const COV_STEP := 18.0
-const COV_SIZE := 16.0
+const COV_ORIGIN := Vector2(8.0, 47.0)
+const COV_STEP := 19.0
+const COV_SIZE := 17.0
 const COV_MAX := 8
 
 # ---- 左下：见证人头像 / 生命槽 / 圣物 / 军装
-const AVATAR_RECT := Rect2(8.0, 292.0, 32.0, 32.0)
-const AVATAR_NAME_Y := 337.0
-const HP_BAR := Rect2(44.0, 292.0, 152.0, 12.0)
-const HP_TEXT_Y := 301.0
+const AVATAR_RECT := Rect2(8.0, 290.0, 34.0, 34.0)
+const AVATAR_NAME_Y := 339.0
+const HP_BAR := Rect2(46.0, 290.0, 150.0, 13.0)
+const HP_TEXT_Y := 300.0
 const RELIC_LABEL_POS := Vector2(44.0, 317.0)
-const RELIC_ORIGIN := Vector2(62.0, 308.0)
+const RELIC_ORIGIN := Vector2(64.0, 305.0)
 const ARMOR_LABEL_POS := Vector2(44.0, 331.0)
-const ARMOR_ORIGIN := Vector2(62.0, 322.0)
-const CHIP_STEP := 12.0
-const CHIP_BOX := 10.0
+const ARMOR_ORIGIN := Vector2(64.0, 320.0)
+const CHIP_STEP := 14.0
+const CHIP_BOX := 12.0
 const CHIP_MAX := 11
 
 # ---- 右下：武器 / 宝物 32×32 图标格
@@ -73,40 +77,44 @@ const PASSIVE_ROW_Y := 324.0
 const SLOT_MAX := 6
 
 # ---- 中段：toast / 机制提示 / 祭坛提示 / 守望者时刻
-const TOAST_Y := 252.0
-const MECH_RECT := Rect2(160.0, 266.0, 320.0, 15.0)
+const TOAST_Y := 250.0
+const MECH_RECT := Rect2(160.0, 264.0, 320.0, 19.0)
 const MECH_Y := 278.0
-const ALTAR_HINT_RECT := Rect2(500.0, 272.0, 132.0, 12.0)
-const PERFECT_Y := 120.0
+const ALTAR_HINT_RECT := Rect2(496.0, 262.0, 136.0, 18.0)
+const PERFECT_Y := 118.0
 
 # ---- 暂停遮罩
-const PAUSE_PANEL := Rect2(116.0, 22.0, 408.0, 318.0)
-const PAUSE_TITLE_Y := 64.0
-const PAUSE_DIV_Y := 76.0
-const PAUSE_LX := 136.0
-const PAUSE_LW := 176.0
-const PAUSE_MID_X := 322.0
-const PAUSE_RX := 328.0
-const PAUSE_RW := 176.0
-const PAUSE_W_HEAD_Y := 94.0
-const PAUSE_W_ROW_Y := 106.0
+# V5 暂停面板：496×340，两级列宽拉开；正文 10px + 14px 行距（行距 4px），
+# 底部留一条独立「特效」选择行，与 2×2 按钮分开，避免挤在一起。
+const PAUSE_PANEL := Rect2(72.0, 10.0, 496.0, 340.0)
+const PAUSE_TITLE_Y := 46.0
+const PAUSE_DIV_Y := 54.0
+const PAUSE_LX := 92.0
+const PAUSE_LW := 204.0
+const PAUSE_MID_X := 304.0
+const PAUSE_RX := 316.0
+const PAUSE_RW := 236.0
+const PAUSE_W_HEAD_Y := 72.0
+const PAUSE_W_ROW_Y := 88.0
 const PAUSE_W_ROWS := 6
 const PAUSE_P_HEAD_Y := 176.0
-const PAUSE_P_ROW_Y := 188.0
+const PAUSE_P_ROW_Y := 190.0
 const PAUSE_P_ROWS := 4
-const PAUSE_ARMOR_Y := 240.0
-const PAUSE_S_HEAD_Y := 94.0
-const PAUSE_S_ROW_Y := 106.0
-const PAUSE_PICK_Y := 210.0
-const PAUSE_TIME_Y := 224.0
-const PAUSE_BTN_W := 170.0
-const PAUSE_BTN_H := 28.0
-const PAUSE_BTN_X0 := 144.0
-const PAUSE_BTN_Y0 := 250.0
+const PAUSE_ARMOR_Y := 250.0
+const PAUSE_S_HEAD_Y := 72.0
+const PAUSE_S_ROW_Y := 88.0
+const PAUSE_PICK_Y := 204.0
+const PAUSE_TIME_Y := 220.0
+const PAUSE_BTN_W := 196.0
+const PAUSE_BTN_H := 30.0
+const PAUSE_BTN_X0 := 112.0
+const PAUSE_BTN_Y0 := 264.0
 const PAUSE_BTN_GX := 12.0
-const PAUSE_BTN_GY := 8.0
-const PAUSE_HINT_Y := 330.0
-const ROW_STEP := 12.0
+const PAUSE_BTN_GY := 10.0
+const PAUSE_HINT_Y := 344.0
+const ROW_STEP := 14.0
+# 「特效：高/中/关」整行点击区（不进键盘选择项：run.gd 的 PAUSE_ITEMS 只有 4 项，不能改）
+const FX_ROW := Rect2(320.0, 236.0, 196.0, 20.0)     # 与右列按钮同宽同左沿（320..516）
 
 # ---- 结算页
 const RESULT_PANEL := Rect2(84.0, 22.0, 472.0, 316.0)
@@ -120,11 +128,15 @@ const C_PANEL_TEXT := Color(0.72, 0.70, 0.64)
 
 # ================================================================ 生命周期
 func _ready() -> void:
+	# 暂停菜单的「特效」档位要读写 UserSettings（只读 API，不改该文件）；
+	# 它是 static 缓存 + 幂等，重复调用安全，先在这里保证磁盘设置被载入。
+	UserSettings.load_settings()
 	# 全屏接收鼠标：暂停按钮与暂停菜单需要点击；chooser 层号更高，模态时先拿到事件
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	# 全屏锚点已经给出 640×360 的绘制区域；不要再写 size（非等锚点下会触发
+	# "size overridden after _ready" 警告，且绘制坐标全部走常量，不依赖节点尺寸）。
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	position = Vector2.ZERO
-	size = VIEW
 
 func _process(delta: float) -> void:
 	_t += delta
@@ -138,6 +150,7 @@ func _gui_input(event: InputEvent) -> void:
 		var p: Vector2 = (event as InputEventMouseMotion).position
 		_hover_pause_btn = PAUSE_BTN.has_point(p)
 		_hover_menu = _pause_btn_at(p) if _overlay_open() else -1
+		_hover_fx = _overlay_open() and FX_ROW.has_point(p)
 	elif event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
@@ -156,6 +169,11 @@ func _handle_click(p: Vector2) -> void:
 			run.call("toggle_pause")
 		return
 	if _overlay_open():
+		# 特效行：整行可点，循环 关 → 中 → 高 → 关
+		if FX_ROW.has_point(p):
+			UserSettings.cycle_fx_level()
+			queue_redraw()
+			return
 		var i: int = _pause_btn_at(p)
 		if i >= 0:
 			run.set("pause_index", i)
@@ -264,7 +282,7 @@ func _draw() -> void:
 
 # ---------------------------------------------------------------- 屏幕反馈（保留）
 func _draw_feedback() -> void:
-	var hurt: float = clampf(float(run.get("hurt_flash")), 0.0, 1.0)
+	var hurt: float = clampf(float(run.get("hurt_flash")), 0.0, 1.0) if UserSettings.fx_at_least(1) else 0.0
 	if hurt > 0.001:
 		draw_rect(Rect2(Vector2.ZERO, VIEW), Color(0.72, 0.11, 0.09, hurt * 0.30), true)
 	var max_hp: float = maxf(float(run.get("player_max_hp")), 1.0)
@@ -277,7 +295,7 @@ func _draw_feedback() -> void:
 		draw_rect(Rect2(0.0, VIEW.y - band, VIEW.x, band), Color(0.32, 0.02, 0.02, a), true)
 		draw_rect(Rect2(0.0, 0.0, band, VIEW.y), Color(0.32, 0.02, 0.02, a), true)
 		draw_rect(Rect2(VIEW.x - band, 0.0, band, VIEW.y), Color(0.32, 0.02, 0.02, a), true)
-	var lvl: float = clampf(float(run.get("level_flash")), 0.0, 1.0)
+	var lvl: float = clampf(float(run.get("level_flash")), 0.0, 1.0) if UserSettings.fx_at_least(1) else 0.0
 	if lvl > 0.001:
 		draw_rect(Rect2(Vector2.ZERO, VIEW), Color(0.95, 0.82, 0.42, lvl * 0.16), true)
 
@@ -286,16 +304,16 @@ func _draw_top(st) -> void:
 	var f: Font = UITheme.font()
 	# 经验双层金属槽
 	UITheme.metal_bar(self, XP_BAR, st.xp_progress(), C_XP, clampf(float(run.get("level_flash")), 0.0, 1.0))
-	# 等级
-	_txt(LV_POS, "Lv %d" % st.level, 12, UITheme.GOLD_BRIGHT)
-	_txt(LV_SUB_POS, "经验 %d%%" % int(round(st.xp_progress() * 100.0)), 7, UITheme.PARCH_DIM)
+	# 等级（V5：12→13，经验百分比 7→9，字与条不再互相顶）
+	_txt(LV_POS, "Lv %d" % st.level, 13, UITheme.GOLD_BRIGHT)
+	_txt(LV_SUB_POS, "经验 %d%%" % int(round(st.xp_progress() * 100.0)), 9, UITheme.PARCH_DIM)
 	# 章节 / 七印 / 沙漏计时 石牌
 	UITheme.panel(self, HEAD_PLATE, 0.97)
 	var seal: int = _run_int("seal", 1)
 	draw_circle(SEAL_CENTER, SEAL_RADIUS + 0.8, Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.80))
 	draw_circle(SEAL_CENTER, SEAL_RADIUS - 0.8, UITheme.INK_DEEP)
-	_txt(Vector2(SEAL_CENTER.x - 12.0, SEAL_CENTER.y - 2.0), "印", 6, UITheme.PARCH_DIM, 1, 24.0)
-	_txt(Vector2(SEAL_CENTER.x - 12.0, SEAL_CENTER.y + 9.0), str(seal), 9, UITheme.GOLD_BRIGHT, 1, 24.0)
+	_txt(Vector2(SEAL_CENTER.x - 12.0, SEAL_CENTER.y - 3.0), "印", 7, UITheme.PARCH_DIM, 1, 24.0)
+	_txt(Vector2(SEAL_CENTER.x - 12.0, SEAL_CENTER.y + 9.0), str(seal), 10, UITheme.GOLD_BRIGHT, 1, 24.0)
 	draw_line(Vector2(HEAD_DIV_X, HEAD_PLATE.position.y + 5.0), Vector2(HEAD_DIV_X, HEAD_PLATE.end.y - 5.0),
 		Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.45), 1.0)
 	# 章节名
@@ -308,28 +326,32 @@ func _draw_top(st) -> void:
 		head = sname
 	if head == "":
 		head = "以拉谷"
-	_txt(Vector2(HEAD_TEXT_RECT.position.x, HEAD_NAME_Y), _fit(head, HEAD_TEXT_RECT.size.x, 9), 9,
+	_txt(Vector2(HEAD_TEXT_RECT.position.x, HEAD_NAME_Y), _fit(head, HEAD_TEXT_RECT.size.x, 10), 10,
 		UITheme.PARCH, HORIZONTAL_ALIGNMENT_CENTER, HEAD_TEXT_RECT.size.x)
-	# 沙漏 + MM:SS
+	# 沙漏 + MM:SS（V5：14→15，石牌加高到 35 才装得下）
 	var tstr: String = _fmt_time(float(run.get("elapsed")))
-	var tw: float = f.get_string_size(tstr, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-	var gw: float = tw + HOURGLASS_H + 4.0
+	var tw: float = f.get_string_size(tstr, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+	var gw: float = tw + HOURGLASS_H + 5.0
 	var gx: float = HEAD_TEXT_RECT.position.x + (HEAD_TEXT_RECT.size.x - gw) * 0.5
-	_draw_hourglass(Vector2(gx, HEAD_TIME_Y - HOURGLASS_H + 1.0), HOURGLASS_H)
-	_txt(Vector2(gx + HOURGLASS_H + 4.0, HEAD_TIME_Y), tstr, 14, UITheme.GOLD_BRIGHT)
-	# 右上：击杀 / 银两 / 火炭（自动缩字号，绝不溢出）
-	# 先铺一条暗底石槽：原来数字直接压在战场像素上，敌人从字背后穿过时读不清
-	# （v4_art6 顶部裁剪图：一只 beast 正好从「银两」后面走过）。
-	var plate: Rect2 = Rect2(STAT_RECT.position.x - 2.0, STAT_Y - 17.0, STAT_RECT.size.x + 6.0, 20.0)
-	draw_rect(plate, Color(UITheme.INK_DEEP.r, UITheme.INK_DEEP.g, UITheme.INK_DEEP.b, 0.58), true)
-	draw_rect(Rect2(plate.position.x, plate.position.y, plate.size.x, 1.0), Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.18), true)
-	draw_rect(Rect2(plate.position.x, plate.end.y - 1.0, plate.size.x, 1.0), Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.26), true)
-	var line: String = "击杀 %d  ·  银两 %d  ·  火炭 %d" % [st.kills, _picked_shillings(), st.coals]
-	var fs: int = 9
-	while fs > 6 and f.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > STAT_RECT.size.x:
-		fs -= 1
-	_txt_sh(Vector2(STAT_RECT.position.x, STAT_Y), line, fs, UITheme.PARCH,
-		HORIZONTAL_ALIGNMENT_RIGHT, STAT_RECT.size.x)
+	_draw_hourglass(Vector2(gx, HEAD_TIME_Y - HOURGLASS_H + 2.0), HOURGLASS_H)
+	_txt(Vector2(gx + HOURGLASS_H + 5.0, HEAD_TIME_Y), tstr, 15, UITheme.GOLD_BRIGHT)
+	# 右上战况：三格「小标签 + 大数字」。标签 9px 暗羊皮、数字 11px 烛金，各自右对齐到格沿，
+	# 不再像旧实现那样把 19 字塞进一行、再自动缩到 6px（实机里标签和数字糊成一片）。
+	draw_rect(STAT_RECT, Color(UITheme.INK_DEEP.r, UITheme.INK_DEEP.g, UITheme.INK_DEEP.b, 0.62), true)
+	draw_rect(Rect2(STAT_RECT.position.x, STAT_RECT.position.y, STAT_RECT.size.x, 1.0),
+		Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.22), true)
+	draw_rect(Rect2(STAT_RECT.position.x, STAT_RECT.end.y - 1.0, STAT_RECT.size.x, 1.0),
+		Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.30), true)
+	var stat_rows: Array = [["击杀", str(st.kills)], ["银两", str(_picked_shillings())], ["火炭", str(st.coals)]]
+	for i in range(3):
+		var sx: float = STAT_RECT.position.x + 5.0 + float(i) * STAT_SLOT
+		if i > 0:
+			draw_rect(Rect2(sx - 8.0, STAT_RECT.position.y + 5.0, 1.0, 14.0),
+				Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.20), true)
+		_txt(Vector2(sx, STAT_Y), String(stat_rows[i][0]), 9, Color(0.66, 0.64, 0.54))
+		var num: String = String(stat_rows[i][1])
+		var vw: float = f.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		_txt_sh(Vector2(sx + 43.0 - vw, STAT_Y), num, 11, UITheme.GOLD_BRIGHT)
 	_draw_pause_button()
 
 ## 沙漏图标（纯几何，不依赖图集）
@@ -379,15 +401,15 @@ func _draw_boss() -> void:
 	var bid: String = String(e.type_ids[e.typ[bi]])
 	var bdef: Dictionary = _boss_def(bid)
 	var bname: String = String(bdef.get("name", "首领"))
-	_txt_sh(Vector2(BOSS_NAME_X, BOSS_NAME_Y), _fit(bname, 190.0, 9), 9, UITheme.PARCH)
+	_txt_sh(Vector2(BOSS_NAME_X, BOSS_NAME_Y), _fit(bname, 190.0, 10), 10, UITheme.PARCH)
 	var bchp: int = int(bdef.get("chapter", 0))
 	var bpct: int = int(round(frac * 100.0))
 	var bsub: String = ("第 %d 章 · %d%%" % [bchp, bpct]) if bchp > 0 else ("剩余 %d%%" % bpct)
-	_txt_sh(Vector2(BOSS_SUB_RECT.position.x, BOSS_NAME_Y), bsub, 8, Color(0.80, 0.68, 0.55),
+	_txt_sh(Vector2(BOSS_SUB_RECT.position.x, BOSS_NAME_Y), bsub, 9, Color(0.80, 0.68, 0.55),
 		HORIZONTAL_ALIGNMENT_RIGHT, BOSS_SUB_RECT.size.x)
 	var phase_txt: String = _boss_phase_text(bdef, frac)
 	if phase_txt != "":
-		_txt_sh(Vector2(BOSS_NAME_X, BOSS_PHASE_Y), phase_txt, 7, Color(0.84, 0.58, 0.52))
+		_txt_sh(Vector2(BOSS_NAME_X, BOSS_PHASE_Y), _fit(phase_txt, 300.0, 9), 9, Color(0.86, 0.60, 0.52))
 
 # ---------------------------------------------------------------- E. 约卡
 func _draw_covenants() -> void:
@@ -404,11 +426,11 @@ func _draw_covenants() -> void:
 		draw_rect(r.grow(-1.0), Color(rc.r, rc.g, rc.b, 0.22), true)
 		draw_rect(r, rc, false, 1.0)
 		var nm: String = String(card.get("name", card.get("id", "?")))
-		_txt(Vector2(r.position.x, r.position.y + 12.0), nm.substr(0, 1), 9, Color(0.93, 0.89, 0.75),
+		_txt(Vector2(r.position.x, r.position.y + 13.0), nm.substr(0, 1), 10, Color(0.95, 0.91, 0.77),
 			HORIZONTAL_ALIGNMENT_CENTER, COV_SIZE)
 	if cards.size() > COV_MAX:
-		_txt(Vector2(COV_ORIGIN.x + float(COV_MAX) * COV_STEP - 4.0, COV_ORIGIN.y + 12.0),
-			"+%d" % (cards.size() - COV_MAX), 7, Color(0.62, 0.62, 0.58))
+		_txt(Vector2(COV_ORIGIN.x + float(COV_MAX) * COV_STEP - 4.0, COV_ORIGIN.y + 13.0),
+			"+%d" % (cards.size() - COV_MAX), 9, Color(0.66, 0.66, 0.60))
 
 # ---------------------------------------------------------------- B. 左下
 func _draw_bottom_left(st) -> void:
@@ -422,7 +444,7 @@ func _draw_bottom_left(st) -> void:
 	UITheme.metal_bar(self, HP_BAR, frac, col, glow)
 	_txt_sh(Vector2(HP_BAR.position.x, HP_TEXT_Y),
 		"%d / %d" % [int(float(run.get("player_hp"))), int(float(run.get("player_max_hp")))],
-		9, Color(1.0, 1.0, 1.0, 0.94), HORIZONTAL_ALIGNMENT_CENTER, HP_BAR.size.x)
+		10, Color(1.0, 1.0, 1.0, 0.96), HORIZONTAL_ALIGNMENT_CENTER, HP_BAR.size.x)
 	_draw_relic_row(st)
 	_draw_armor_row(st)
 
@@ -459,29 +481,29 @@ func _draw_witness() -> void:
 	UITheme.rivet(self, Vector2(r.end.x - 2.0, r.position.y + 2.0), 1.0, 0.9)
 	UITheme.rivet(self, Vector2(r.position.x + 2.0, r.end.y - 2.0), 1.0, 0.9)
 	UITheme.rivet(self, r.end - Vector2(2.0, 2.0), 1.0, 0.9)
-	_txt_sh(Vector2(AVATAR_RECT.position.x - 3.0, AVATAR_NAME_Y), _fit(nm, 38.0, 8), 8, UITheme.PARCH,
-		HORIZONTAL_ALIGNMENT_CENTER, AVATAR_RECT.size.x + 6.0)
+	_txt_sh(Vector2(AVATAR_RECT.position.x - 4.0, AVATAR_NAME_Y), _fit(nm, 42.0, 10), 10, UITheme.PARCH,
+		HORIZONTAL_ALIGNMENT_CENTER, AVATAR_RECT.size.x + 8.0)
 
 ## 圣物图标行
 func _draw_relic_row(st) -> void:
 	var ids: Array = _relic_ids(st)
 	if ids.is_empty():
 		return
-	_txt(RELIC_LABEL_POS, "圣物", 7, Color(0.55, 0.57, 0.52))
+	_txt(RELIC_LABEL_POS, "圣物", 9, Color(0.58, 0.60, 0.54))
 	var n: int = mini(ids.size(), CHIP_MAX)
 	for i in range(n):
 		var r := Rect2(RELIC_ORIGIN.x + float(i) * CHIP_STEP, RELIC_ORIGIN.y, CHIP_BOX, CHIP_BOX)
 		draw_rect(r, Color(0.10, 0.11, 0.14, 0.92), true)
 		draw_rect(r, Color(0.72, 0.66, 0.44, 0.92), false, 1.0)
 		var nm: String = _relic_name(String(ids[i]))
-		_txt(Vector2(r.position.x, r.position.y + 8.0), nm.substr(0, 1), 7, Color(0.94, 0.88, 0.70),
+		_txt(Vector2(r.position.x, r.position.y + 9.5), nm.substr(0, 1), 9, Color(0.95, 0.89, 0.71),
 			HORIZONTAL_ALIGNMENT_CENTER, CHIP_BOX)
 
 ## 军装图标行（不占宝物的槽）
 func _draw_armor_row(st) -> void:
 	if st.armor.is_empty():
 		return
-	_txt(ARMOR_LABEL_POS, "军装", 7, Color(0.62, 0.55, 0.40))
+	_txt(ARMOR_LABEL_POS, "军装", 9, Color(0.66, 0.58, 0.42))
 	var n: int = mini(st.armor.size(), CHIP_MAX)
 	for i in range(n):
 		var r := Rect2(ARMOR_ORIGIN.x + float(i) * CHIP_STEP, ARMOR_ORIGIN.y, CHIP_BOX, CHIP_BOX)
@@ -489,7 +511,7 @@ func _draw_armor_row(st) -> void:
 		draw_rect(r, Color(0.82, 0.70, 0.44, 0.92), false, 1.0)
 		var e: Dictionary = st.armor[i]
 		var nm: String = String(_passive_def(String(e.get("id", ""))).get("name", String(e.get("id", "?"))))
-		_txt(Vector2(r.position.x, r.position.y + 8.0), nm.substr(0, 1), 7, Color(0.96, 0.90, 0.74),
+		_txt(Vector2(r.position.x, r.position.y + 9.5), nm.substr(0, 1), 9, Color(0.97, 0.91, 0.75),
 			HORIZONTAL_ALIGNMENT_CENTER, CHIP_BOX)
 
 # ---------------------------------------------------------------- B. 右下槽位
@@ -500,8 +522,8 @@ func _draw_slots(st) -> void:
 	var wtotal: float = float(wmax) * SLOT + float(maxi(wmax - 1, 0)) * SLOT_GAP
 	var wx: float = SLOT_RIGHT - wtotal
 	if wx >= 470.0 and wmax > 0:
-		_txt(Vector2(wx - 30.0, WEAPON_ROW_Y + 18.0), "武器", 7, Color(0.62, 0.60, 0.54),
-			HORIZONTAL_ALIGNMENT_RIGHT, 26.0)
+		_txt(Vector2(wx - 36.0, WEAPON_ROW_Y + 19.0), "武器", 9, Color(0.66, 0.63, 0.55),
+			HORIZONTAL_ALIGNMENT_RIGHT, 30.0)
 	var tex_w: Texture2D = SpriteBank.weapon_icons()
 	var timers: PackedFloat32Array = _weapon_timers()
 	for i in range(wmax):
@@ -526,8 +548,8 @@ func _draw_slots(st) -> void:
 	var ptotal: float = float(pmax) * SLOT + float(maxi(pmax - 1, 0)) * SLOT_GAP
 	var px: float = SLOT_RIGHT - ptotal
 	if px >= 470.0 and pmax > 0:
-		_txt(Vector2(px - 30.0, PASSIVE_ROW_Y + 18.0), "宝物", 7, Color(0.62, 0.60, 0.54),
-			HORIZONTAL_ALIGNMENT_RIGHT, 26.0)
+		_txt(Vector2(px - 36.0, PASSIVE_ROW_Y + 19.0), "宝物", 9, Color(0.66, 0.63, 0.55),
+			HORIZONTAL_ALIGNMENT_RIGHT, 30.0)
 	var tex_p: Texture2D = SpriteBank.passive_icons()
 	for i in range(pmax):
 		var cell2 := Rect2(px + float(i) * (SLOT + SLOT_GAP), PASSIVE_ROW_Y, SLOT, SLOT)
@@ -566,22 +588,29 @@ func _draw_cooldown(cell: Rect2, ratio: float) -> void:
 	var inner: Rect2 = cell.grow(-1.0)
 	var c: Vector2 = inner.get_center()
 	var rad: float = minf(inner.size.x, inner.size.y) * 0.5
-	var steps: int = maxi(4, int(ceil(16.0 * r)))
-	var shade: Color = Color(0.02, 0.03, 0.06, 0.62)
+	var steps: int = maxi(6, int(ceil(24.0 * r)))
+	var shade: Color = Color(0.02, 0.03, 0.06, 0.72)
 	for k in range(steps):
 		var a0: float = -PI * 0.5 + TAU * r * float(k) / float(steps)
 		var a1: float = -PI * 0.5 + TAU * r * float(k + 1) / float(steps)
 		draw_colored_polygon(PackedVector2Array([
 			c, c + Vector2(cos(a0), sin(a0)) * rad, c + Vector2(cos(a1), sin(a1)) * rad]), shade)
+	# 扫描边缘：1px 烛金弧 + 收尾半径线，让「还剩多少 / 什么时候好」一眼可读
+	var edge: Color = Color(UITheme.GOLD_BRIGHT.r, UITheme.GOLD_BRIGHT.g, UITheme.GOLD_BRIGHT.b, 0.62)
+	var a_end: float = -PI * 0.5 + TAU * r
+	draw_arc(c, maxf(rad - 0.5, 1.0), -PI * 0.5, a_end, maxi(10, int(ceil(36.0 * r))), edge, 1.0, true)
+	draw_line(c, c + Vector2(cos(a_end), sin(a_end)) * rad, Color(edge.r, edge.g, edge.b, 0.45), 1.0)
+	draw_circle(c, 1.6, Color(0.0, 0.0, 0.0, 0.55))
 
 ## 右下角等级 / 成全星标
 func _draw_cell_badge(cell: Rect2, entry: Dictionary) -> void:
 	var asc: bool = bool(entry.get("ascended", false))
 	var badge: String = "★" if asc else str(int(entry.get("level", 1)))
-	draw_rect(Rect2(cell.position + Vector2(cell.size.x - 10.0, cell.size.y - 10.0), Vector2(10.0, 10.0)),
-		Color(0.03, 0.04, 0.06, 0.80), true)
-	_txt_sh(Vector2(cell.position.x + cell.size.x - 10.0, cell.position.y + cell.size.y - 2.0), badge, 7,
-		UITheme.GOLD_BRIGHT, HORIZONTAL_ALIGNMENT_CENTER, 10.0)
+	var bw: float = 12.0
+	draw_rect(Rect2(cell.position + Vector2(cell.size.x - bw, cell.size.y - bw), Vector2(bw, bw)),
+		Color(0.03, 0.04, 0.06, 0.86), true)
+	_txt_sh(Vector2(cell.position.x + cell.size.x - bw, cell.position.y + cell.size.y - 2.0), badge, 9,
+		UITheme.GOLD_BRIGHT, HORIZONTAL_ALIGNMENT_CENTER, bw)
 
 # ---------------------------------------------------------------- 图标下标 / 冷却估值
 ## 按 data 数组顺序建 id→下标表（weapons.json / passives.json 的数组顺序 = 图集格子顺序）
@@ -641,11 +670,11 @@ func _draw_mid() -> void:
 	var toast_t: float = float(run.get("toast_t"))
 	if toast_t > 0.0:
 		var ta: float = clampf(toast_t / 0.8, 0.0, 1.0)
-		_txt_sh(Vector2(0.0, TOAST_Y), _fit(String(run.get("toast_text")), 560.0, 10), 10,
-			Color(0.95, 0.87, 0.62, ta), HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
+		_txt_sh(Vector2(0.0, TOAST_Y), _fit(String(run.get("toast_text")), 560.0, 11), 11,
+			Color(0.96, 0.88, 0.63, ta), HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 	var perfect: float = float(run.get("perfect_flash"))
 	if perfect > 0.0:
-		_txt_sh(Vector2(0.0, PERFECT_Y), "守望者时刻", 12,
+		_txt_sh(Vector2(0.0, PERFECT_Y), "守望者时刻", 13,
 			Color(0.85, 0.90, 1.0, clampf(perfect, 0.0, 1.0)), HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 	_draw_mechanics_line()
 
@@ -660,23 +689,27 @@ func _draw_mechanics_line() -> void:
 	draw_rect(MECH_RECT, Color(0.04, 0.05, 0.07, 0.68), true)
 	draw_rect(Rect2(MECH_RECT.position, Vector2(MECH_RECT.size.x, 1.0)), gold, true)
 	draw_rect(Rect2(Vector2(MECH_RECT.position.x, MECH_RECT.end.y - 1.0), Vector2(MECH_RECT.size.x, 1.0)), gold, true)
-	_txt_sh(Vector2(MECH_RECT.position.x, MECH_Y), _fit(txt, MECH_RECT.size.x - 8.0, 9), 9,
-		Color(0.93, 0.78, 0.52, 0.94), HORIZONTAL_ALIGNMENT_CENTER, MECH_RECT.size.x)
+	_txt_sh(Vector2(MECH_RECT.position.x, MECH_Y), _fit(txt, MECH_RECT.size.x - 8.0, 10), 10,
+		Color(0.94, 0.80, 0.54, 0.96), HORIZONTAL_ALIGNMENT_CENTER, MECH_RECT.size.x)
 	var st = run.state
 	if st != null and st.coals > 0:
-		_txt_sh(Vector2(ALTAR_HINT_RECT.position.x, ALTAR_HINT_RECT.position.y + 9.0), "[E] 祭坛", 8,
-			Color(0.94, 0.62, 0.28), HORIZONTAL_ALIGNMENT_RIGHT, ALTAR_HINT_RECT.size.x)
+		draw_rect(ALTAR_HINT_RECT, Color(0.04, 0.05, 0.07, 0.62), true)
+		draw_rect(ALTAR_HINT_RECT, Color(0.94, 0.62, 0.28, 0.32), false, 1.0)
+		_txt_sh(Vector2(ALTAR_HINT_RECT.position.x, ALTAR_HINT_RECT.position.y + 13.0), "[E] 祭坛", 9,
+			Color(0.96, 0.66, 0.30), HORIZONTAL_ALIGNMENT_CENTER, ALTAR_HINT_RECT.size.x)
 
 # ---------------------------------------------------------------- C. 暂停遮罩
 func _draw_pause(st) -> void:
 	draw_rect(Rect2(Vector2.ZERO, VIEW), C_DIM, true)
+	UITheme.vignette(self, 0.60, 104.0)
 	UITheme.panel(self, PAUSE_PANEL, 1.0)
-	UITheme.etched_title(self, Vector2(0.0, PAUSE_TITLE_Y), "试炼暂停", 17)
+	UITheme.etched_title(self, Vector2(0.0, PAUSE_TITLE_Y), "试炼暂停", 18)
 	UITheme.divider(self, PAUSE_LX, PAUSE_PANEL.end.x - 20.0, PAUSE_DIV_Y, 0.85)
-	draw_rect(Rect2(PAUSE_MID_X, PAUSE_DIV_Y + 8.0, 1.0, 156.0),
+	draw_rect(Rect2(PAUSE_MID_X, PAUSE_DIV_Y + 10.0, 1.0, 184.0),
 		Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.22), true)
 	_draw_pause_lists(st)
 	_draw_pause_stats(st)
+	_draw_fx_row()
 	var sel: int = clampi(_run_int("pause_index", 0), 0, 3)
 	var pulse: float = 0.5 + 0.5 * sin(_t * 3.2)
 	for i in range(4):
@@ -685,45 +718,50 @@ func _draw_pause(st) -> void:
 		UITheme.button(self, r, _pause_btn_label(i), (i == sel) or hov, pulse)
 		if hov and i != sel:
 			draw_rect(r.grow(1.0), Color(UITheme.GOLD_PALE.r, UITheme.GOLD_PALE.g, UITheme.GOLD_PALE.b, 0.50), false, 1.0)
-	_txt(Vector2(0.0, PAUSE_HINT_Y), "↑↓ 选择  ·  Enter 确认  ·  Esc 继续  ·  也可直接点击", 8,
-		Color(0.62, 0.60, 0.54), HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
+	_txt(Vector2(0.0, PAUSE_HINT_Y), "↑↓ 选择 · Enter 确认 · Esc 继续 · 特效行可直接点击", 9,
+		Color(0.64, 0.62, 0.55), HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 
 ## 暂停面板左列：武器 / 宝物 / 军装清单
+## V5 排版：名字左对齐 + 等级右对齐（两列各自对齐），名字与等级不再挤成一句。
 func _draw_pause_lists(st) -> void:
-	_txt(Vector2(PAUSE_LX, PAUSE_W_HEAD_Y), "武器  %d / %d" % [st.weapons.size(), st.max_weapon_slots()],
-		9, UITheme.GOLD)
+	_txt(Vector2(PAUSE_LX, PAUSE_W_HEAD_Y), "武器", 10, UITheme.GOLD)
+	_txt(Vector2(PAUSE_LX, PAUSE_W_HEAD_Y), "%d / %d" % [st.weapons.size(), st.max_weapon_slots()], 10,
+		UITheme.PARCH_DIM, HORIZONTAL_ALIGNMENT_RIGHT, PAUSE_LW)
 	if st.weapons.is_empty():
-		_txt(Vector2(PAUSE_LX + 4.0, PAUSE_W_ROW_Y), "（尚无武器）", 8, Color(0.55, 0.55, 0.50))
+		_txt(Vector2(PAUSE_LX + 2.0, PAUSE_W_ROW_Y), "（尚无武器）", 10, Color(0.56, 0.56, 0.51))
 	for i in range(mini(st.weapons.size(), PAUSE_W_ROWS)):
 		var w: Dictionary = st.weapons[i]
 		var def: Dictionary = st.weapon_def(w)
 		var nm: String = String(def.get("name", String(w.get("id", "?"))))
-		var line: String = "· %s  Lv%d" % [nm, int(w.get("level", 1))]
 		if bool(w.get("ascended", false)):
-			line += "  ★"
-		_txt(Vector2(PAUSE_LX + 4.0, PAUSE_W_ROW_Y + float(i) * ROW_STEP), _fit(line, PAUSE_LW - 4.0, 8),
-			8, UITheme.PARCH)
-	_txt(Vector2(PAUSE_LX, PAUSE_P_HEAD_Y), "宝物 / 果子  %d / %d" % [st.passives.size(), st.max_passive_slots()],
-		9, UITheme.GOLD)
+			nm += " ★"
+		var y: float = PAUSE_W_ROW_Y + float(i) * ROW_STEP
+		_txt(Vector2(PAUSE_LX + 2.0, y), _fit("· " + nm, PAUSE_LW - 40.0, 10), 10, UITheme.PARCH)
+		_txt(Vector2(PAUSE_LX, y), "Lv%d" % int(w.get("level", 1)), 10, Color(0.80, 0.76, 0.62),
+			HORIZONTAL_ALIGNMENT_RIGHT, PAUSE_LW)
+	_txt(Vector2(PAUSE_LX, PAUSE_P_HEAD_Y), "宝物 / 果子", 10, UITheme.GOLD)
+	_txt(Vector2(PAUSE_LX, PAUSE_P_HEAD_Y), "%d / %d" % [st.passives.size(), st.max_passive_slots()], 10,
+		UITheme.PARCH_DIM, HORIZONTAL_ALIGNMENT_RIGHT, PAUSE_LW)
 	if st.passives.is_empty():
-		_txt(Vector2(PAUSE_LX + 4.0, PAUSE_P_ROW_Y), "（尚未拾取）", 8, Color(0.55, 0.55, 0.50))
+		_txt(Vector2(PAUSE_LX + 2.0, PAUSE_P_ROW_Y), "（尚未拾取）", 10, Color(0.56, 0.56, 0.51))
 	for i in range(mini(st.passives.size(), PAUSE_P_ROWS)):
 		var pe: Dictionary = st.passives[i]
 		var pdef: Dictionary = st.passive_def(pe)
 		var pnm: String = String(pdef.get("name", String(pe.get("id", "?"))))
-		var line2: String = "· %s  Lv%d" % [pnm, int(pe.get("level", 1))]
-		_txt(Vector2(PAUSE_LX + 4.0, PAUSE_P_ROW_Y + float(i) * ROW_STEP), _fit(line2, PAUSE_LW - 4.0, 8),
-			8, UITheme.PARCH)
-	# 军装（不占宝物槽，单行汇总）
+		var y2: float = PAUSE_P_ROW_Y + float(i) * ROW_STEP
+		_txt(Vector2(PAUSE_LX + 2.0, y2), _fit("· " + pnm, PAUSE_LW - 40.0, 10), 10, UITheme.PARCH)
+		_txt(Vector2(PAUSE_LX, y2), "Lv%d" % int(pe.get("level", 1)), 10, Color(0.80, 0.76, 0.62),
+			HORIZONTAL_ALIGNMENT_RIGHT, PAUSE_LW)
+	# 军装（不占宝物槽，单行汇总；辅助级 9px，最长 6 件自动截断）
 	var anames: Array = []
 	for a in st.armor:
 		anames.append(String(_passive_def(String(a.get("id", ""))).get("name", a.get("id", "?"))))
 	var aline: String = "军装 %d" % st.armor.size()
 	if not anames.is_empty():
 		aline += "  " + _join(anames, " · ")
-	_txt(Vector2(PAUSE_LX, PAUSE_ARMOR_Y), _fit(aline, PAUSE_LW + 8.0, 7), 7, Color(0.76, 0.68, 0.50))
+	_txt(Vector2(PAUSE_LX, PAUSE_ARMOR_Y), _fit(aline, PAUSE_LW + 24.0, 9), 9, Color(0.78, 0.70, 0.52))
 
-## 暂停面板右列：实时属性摘要（run.state.stats）
+## 暂停面板右列：实时属性摘要（run.state.stats）——标签左、数值右，两列各自对齐
 func _draw_pause_stats(st) -> void:
 	var s: Dictionary = st.stats
 	var rows: Array = [
@@ -737,59 +775,91 @@ func _draw_pause_stats(st) -> void:
 		["减伤", "%d%%" % int(round(st.total_damage_reduction() * 100.0))],
 		["拾取范围", "%.0f" % float(s.get("pickup_radius", 42.0))],
 	]
-	_txt(Vector2(PAUSE_RX, PAUSE_S_HEAD_Y), "实时属性", 9, UITheme.GOLD)
+	_txt(Vector2(PAUSE_RX, PAUSE_S_HEAD_Y), "实时属性", 10, UITheme.GOLD)
 	for i in range(rows.size()):
 		var y: float = PAUSE_S_ROW_Y + float(i) * ROW_STEP
 		var row: Array = rows[i]
-		_txt(Vector2(PAUSE_RX, y), String(row[0]), 8, C_PANEL_TEXT)
-		_txt(Vector2(PAUSE_RX, y), String(row[1]), 8, UITheme.PARCH, HORIZONTAL_ALIGNMENT_RIGHT, PAUSE_RW)
-	_txt(Vector2(PAUSE_RX, PAUSE_PICK_Y), "本局拾取 舍客勒  +%d" % _picked_total(), 8, UITheme.GOLD_BRIGHT)
-	_txt(Vector2(PAUSE_RX, PAUSE_TIME_Y), "计时 %s   ·   击杀 %d" % [_fmt_time(float(run.get("elapsed"))), st.kills],
-		8, C_PANEL_TEXT)
+		_txt(Vector2(PAUSE_RX, y), String(row[0]), 10, C_PANEL_TEXT)
+		_txt(Vector2(PAUSE_RX, y), String(row[1]), 10, UITheme.PARCH, HORIZONTAL_ALIGNMENT_RIGHT, PAUSE_RW)
+	_txt(Vector2(PAUSE_RX, PAUSE_PICK_Y), "本局拾取  +%d 舍客勒" % _picked_total(), 10, UITheme.GOLD_BRIGHT)
+	_txt(Vector2(PAUSE_RX, PAUSE_TIME_Y), "计时 %s  ·  击杀 %d" % [_fmt_time(float(run.get("elapsed"))), st.kills],
+		10, C_PANEL_TEXT)
+
+## 特效档位（UserSettings 只读接口；本行整行可点，鼠标切换，不进键盘 4 项选择）
+func _fx_level() -> int:
+	return clampi(int(UserSettings.fx_level), 0, 2)
+
+func _draw_fx_row() -> void:
+	var r: Rect2 = FX_ROW
+	var lvl: int = _fx_level()
+	var hot: bool = _hover_fx
+	draw_rect(r, Color(UITheme.INK_DEEP.r, UITheme.INK_DEEP.g, UITheme.INK_DEEP.b, 0.85), true)
+	draw_rect(r, Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.95 if hot else 0.45), false, 1.0)
+	_txt(Vector2(r.position.x + 8.0, r.position.y + 14.0), "特效", 10, C_PANEL_TEXT)
+	for i in range(3):
+		var seg := Rect2(r.position.x + 36.0 + float(i) * 37.0, r.position.y + 3.0, 34.0, 14.0)
+		var on: bool = i == lvl
+		var base: Color = Color(UITheme.INK_SOFT.r, UITheme.INK_SOFT.g, UITheme.INK_SOFT.b, 1.0)
+		if on:
+			base = base.lerp(Color(UITheme.GOLD_BRIGHT.r, UITheme.GOLD_BRIGHT.g, UITheme.GOLD_BRIGHT.b, 1.0), 0.22)
+		draw_rect(seg, base, true)
+		draw_rect(seg, Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.90 if on else 0.26), false, 1.0)
+		_txt(Vector2(seg.position.x, seg.position.y + 10.5), String(["关", "中", "高"][i]), 9,
+			UITheme.GOLD_BRIGHT if on else Color(0.58, 0.56, 0.48), HORIZONTAL_ALIGNMENT_CENTER, seg.size.x)
+	_txt(Vector2(r.position.x + 148.0, r.position.y + 14.0), "点击切换", 9, Color(0.56, 0.54, 0.46))
 
 # ---------------------------------------------------------------- D. 结算页
 func _draw_result(st) -> void:
-	draw_rect(Rect2(Vector2.ZERO, VIEW), Color(0.02, 0.03, 0.05, 0.88), true)
+	draw_rect(Rect2(Vector2.ZERO, VIEW), Color(0.02, 0.03, 0.05, 0.90), true)
+	UITheme.vignette(self, 0.68, 108.0)
 	UITheme.panel(self, RESULT_PANEL, 1.0)
 	var won: bool = bool(run.get("won"))
 	var sname: String = String(run.stage.get("name", ""))
 	var sshow: String = sname if sname != "" else "战场"
 	var head: String = "约柜得胜" if won else ("倒在" + sshow)
-	UITheme.etched_title(self, Vector2(0.0, 68.0), head, 19,
-		UITheme.GOLD_BRIGHT if won else Color(0.80, 0.30, 0.24))
-	UITheme.divider(self, RESULT_PANEL.position.x + 28.0, RESULT_PANEL.end.x - 28.0, 80.0, 0.85)
-	_txt(Vector2(0.0, 100.0), "存活 %s   击杀 %d   等级 %d" % [_fmt_time(float(run.get("elapsed"))), st.kills, st.level],
-		11, UITheme.PARCH, HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
+	UITheme.etched_title(self, Vector2(0.0, 66.0), head, 20,
+		UITheme.GOLD_BRIGHT if won else Color(0.82, 0.32, 0.26))
+	UITheme.divider(self, RESULT_PANEL.position.x + 28.0, RESULT_PANEL.end.x - 28.0, 78.0, 0.85)
+	# 一级：本局结果（12px）；二级：章节/装备（10px）；三级：明细与成就（9-10px）
+	_txt(Vector2(0.0, 102.0), "存活 %s   击杀 %d   等级 %d" % [_fmt_time(float(run.get("elapsed"))), st.kills, st.level],
+		12, UITheme.PARCH, HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 	var chp: int = int(run.stage.get("chapter", 0))
 	var stage_line: String = ("第 %d 章《%s》" % [chp, sshow]) if chp > 0 else ("《%s》" % sshow)
 	stage_line += "   ·   七印 %d" % _run_int("seal", 1)
-	_txt(Vector2(0.0, 116.0), _fit(stage_line, 440.0, 9), 9, C_PANEL_TEXT, HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
+	_txt(Vector2(0.0, 120.0), _fit(stage_line, 440.0, 10), 10, C_PANEL_TEXT, HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 	var fused: int = 0
 	for w in st.weapons:
 		if String(w.get("kind", "base")) == "fusion":
 			fused += 1
 	var relic_ids: Array = _relic_ids(st)
-	_txt(Vector2(0.0, 132.0), "祝圣武器 %d   圣物 %d   军装 %d" % [fused, relic_ids.size(), st.armor.size()],
-		9, C_PANEL_TEXT, HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
+	_txt(Vector2(0.0, 138.0), "祝圣武器 %d   圣物 %d   军装 %d" % [fused, relic_ids.size(), st.armor.size()],
+		10, C_PANEL_TEXT, HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 	var lines: Array = _silver_lines(st)
 	var line_w: float = RESULT_PANEL.size.x - 48.0
-	_txt(Vector2(0.0, 152.0), _fit(String(lines[0]), line_w, 8), 8, Color(0.66, 0.68, 0.62),
+	_txt(Vector2(0.0, 158.0), _fit(String(lines[0]), line_w, 9), 9, Color(0.68, 0.70, 0.63),
 		HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
-	_txt(Vector2(0.0, 164.0), _fit(String(lines[1]), line_w, 8), 8, Color(0.62, 0.66, 0.58),
+	_txt(Vector2(0.0, 172.0), _fit(String(lines[1]), line_w, 9), 9, Color(0.64, 0.68, 0.59),
 		HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 	var pick_scaled: int = _picked_total()
-	_txt(Vector2(0.0, 184.0), "舍客勒合计  +%d   （局内拾取 %d · 局外 %d）" % [int(run.get("reward")), pick_scaled, _meta_silver_bonus()],
-		12, UITheme.GOLD_BRIGHT, HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
+	_txt(Vector2(0.0, 196.0), "舍客勒合计  +%d   （局内拾取 %d · 局外 %d）" % [int(run.get("reward")), pick_scaled, _meta_silver_bonus()],
+		13, UITheme.GOLD_BRIGHT, HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 	# 新增：本局拾取
-	_txt(Vector2(0.0, 202.0), "本局拾取 舍客勒  +%d" % _picked_total(), 10, UITheme.GOLD_PALE,
+	_txt(Vector2(0.0, 214.0), "本局拾取 舍客勒  +%d" % _picked_total(), 10, UITheme.GOLD_PALE,
 		HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
-	# 成就
+	# 成就：整块框进内页，收掉页尾空档；行数 = 成就行 + 圣物行（≤3）
 	var entries: Array = _result_achievement_entries()
-	_txt(Vector2(0.0, 222.0), "成就达成", 8, Color(0.58, 0.62, 0.56), HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
+	var new_relics: Array = _new_relic_ids()
+	var has_relics: bool = not new_relics.is_empty()
+	var ach_rows: int = entries.size() if not entries.is_empty() else 1
+	if has_relics:
+		ach_rows = mini(ach_rows, 2)
+	var ach_plate := Rect2(108.0, 234.0, VIEW.x - 216.0, 78.0)
+	UITheme.panel(self, ach_plate, 0.55, false)
+	_txt(Vector2(0.0, 254.0), "成 就 达 成", 10, Color(0.60, 0.64, 0.58), HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 	if entries.is_empty():
-		_txt(Vector2(0.0, 236.0), "本局无新增成就", 8, Color(0.48, 0.50, 0.46), HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
+		_txt(Vector2(0.0, 276.0), "本局无新增成就", 10, Color(0.50, 0.52, 0.47), HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 	else:
-		for i in range(mini(entries.size(), 3)):
+		for i in range(ach_rows):
 			var e = entries[i]
 			var aid: String = ""
 			var ename: String = ""
@@ -808,17 +878,17 @@ func _draw_result(st) -> void:
 				if eraw == "" and ad.get("reward", null) is Dictionary:
 					eraw = "  " + _reward_dict_text(ad.get("reward", {}))
 			var line: String = "✓ %s%s" % [ename, eraw]
-			_txt(Vector2(0.0, 236.0 + float(i) * 11.0), _fit(line, 440.0, 8), 8, Color(0.85, 0.78, 0.52),
+			_txt(Vector2(0.0, 276.0 + float(i) * 16.0), _fit(line, 400.0, 10), 10, Color(0.87, 0.80, 0.54),
 				HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
-	var new_relics: Array = _new_relic_ids()
-	if not new_relics.is_empty():
+	if has_relics:
 		var names: Array = []
 		for rid in new_relics:
 			names.append(_relic_name(String(rid)))
 		var rline: String = "圣物解锁  " + _join(names, " · ")
-		_txt(Vector2(0.0, 274.0), _fit(rline, 440.0, 8), 8, Color(0.88, 0.80, 0.50),
+		var ry: float = 276.0 + float(ach_rows) * 16.0
+		_txt(Vector2(0.0, ry), _fit(rline, 400.0, 10), 10, Color(0.89, 0.81, 0.52),
 			HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
-	_txt(Vector2(0.0, 322.0), "Esc 再来一局   ·   R 返回营地", 10, Color(0.62, 0.60, 0.55),
+	_txt(Vector2(0.0, 330.0), "Esc 再来一局   ·   R 返回营地", 11, Color(0.64, 0.62, 0.56),
 		HORIZONTAL_ALIGNMENT_CENTER, VIEW.x)
 
 # ---------------------------------------------------------------- 自动加载单例（运行时取，check-only 友好）
@@ -1040,6 +1110,22 @@ func _boss_phase_text(bdef: Dictionary, frac: float) -> String:
 	idx = mini(idx, skills.size() - 1)
 	return "阶段 %d · %s" % [idx + 1, String(skills[idx])]
 
+## 首领技能 id → 中文短名（数据里 skills 是 [{id, cd, params}]，直接 String() 会把整个字典糊到 HUD 上）
+const SKILL_LABELS := {
+	"ring_burst": "环火爆", "aimed_shot": "瞄准齐射", "summon": "召唤从者", "charge": "冲锋",
+	"zone_denial": "封锁地带", "heal_self": "自愈", "spawn_totem": "立起图腾", "nova": "新星爆发",
+}
+
+func _skill_label(sk: Variant) -> String:
+	var id: String = ""
+	if sk is Dictionary:
+		id = String((sk as Dictionary).get("id", ""))
+	else:
+		id = String(sk)
+	if SKILL_LABELS.has(id):
+		return String(SKILL_LABELS[id])
+	return id.replace("_", " ")
+
 func _phase_skills(bdef: Dictionary) -> Array:
 	var out: Array = []
 	var phases = bdef.get("phases", [])
@@ -1048,11 +1134,16 @@ func _phase_skills(bdef: Dictionary) -> Array:
 			if p is Dictionary:
 				var sk = p.get("skills", p.get("name", ""))
 				if sk is Array:
-					out.append(_join(sk, "、"))
+					var names: Array = []
+					for one in sk:
+						var lab: String = _skill_label(one)
+						if lab != "" and not names.has(lab):
+							names.append(lab)
+					out.append(_join(names, "、"))
 				else:
-					out.append(String(sk))
+					out.append(_skill_label(sk))
 			else:
-				out.append(String(p))
+				out.append(_skill_label(p))
 	return out
 
 func _reward_dict_text(d) -> String:

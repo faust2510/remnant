@@ -903,6 +903,17 @@ func _on_spot(kind: String, pos: Vector2, r: float) -> bool:
 
 # ================================================================ 给 UI / 渲染
 
+## 地形标签：以前直接把 kind（英文 id）糊到画面上（"tree"、"wheat"），改成中文短名，无对应名字就不画
+const SPOT_NAMES := {
+	"platform": "高台", "bitter": "苦水", "ancient_altar": "古坛", "lamp": "灯台", "vent": "地气",
+	"wheat": "麦田", "shade": "荫下", "campfire": "营火", "tree": "分别善恶树", "tree_withered": "枯树",
+	"blood": "血田", "sanctuary": "至圣所", "water_altar": "洗濯盆", "pillar": "石柱", "torch": "火把",
+	"snake": "铜蛇", "door": "门", "bread": "陈设饼", "stone": "石头", "lantern": "灯", "creek": "溪床",
+}
+
+func _spot_label(k: String) -> String:
+	return String(SPOT_NAMES.get(k, ""))
+
 func draw_data() -> Array:
 	var out: Array = []
 	for s in spots:
@@ -910,15 +921,15 @@ func draw_data() -> Array:
 		if k in ["creek"]:
 			out.append({ "kind": "band", "x": 0.0, "y": 0.0, "h": float(s.get("half_h", 46.0)) * 2.0, "w": 1400.0, "color": "#7FE0C0", "alpha": 0.10 })
 		elif k in ["platform", "bitter", "ancient_altar", "lamp", "vent", "wheat", "shade", "campfire", "tree", "tree_withered", "blood", "sanctuary", "water_altar", "creek"]:
-			out.append({ "kind": "circle", "x": float(s["x"]), "y": float(s["y"]), "r": float(s.get("r", 30.0)), "color": _spot_color(k), "alpha": 0.18 if k != "lamp" else (0.32 if float(s.get("lit", 0.0)) > 0.0 else 0.08), "label": k })
+			out.append({ "kind": "circle", "x": float(s["x"]), "y": float(s["y"]), "r": float(s.get("r", 30.0)), "color": _spot_color(k), "alpha": 0.18 if k != "lamp" else (0.32 if float(s.get("lit", 0.0)) > 0.0 else 0.08), "label": _spot_label(k) })
 		elif k in ["city_wall", "rockwall"]:
 			out.append({ "kind": "circle", "x": float(s["x"]), "y": float(s["y"]), "r": float(s.get("r", 160.0)), "color": "#8A8378", "alpha": 0.30 })
 		elif k in ["pillar", "torch", "snake", "door", "bread", "stone", "lantern", "campfire"]:
-			out.append({ "kind": "prop", "x": float(s["x"]), "y": float(s["y"]), "r": float(s.get("r", 10.0)), "color": _spot_color(k), "label": k })
+			out.append({ "kind": "prop", "x": float(s["x"]), "y": float(s["y"]), "r": float(s.get("r", 10.0)), "color": _spot_color(k), "label": _spot_label(k) })
 	for h in hazards:
 		out.append({ "kind": "hazard", "x": float(h["x"]), "y": float(h["y"]), "r": float(h["r"]), "color": "#F0D890", "progress": clampf(1.0 - float(h["t"]) / 1.5, 0.0, 1.0) })
 	for p in pickups:
-		out.append({ "kind": "pickup", "x": float(p["x"]), "y": float(p["y"]), "r": float(p.get("r", 14.0)), "color": "#F3E3A8", "label": String(p["kind"]) })
+		out.append({ "kind": "pickup", "x": float(p["x"]), "y": float(p["y"]), "r": float(p.get("r", 14.0)), "color": "#F3E3A8", "label": "" })
 	if id == "sea_walls":
 		for s in spots:
 			if String(s["kind"]) == "wall":

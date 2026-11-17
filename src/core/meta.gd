@@ -8,7 +8,7 @@ const SAVE_PATH := "user://save.json"
 const SEAL_HP := 0.09
 const SEAL_DMG := 0.06
 const SEAL_RATE := 0.04
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 
 ## ---- 21 阶灾变（七印 1–7 / 七号 8–14 / 七碗 15–21）----
 const TIER_MAX := 21
@@ -47,7 +47,7 @@ var shillings: int = 0
 var levels: Dictionary = {}
 var seals: int = 1
 var selected_seal: int = 1
-var stage_id: String = "elah_valley"
+var stage_id: String = "ch01_eden"
 var runs: int = 0
 var wins: int = 0
 var best_kills: int = 0
@@ -102,7 +102,11 @@ func load_save() -> void:
 	lifetime_kills = int(data.get("lifetime_kills", 0))
 	seals = clampi(int(data.get("seals", 1)), 1, TIER_MAX)
 	selected_seal = clampi(int(data.get("selected_seal", 1)), 1, seals)
-	stage_id = String(data.get("stage_id", "elah_valley"))
+	stage_id = String(data.get("stage_id", "ch01_eden"))
+	# v3 剧情迁移：v1/v2 的默认章节是 elah_valley（第 13 章）。创世篇改为从伊甸开场，
+	# 只把「从未通关且停在旧默认」的老存档拉回第一章；有通关记录的不动，避免打断进度。
+	if int(data.get("version", 1)) < SAVE_VERSION and stage_id == "elah_valley" and wins == 0:
+		stage_id = "ch01_eden"
 	var lv: Dictionary = data.get("levels", {})
 	if typeof(lv) != TYPE_DICTIONARY:
 		lv = {}

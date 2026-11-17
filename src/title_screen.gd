@@ -1,6 +1,6 @@
 extends Control
 ## 标题 / 见证人选择（V3 美术轮）：石刻大字 + 暗金粒子；左栏为选中见证人的立绘预览，
-## 右栏为生命 / 速度 / 起始武器强度三条对比条（UITheme.metal_bar）；底部是 20 人分页选人条。
+## 右栏为生命 / 速度 / 起始武器强度三条对比条（UITheme.metal_bar）；底部是分页选人条（每页 6 人，页数按实际人数算）。
 ## 已解锁可选，未解锁显示条件与灰态；选人后把 character_id 交给营地/单局。
 
 const VIS_COUNT := 6
@@ -41,6 +41,8 @@ var hp_avg: float = 0.0
 var spd_lo: float = 0.0
 var spd_hi: float = 1.0
 var spd_avg: float = 0.0
+## 序章首句（data/intro.json；读不到就留空，不影响标题页与 selftest）
+var prologue_text: String = ""
 var wpn_hi: float = 1.0
 var wpn_avg: float = 0.0
 
@@ -52,6 +54,7 @@ func _ready() -> void:
 	for c in GameData.characters:
 		ids.append(String(c.get("id", "")))
 	_compute_stats()
+	_load_prologue()
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	for a in args:
 		if a == "--shot-title":
@@ -93,7 +96,7 @@ func _ready() -> void:
 		_go(maxi(ids.find(RunCfg.character_id), 0), true)
 		return
 	if GameData.characters.is_empty():
-		RunCfg.character_id = "david"
+		RunCfg.character_id = "adam"
 		get_tree().change_scene_to_file("res://scenes/main.tscn")
 	_ensure_visible()
 
@@ -200,7 +203,7 @@ func _delta_text(v: float, avg: float, decimals: int) -> String:
 # ---------------------------------------------------------------- 操作
 
 func _go(i: int, direct: bool = false) -> void:
-	RunCfg.character_id = String(ids[i]) if i >= 0 and i < ids.size() else "david"
+	RunCfg.character_id = String(ids[i]) if i >= 0 and i < ids.size() else "adam"
 	var target: String = "res://scenes/main.tscn" if direct else "res://scenes/camp.tscn"
 	get_tree().change_scene_to_file.call_deferred(target)
 
@@ -325,7 +328,23 @@ func _draw() -> void:
 	_draw_strip()
 	if notice_t > 0.0:
 		UITheme.text(self, Vector2(24, 347), notice, 10, Color(0.95, 0.74, 0.52, clampf(notice_t, 0.0, 1.0)), 1, 592.0)
+	if prologue_text != "":
+		UITheme.text(self, Vector2(16, 334), prologue_text, 9, Color(0.62, 0.57, 0.44), 1, 608.0)
 	UITheme.text(self, Vector2(0, 357), "← → ↑ ↓ 选择 · Enter 整备出发 · 点击预览 / 再点出发 · V 图鉴 · Esc 退出", 10, Color(0.50, 0.49, 0.44), 1, 640.0)
+
+func _load_prologue() -> void:
+	var f: FileAccess = FileAccess.open("res://data/intro.json", FileAccess.READ)
+	if f == null:
+		return
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	var pro: Dictionary = (parsed as Dictionary).get("prologue", {})
+	var lines: Array = pro.get("lines", [])
+	if lines.is_empty():
+		return
+	prologue_text = String(lines[0])
 
 func _draw_background() -> void:
 	draw_rect(Rect2(0, 0, 640, 360), UITheme.INK_DEEP, true)
@@ -396,16 +415,20 @@ func _draw_left_panel(i: int) -> void:
 	var tw: float = LEFT_X + LEFT_W - tx - 12.0
 	var ok: bool = _selectable(i)
 	var w: Dictionary = _weapon_info(String(c.get("weapon", "")))
-	UITheme.text(self, Vector2(tx, 147), UIText.clip(String(c.get("name", "?")), 6), 15, UITheme.PARCH if ok else Color(0.56, 0.54, 0.50), 0, tw)
+	UITheme.text(self, Vector2(tx, 147), UIText.clip(String(c.get("name", "?")), 6), 16, UITheme.PARCH if ok else Color(0.56, 0.54, 0.50), 0, tw)
 	UITheme.text(self, Vector2(tx, 163), String(c.get("scripture", "")), 10, Color(0.63, 0.58, 0.44), 0, tw)
 	UITheme.text(self, Vector2(tx, 178), "起始 · " + UIText.clip(String(w["name"]), 6), 10, Color(0.74, 0.76, 0.64) if ok else Color(0.48, 0.49, 0.46), 0, tw)
 	UITheme.text(self, Vector2(tx, 192), "强度 %.1f · %s" % [float(w["score"]), String(w["kind"])], 10, Color(0.70, 0.66, 0.52) if ok else Color(0.46, 0.46, 0.43), 0, tw)
-	draw_multiline_string(f, Vector2(LEFT_X + 10.0, 240.0), String(c.get("desc", "")), HORIZONTAL_ALIGNMENT_LEFT, LEFT_W - 20.0, 10, 3, Color(0.77, 0.74, 0.65) if ok else Color(0.55, 0.54, 0.51))
+	# 文字列下方的空档（192..224）用「金线 + 小标题」分隔，避免大块留白把三级信息摊平
+	UITheme.divider(self, tx, LEFT_X + LEFT_W - 12.0, 204.0, 0.55)
+	UITheme.text(self, Vector2(tx, 216.0), "经 卷 小 传", 9, Color(0.58, 0.55, 0.44), 0, tw)
+	# 简介：10px，行距 13（236/249/262 → 墨迹止于 262），人像 128..224、状态行 280 都不压
+	draw_multiline_string(f, Vector2(LEFT_X + 10.0, 236.0), String(c.get("desc", "")), HORIZONTAL_ALIGNMENT_LEFT, LEFT_W - 20.0, 10, 3, Color(0.79, 0.76, 0.67) if ok else Color(0.55, 0.54, 0.51))
 	if ok:
-		UITheme.text(self, Vector2(LEFT_X + 10.0, 280.0), "已解锁 · Enter 出发", 10, Color(0.60, 0.84, 0.58), 0, LEFT_W - 20.0)
+		UITheme.text(self, Vector2(LEFT_X + 10.0, 280.0), "已解锁 · Enter 出发", 11, Color(0.62, 0.86, 0.60), 0, LEFT_W - 20.0)
 	else:
 		var cond: String = UIText.character_unlock_text(c)
-		UITheme.text(self, Vector2(LEFT_X + 10.0, 280.0), "未解锁 · " + UIText.clip(cond, 19), 10, Color(0.86, 0.55, 0.44), 0, LEFT_W - 20.0)
+		UITheme.text(self, Vector2(LEFT_X + 10.0, 280.0), "未解锁 · " + UIText.clip(cond, 19), 11, Color(0.88, 0.57, 0.46), 0, LEFT_W - 20.0)
 
 func _draw_right_panel(i: int) -> void:
 	var c: Dictionary = _char(i)
@@ -414,8 +437,8 @@ func _draw_right_panel(i: int) -> void:
 	var f: Font = GameFont.get_font()
 	draw_line(Vector2(258, 130), Vector2(258, 276), Color(UITheme.GOLD.r, UITheme.GOLD.g, UITheme.GOLD.b, 0.22), 1.0)
 	UITheme.panel(self, Rect2(RIGHT_X, PANEL_Y, RIGHT_W, PANEL_H), 1.0, true)
-	UITheme.text(self, Vector2(RIGHT_X + 14.0, 138), "天 资 对 照", 12, UITheme.GOLD_PALE, 0, -1.0)
-	UITheme.text(self, Vector2(RIGHT_X + 160.0, 138), "金色竖线 = 20 人均值", 10, Color(0.52, 0.50, 0.42), 2, RIGHT_W - 174.0)
+	UITheme.text(self, Vector2(RIGHT_X + 14.0, 138), "天 资 对 照", 13, UITheme.GOLD_PALE, 0, -1.0)
+	UITheme.text(self, Vector2(RIGHT_X + 160.0, 138), "金色竖线 = %d 人均值" % ids.size(), 10, Color(0.52, 0.50, 0.42), 2, RIGHT_W - 174.0)
 	var hp: float = float(c.get("hp", 0))
 	var spd: float = float(c.get("speed", 0))
 	var w: Dictionary = _weapon_info(String(c.get("weapon", "")))
@@ -424,7 +447,7 @@ func _draw_right_panel(i: int) -> void:
 	_stat_row(176, "速度", _spd_ratio(spd), _low_high(spd_avg, spd_lo, spd_hi), "%d  %s" % [int(spd), _delta_text(spd, spd_avg, 0)], UITheme.OLIVE)
 	_stat_row(202, "武器", _wpn_ratio(wpn), _wpn_ratio(wpn_avg), "%.1f  %s" % [wpn, _delta_text(wpn, wpn_avg, 1)], UITheme.GOLD)
 	UITheme.divider(self, RIGHT_X + 14.0, RIGHT_X + RIGHT_W - 14.0, 218.0, 0.6)
-	UITheme.text(self, Vector2(RIGHT_X + 14.0, 234), "起始武器 · %s · %s" % [String(w["name"]), String(w["kind"])], 10, Color(0.74, 0.76, 0.64), 0, RIGHT_W - 28.0)
+	UITheme.text(self, Vector2(RIGHT_X + 14.0, 234), "起始武器 · %s · %s" % [String(w["name"]), String(w["kind"])], 11, Color(0.76, 0.78, 0.66), 0, RIGHT_W - 28.0)
 	var perk: String = UIText.perk_text(c.get("perk", {}), 2)
 	if perk != "":
 		draw_multiline_string(f, Vector2(RIGHT_X + 14.0, 250.0), perk, HORIZONTAL_ALIGNMENT_LEFT, RIGHT_W - 28.0, 10, 2, Color(0.77, 0.75, 0.65))
@@ -536,9 +559,12 @@ func _draw_slot(r: Rect2, i: int) -> void:
 	if on:
 		draw_rect(Rect2(r.position.x, r.position.y - 3.0, r.size.x, 2.0), UITheme.GOLD_BRIGHT, true)
 	var name_c := UITheme.PARCH if ok else Color(0.53, 0.52, 0.49)
-	UITheme.text(self, Vector2(r.position.x, r.position.y + 17.0), UIText.clip(String(c.get("name", "?")), 6), 11, name_c, 1, r.size.x)
+	# 槽卡内页：顶沿高光 + 底沿内阴影，名字 12px / 武器 10px 两级（行距 15）
+	draw_rect(Rect2(r.position.x + 1.0, r.position.y + 1.0, r.size.x - 2.0, 1.0), Color(UITheme.GOLD_PALE.r, UITheme.GOLD_PALE.g, UITheme.GOLD_PALE.b, 0.07), true)
+	draw_rect(Rect2(r.position.x + 1.0, r.end.y - 2.0, r.size.x - 2.0, 1.0), Color(0, 0, 0, 0.30), true)
+	UITheme.text(self, Vector2(r.position.x, r.position.y + 18.0), UIText.clip(String(c.get("name", "?")), 6), 12, name_c, 1, r.size.x)
 	var w: Dictionary = _weapon_info(String(c.get("weapon", "")))
-	UITheme.text(self, Vector2(r.position.x, r.position.y + 32.0), UIText.clip(String(w["name"]), 8), 10, Color(0.63, 0.64, 0.55) if ok else Color(0.43, 0.43, 0.41), 1, r.size.x)
+	UITheme.text(self, Vector2(r.position.x, r.position.y + 33.0), UIText.clip(String(w["name"]), 8), 10, Color(0.63, 0.64, 0.55) if ok else Color(0.43, 0.43, 0.41), 1, r.size.x)
 	if not ok:
 		UITheme.text(self, Vector2(r.position.x + r.size.x - 20.0, r.position.y + 13.0), "锁", 10, Color(0.72, 0.46, 0.38), 0, -1.0)
 	if Meta.is_awakened(String(c.get("id", ""))):

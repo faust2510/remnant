@@ -6,8 +6,28 @@ extends RefCounted
 const CAPACITY := 2400
 const MAX_QUERY := 512
 
+## V5 远程白名单：只有这三种保留远程攻击，其余 behavior=ranged 的敌人一律降级为追击/碰撞。
+## 数值相对旧默认（shoot_cd 2.6 / shot_speed 150 / shot_damage 6 / keep_dist 110）整体下调：
+## 射得更慢、弹飞得更慢、伤害更低，配合 run.gd 的同屏敌弹硬上限，把画面从"一片弹幕"压到"偶尔几发"。
+## data/ 不改：这些键在 enemies.json 里本来就不存在，覆盖只在代码里生效，后加数据也不会被抹掉。
+const RANGED_WHITELIST := {
+	"archer": {"keep_dist": 132.0, "shoot_cd": 4.8, "count": 1, "spread_deg": 0.0,
+		"shot_speed": 126.0, "shot_damage": 4.0},
+	"star_ember": {"keep_dist": 118.0, "shoot_cd": 5.2, "count": 1, "spread_deg": 0.0,
+		"shot_speed": 118.0, "shot_damage": 4.0},
+	"pharaoh_sorcerer": {"keep_dist": 142.0, "shoot_cd": 6.2, "count": 2, "spread_deg": 20.0,
+		"shot_speed": 108.0, "shot_damage": 4.0},
+}
+
 var types: Array = []          # 类型定义（GameData.enemies 的有序数组）
 var type_ids: Array = []       # 与 types 对应的 id 字符串
+## 每类敌人「本局实际行为」：V5 远程白名单在 setup 里把非白名单的 ranged 降级为追击，
+## 循环里只读这张表，不再每帧回看 data 的 behavior。
+var behaviors: PackedStringArray
+## 远程参数表（按类型索引）：只有白名单命中时非空，循环里不再回看 data 的 behavior / 射击键。
+var ranged_cfg: Array = []
+## 本局被降级成追击的远程类型 id（--verbose 审计用：数据里写 ranged 但不在白名单）
+var downgraded: Array = []
 
 var count: int = 0
 var px: PackedFloat32Array
@@ -55,6 +75,10 @@ var query_buf: PackedInt32Array
 # 敌人投射物请求队列：每 5 个 float 一枚 [x, y, vx, vy, dmg]
 var shot_queue: PackedFloat32Array
 var shot_count: int = 0
+## V5 敌弹统计（--verbose 用，不影响模拟与随机流）：共排队几发 / 按来源类型分类
+var emit_count: int = 0
+var emit_by_type: Dictionary = {}
+
 # 召唤请求：每 3 个 float [x, y, type_index]
 var summon_queue: PackedFloat32Array
 var summon_count: int = 0
@@ -106,8 +130,26 @@ var affix_enabled: bool = true
 func setup(type_defs: Array) -> void:
 	types = type_defs
 	type_ids = []
-	for t in types:
-		type_ids.append(String(t["id"]))
+	behaviors.resize(types.size())
+	ranged_cfg.resize(types.size())
+	downgraded = []
+	for k in range(types.size()):
+		var t: Dictionary = types[k]
+		var tid: String = String(t["id"])
+		type_ids.append(tid)
+		behaviors[k] = String(t.get("behavior", "chase"))
+		ranged_cfg[k] = {}
+		if behaviors[k] == "ranged":
+			if RANGED_WHITELIST.has(tid):
+				var ov: Dictionary = RANGED_WHITELIST[tid]
+				var cfg: Dictionary = {}
+				for key in ov.keys():
+					cfg[key] = ov[key]
+				ranged_cfg[k] = cfg
+			else:
+				# V5：非白名单远程 → 只追击 / 碰撞伤害（raven 的 dive 行为不在这里，保持原样）
+				behaviors[k] = "chase"
+				downgraded.append(tid)
 	px.resize(CAPACITY); py.resize(CAPACITY); vx.resize(CAPACITY); vy.resize(CAPACITY)
 	hp.resize(CAPACITY); max_hp.resize(CAPACITY); spd.resize(CAPACITY); dmg.resize(CAPACITY)
 	rad.resize(CAPACITY); typ.resize(CAPACITY); flash.resize(CAPACITY); armor_shred.resize(CAPACITY)
@@ -137,10 +179,14 @@ func setup(type_defs: Array) -> void:
 	killed.resize(512)
 	deaths = []
 	count = 0
+	emit_count = 0
+	emit_by_type = {}
 
 func clear() -> void:
 	count = 0
 	shot_count = 0
+	emit_count = 0
+	emit_by_type = {}
 	summon_count = 0
 	killed_count = 0
 	deaths.clear()
@@ -219,6 +265,10 @@ func is_elite(i: int) -> bool:
 
 func is_boss(i: int) -> bool:
 	return String(types[typ[i]].get("behavior", "")) == "boss"
+
+## 本局实际行为是否远程（V5 白名单生效后，非白名单的 ranged 已降级为追击）
+func is_ranged(i: int) -> bool:
+	return i >= 0 and i < count and behaviors[typ[i]] == "ranged"
 
 func _record_death(i: int) -> void:
 	var t: Dictionary = types[typ[i]]
@@ -337,7 +387,7 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 	var i: int = 0
 	while i < count:
 		var t: Dictionary = types[typ[i]]
-		var beh: String = String(t.get("behavior", "chase"))
+		var beh: String = behaviors[typ[i]]
 
 		# ---- 状态衰减
 		if flash[i] > 0.0:
@@ -384,15 +434,16 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 		# ---- 行为
 		match beh:
 			"ranged":
-				var keep: float = float(t.get("keep_dist", 110))
+				var rc: Dictionary = ranged_cfg[typ[i]]
+				var keep: float = float(rc.get("keep_dist", 130))
 				var dir: float = 1.0 if dist > keep else -1.0
 				if blind_t[i] <= 0.0:
 					vx[i] = dx / dist * speed * dir
 					vy[i] = dy / dist * speed * dir
 					timer[i] -= delta
 					if timer[i] <= 0.0 and dist < keep * 2.2:
-						timer[i] = float(t.get("shoot_cd", 2.6))
-						_emit_fan(i, t, dx / dist, dy / dist, dist)
+						timer[i] = float(rc.get("shoot_cd", 4.8))
+						_emit_fan(i, rc, dx / dist, dy / dist, dist)
 				else:
 					vx[i] = 0.0
 					vy[i] = 0.0
@@ -455,7 +506,7 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 						var ring: int = 10
 						for k in range(ring):
 							var a: float = TAU * float(k) / float(ring) + rng.randf() * 0.2
-							_emit_shot(px[i], py[i], cos(a), sin(a), 130.0, 9.0)
+							_emit_shot(px[i], py[i], cos(a), sin(a), 130.0, 9.0, "boss_fallback")
 			_:
 				vx[i] = dx / dist * speed
 				vy[i] = dy / dist * speed
@@ -490,22 +541,24 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 	return contact
 
 ## 远程敌人通用齐射：count / spread_deg / shot_speed / shot_damage 全部可以只靠数据表达。
-## 数据没写这些键时，退化成原来的单发直射，老敌人行为不变。
+## V5 起白名单远程的参数来自 RANGED_WHITELIST（经 setup 写进 ranged_cfg），不再读 data 的同名键；
+## 传入的 t 永远是 ranged_cfg 里那一份，缺键时才退化成代码默认（单发直射 / 126 速 / 4 伤）。
 func _emit_fan(i: int, t: Dictionary, dxn: float, dyn: float, dist: float) -> void:
 	var n: int = maxi(int(t.get("count", 1)), 1)
-	var spread: float = deg_to_rad(float(t.get("spread_deg", 12.0)))
-	var spd: float = float(t.get("shot_speed", 150))
-	var dmg_out: float = float(t.get("shot_damage", 6))
+	var spread: float = deg_to_rad(float(t.get("spread_deg", 0.0)))
+	var spd: float = float(t.get("shot_speed", 126))
+	var dmg_out: float = float(t.get("shot_damage", 4))
 	var keep: float = float(t.get("keep_dist", 110))
 	if dist > keep * 2.2:
 		return
+	var src: String = type_ids[typ[i]]
 	for k in range(n):
 		var off: float = 0.0
 		if n > 1:
 			off = (float(k) - float(n - 1) * 0.5) * spread
 		var ca: float = cos(off)
 		var sa: float = sin(off)
-		_emit_shot(px[i], py[i], dxn * ca - dyn * sa, dxn * sa + dyn * ca, spd, dmg_out)
+		_emit_shot(px[i], py[i], dxn * ca - dyn * sa, dxn * sa + dyn * ca, spd, dmg_out, src)
 
 # ---------------------------------------------------------------- 击杀 / 危害 / 精英
 
@@ -620,15 +673,16 @@ func _tick_affix(i: int, fl: int, delta: float, ppos: Vector2, dx: float, dy: fl
 					var a2: float = rng.randf() * TAU
 					_emit_summon(px[i] + cos(a2) * 34.0, py[i] + sin(a2) * 34.0, ti)
 		elif fl & AFFIX_QUAKE != 0:
-			affix_t[i] = 4.5
-			for k in range(8):
-				var a3: float = rng.randf() * TAU + TAU * float(k) / 8.0
-				_emit_shot(px[i], py[i], cos(a3), sin(a3), 62.0, 5.0)
+			# V5：精英「震地 / 环形」也降压（更慢、更少），弹幕主要表现在 BOSS 与白名单远程身上
+			affix_t[i] = 6.0
+			for k in range(5):
+				var a3: float = rng.randf() * TAU + TAU * float(k) / 5.0
+				_emit_shot(px[i], py[i], cos(a3), sin(a3), 58.0, 4.0, type_ids[typ[i]])
 		elif fl & AFFIX_RING != 0:
-			affix_t[i] = 4.0
-			for k in range(6):
-				var a4: float = TAU * float(k) / 6.0
-				_emit_shot(px[i], py[i], cos(a4), sin(a4), 80.0, 6.0)
+			affix_t[i] = 5.5
+			for k in range(4):
+				var a4: float = TAU * float(k) / 4.0
+				_emit_shot(px[i], py[i], cos(a4), sin(a4), 72.0, 5.0, type_ids[typ[i]])
 		elif fl & AFFIX_PILLAR != 0:
 			affix_t[i] = 5.0
 			add_hazard(ppos.x, ppos.y, 44.0, 7.0, 1.4, 0.5, "pillar", Color("#E0731A"), 0.65)
@@ -670,7 +724,7 @@ func indices_in_circle(cx: float, cy: float, radius: float) -> PackedInt32Array:
 		out[k] = query_buf[k]
 	return out
 
-func _emit_shot(x: float, y: float, dx: float, dy: float, speed: float, dmg_out: float) -> void:
+func _emit_shot(x: float, y: float, dx: float, dy: float, speed: float, dmg_out: float, src: String = "") -> void:
 	if shot_count >= 512:
 		return
 	var o: int = shot_count * 5
@@ -678,6 +732,9 @@ func _emit_shot(x: float, y: float, dx: float, dy: float, speed: float, dmg_out:
 	shot_queue[o + 2] = dx * speed; shot_queue[o + 3] = dy * speed
 	shot_queue[o + 4] = dmg_out
 	shot_count += 1
+	# 统计只写计数，不消耗 rng：同 seed 的模拟结果逐位不变
+	emit_count += 1
+	emit_by_type[src] = int(emit_by_type.get(src, 0)) + 1
 
 func _emit_summon(x: float, y: float, ti: int) -> void:
 	if summon_count >= 256:

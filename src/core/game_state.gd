@@ -11,7 +11,19 @@ const BASE_WEAPON_SLOTS := 4
 ## 与果子共用这 4 格，但另有 4 件的上限，防止全是宝物把祝圣必需的果子挤光。
 const BASE_PASSIVE_SLOTS := 4
 const BASE_TREASURE_SLOTS := 4
-const XP_BASE := 8.0
+## 经验曲线对齐 VS：VS 原式 = XP_BASE + XP_STEP*(level-1)，即 1→2 级 5 点、之后每级 +10
+## （Lv10 需 95、Lv30 需 295、Lv45 需 445），取代旧的 8*1.13^n 指数曲线。
+## 本项目只保留 VS 的「线性 + 」形状并做两处校准（数据见 docs/数值-VS对齐.md）：
+## 1) 早期比 VS 略便宜（Lv2 需 7 点）：本局的唯一续航是升级回血（run.gd level_heal 15%），
+##    而 elah_valley 在 90-240s 会叠到 20-137 只同屏，箭矢 0.5-1 点/秒的细水长流必须在
+##    升级节奏里被抵消，否则 4 分钟必被磨死（实测曲线太陡会死在 t≈240）。
+## 2) 晚段加二次项 XP_LATE：本局击杀量约 1 万（VS 同长度约 3 千），纯线性会一路升到 66 级。
+##    二次项在 10 级内几乎为 0，20 级后把需求拉开，整局落在 30-45 级。
+## 曲线 = XP_BASE + XP_STEP*(level-1) + XP_LATE*(level-1)^2。
+const XP_BASE := 3.0
+const XP_STEP := 4.0
+const XP_LATE := 0.62
+## 旧指数曲线参数：仅留作外部引用兼容，局内经验不再使用。
 const XP_GROWTH := 1.13
 
 ## 成全（Ascend）永久倍率：成全瞬间一次性算好，整包写进武器字典 entry["ascend_params"]，
@@ -34,6 +46,8 @@ var stage_cd: float = 1.0         # 营地永久强化，由 Meta.bonus() 提供
 var armor: Array = []              # 全副军装：精英战利品，不占被动槽、不进升级池、不参与祝圣配方
 ## 圣物：局外用 Meta.unlock_relic 解锁，局内整局生效。这里只是 Meta.relics 的只读镜像。
 var relics: Array = []
+## 常备祝福：解锁池抽空后，升级仍能领受的通用数值（{id: 次数}）。不占槽位、不进图鉴。
+var blessings: Dictionary = {}
 ## 觉醒缓存：-1 未查过 / 0 未觉醒 / 1 已觉醒（3 印通关后由 Meta.awakened_ids 点亮）
 var _awakened: int = -1
 
@@ -56,6 +70,7 @@ func setup(character_id: String, bonus: Dictionary = {}, relic_ids: Array = []) 
 	weapons = []
 	passives = []
 	armor = []
+	blessings = {}
 	consumed_weapons = {}
 	level = 1
 	xp = 0.0
@@ -510,6 +525,17 @@ func recompute() -> void:
 	s["level_heal"] = float(s["level_heal"]) + float(s["level_heal_bonus"])
 	s["pickup_radius"] *= 1.0 + float(s["pickup_bonus"])
 
+	# 常备祝福（领受保底）：解锁池抽空后升级不再空白，按累积次数加通用数值
+	for bid in blessings.keys():
+		var cnt: float = float(int(blessings[bid]))
+		match String(bid):
+			"b_damage": _apply_stat(s, "damage_pct", 0.08 * cnt)
+			"b_cd": _apply_stat(s, "cooldown", 0.06 * cnt)
+			"b_speed": _apply_stat(s, "move_speed", 0.06 * cnt)
+			"b_hp": _apply_stat(s, "max_hp", 6.0 * cnt)
+			"b_area": _apply_stat(s, "area_pct", 0.07 * cnt)
+			"b_xp": _apply_stat(s, "xp_gain", 0.10 * cnt)
+
 	# ---- 镜像：weapon_runner / run.gd 只认旧键，新键必须同步回旧键 ----
 	s["area_mult"] = float(s["area_mult"]) * (1.0 + float(s["area_pct"]))
 	s["proj_speed_mult"] = float(s["proj_speed_mult"]) * float(s["projectile_speed"])
@@ -544,6 +570,14 @@ func recompute() -> void:
 	# 成全写进 entry["ascend_params"] 的永久参数因此不会被 recompute 重置。
 	stats = s
 	stats_changed.emit()
+
+
+## 领受一件常备祝福（解锁池抽空时的兜底）：只累加次数并重算属性。
+func add_blessing(bid: String) -> void:
+	if bid == "":
+		return
+	blessings[bid] = int(blessings.get(bid, 0)) + 1
+	recompute()
 
 
 ## 被动 / 宝物 / 军装共用的属性累加（都是 {id, level}；kind 只决定它算不算宝物，不影响计算）
@@ -635,7 +669,8 @@ func add_xp(amount: float) -> int:
 		xp -= xp_need
 		level += 1
 		gained += 1
-		xp_need = XP_BASE * pow(XP_GROWTH, float(level - 1))
+		var lv_steps: float = float(level - 1)
+		xp_need = XP_BASE + XP_STEP * lv_steps + XP_LATE * lv_steps * lv_steps
 	return gained
 
 func xp_progress() -> float:

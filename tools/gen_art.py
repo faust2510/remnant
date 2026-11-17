@@ -2,7 +2,7 @@
 """V4 图集合成器。
 
 把各 agent 产出的单角色条带合成整张图集：
-    tools/out/wit_<id>.png   (48 x 384)  -> assets/sprites/witnesses.png  (384 x 960)
+    tools/out/wit_<id>.png   (384 x 48)  -> assets/sprites/witnesses.png  (384 x 1056, 22 行)
     tools/out/enemy_<id>.png (192 x 32)  -> assets/sprites/enemies.png    (192 x 256) x 8 行 = 192x256? 见下
 
 enemies 每行 6 帧 x 32 = 192 宽，8 行 -> 192 x 256。

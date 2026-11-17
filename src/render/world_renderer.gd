@@ -4,6 +4,8 @@ extends Node2D
 ## 敌人 / 投射物 / 宝石 / 区域 / 特效全部在这里用 draw_* 一次性画完。
 
 var run: Node = null
+## 战斗特效层（震动 / 粒子 / 光柱 / 暗角）。纯渲染：不写 sim 字段、不碰 rng、不加载纹理。
+var _fx: CombatFx = CombatFx.new()
 
 const GEM_COLORS := [Color("#7FE0C0"), Color("#F0D890"), Color("#F07A9A")]
 const VIEW := Vector2(640, 360)
@@ -65,9 +67,19 @@ func _process(delta: float) -> void:
 	_dt = clampf(delta, 0.001, 0.05)
 	# 世界层隐藏时（--sim / 截图快进）不推进任何视觉粒子：模拟路径零开销
 	if visible and run != null:
-		_update_sparks(_dt)
+		var lvl: int = _fx.level()
+		# fx<2 连火把火星都不推进：ambient 粒子在高档才有
+		if lvl >= 2:
+			_update_sparks(_dt)
 		_tick_corpses(_dt)
 		_update_hit_fx(_dt)
+		# 暂停时特效冻结（震动停在最后偏移，粒子不动），恢复后继续
+		if not bool(run.get("paused")):
+			_fx.update(_dt, run)
+		# 屏幕震动只平移世界层的绘制，不动 cam、不动 sim 状态
+		position = _fx.world_offset()
+	else:
+		position = Vector2.ZERO
 	queue_redraw()
 
 func _draw() -> void:
@@ -81,12 +93,32 @@ func _draw() -> void:
 	_draw_mechanics()
 	_draw_enemies()
 	_draw_corpses()
+	_draw_fx_particles()
 	_draw_shots()
 	_draw_hit_fx()
 	_draw_fx()
 	_draw_hazard_fx()
+	_draw_fx_pillar()
 	_draw_player()
 	_draw_damage_numbers()
+	_draw_fx_screen()
+
+# ---------------- 战斗特效层（src/render/fx.gd）绘制桥：世界坐标、纯几何、零纹理 ----------------
+
+func _draw_fx_particles() -> void:
+	var lvl: int = _fx.level()
+	if lvl <= 0:
+		return
+	_fx.draw_debris(self, lvl)     # fx=2：死亡碎裂块
+	_fx.draw_dust(self, lvl)       # fx>=1：命中尘土
+	_fx.draw_pickup(self, lvl)     # fx=2：拾取上浮光点
+	_fx.draw_rings(self, lvl)      # fx=2：精英/BOSS 死亡白环
+
+func _draw_fx_pillar() -> void:
+	_fx.draw_pillar(self, _fx.level())    # fx=2：升级金柱（画在玩家之下）
+
+func _draw_fx_screen() -> void:
+	_fx.draw_screen(self, _fx.level(), _view_rect())   # fx=2：白闪 + BOSS 暗角脉冲
 
 func _draw_ground() -> void:
 	var p: Vector2 = run.player_pos()
@@ -732,11 +764,12 @@ func _draw_player() -> void:
 			var py2: float = float(pt["y"])
 			draw_circle(Vector2(px2, py2), float(pt["size"]) * 0.9, Color(c.r, c.g, c.b, 0.2))
 			draw_circle(Vector2(px2, py2), float(pt["size"]) * 0.55, Color(c.r, c.g, c.b, 0.9))
-	for s in _sparks:
-		var sa: float = clampf(float(s["life"]) / SPARK_LIFE, 0.0, 1.0)
-		if sa <= 0.01:
-			continue
-		draw_circle(Vector2(float(s["x"]), float(s["y"])), float(s["r"]) * (0.55 + 0.55 * sa), Color(1.0, 0.58 + 0.2 * sa, 0.20, 0.5 * sa))
+	if _fx.level() >= 2:
+		for s in _sparks:
+			var sa: float = clampf(float(s["life"]) / SPARK_LIFE, 0.0, 1.0)
+			if sa <= 0.01:
+				continue
+			draw_circle(Vector2(float(s["x"]), float(s["y"])), float(s["r"]) * (0.55 + 0.55 * sa), Color(1.0, 0.58 + 0.2 * sa, 0.20, 0.5 * sa))
 
 ## 未收录图集（或图集缺失）的见证人：大卫的旧几何回退
 func _draw_player_proc(p: Vector2) -> void:
@@ -1154,7 +1187,7 @@ func _hash2(x: int, y: int) -> int:
 	h = h ^ (h >> 17)
 	return h & 0x7FFFFFFFFFFF
 
-## 相机可视的世界矩形：Camera2D 以玩家为中心，zoom 取当前值（1.35）
+## 相机可视的世界矩形：Camera2D 以玩家为中心，zoom 取当前值（run.CAM_ZOOM = 1.0，动态读，不写死）
 func _view_rect() -> Rect2:
 	var c: Vector2 = run.player_pos()
 	var z: float = 1.0
@@ -1302,12 +1335,38 @@ func _harvest_corpses() -> void:
 			# 视口外的「消失」是镜头平移，不是死亡：别浪费尸体配额
 			if not view.has_point(Vector2(v.x, v.y)):
 				continue
-			_add_corpse(v.x, v.y, int(v.z))
+			var typ: int = int(v.z)
+			# 死亡事件交给特效层：抖动走 fx 自己的 _hash2，不用 rng，sim 结果不变
+			_fx.on_enemy_death(v.x, v.y, _enemy_color(typ), _enemy_elite(typ), _enemy_is_boss(typ))
+			if _fx.level() >= 2:
+				_add_corpse(v.x, v.y, typ)
 	# 双缓冲交换（复用 Dictionary 对象，避免每帧新建）
 	var t: Dictionary = _alive_prev
 	_alive_prev = _alive_cur
 	_alive_cur = t
 	_alive_cur.clear()
+
+
+## 敌人类型字典里的展示属性（只读 e.types，不新增字段）
+func _enemy_color(typ: int) -> Color:
+	var e = run.get("enemies")
+	if e != null and typ >= 0 and typ < e.types.size():
+		return Color(String((e.types[typ] as Dictionary).get("color", "#8A7F6D")))
+	return Color("#8A7F6D")
+
+
+func _enemy_elite(typ: int) -> bool:
+	var e = run.get("enemies")
+	if e != null and typ >= 0 and typ < e.types.size():
+		return bool((e.types[typ] as Dictionary).get("elite", false))
+	return false
+
+
+func _enemy_is_boss(typ: int) -> bool:
+	var e = run.get("enemies")
+	if e != null and typ >= 0 and typ < e.types.size():
+		return String((e.types[typ] as Dictionary).get("behavior", "")) == "boss"
+	return false
 
 
 func _add_corpse(x: float, y: float, typ: int) -> void:
@@ -1329,7 +1388,7 @@ func _tick_corpses(delta: float) -> void:
 
 
 func _draw_corpses() -> void:
-	if _corpses.is_empty():
+	if _corpses.is_empty() or _fx.level() < 2:
 		return
 	var e: EnemySim = run.enemies
 	var tex: Texture2D = _enemy_tex()
@@ -1406,12 +1465,22 @@ func _update_hit_fx(delta: float) -> void:
 		if not (ev is Dictionary):
 			continue
 		var d: Dictionary = ev
-		_spawn_hit_fx(float(d.get("x", 0.0)), float(d.get("y", 0.0)) - 4.0, bool(d.get("crit", false)))
+		# 游标照常前进（事件照常消费），fx=0 只是不生成任何视觉粒子
+		if _fx.level() < 1:
+			continue
+		var hx: float = float(d.get("x", 0.0))
+		var hy: float = float(d.get("y", 0.0)) - 4.0
+		var hc: bool = bool(d.get("crit", false))
+		_spawn_hit_fx(hx, hy, hc)
+		_fx.on_hit(hx, hy, hc)
 
 
 func _spawn_hit_fx(x: float, y: float, crit: bool) -> void:
 	var base: Color = Color("#FFE9A8") if crit else Color("#F0D890")
+	# fx=1 数量减半（5→2 / 3→1）；fx=0 调用方已挡，不会有火花
 	var cnt: int = 5 if crit else 3
+	if _fx.level() < 2:
+		cnt = 2 if crit else 1
 	var h: int = _hash2(int(x), int(y))
 	for k in range(cnt):
 		if _hit_fx.size() >= HIT_FX_MAX:
@@ -1428,7 +1497,7 @@ func _spawn_hit_fx(x: float, y: float, crit: bool) -> void:
 
 
 func _draw_hit_fx() -> void:
-	if _hit_fx.is_empty():
+	if _hit_fx.is_empty() or _fx.level() < 1:
 		return
 	for h in _hit_fx:
 		var a: float = clampf(float(h["life"]) / HIT_FX_LIFE, 0.0, 1.0)

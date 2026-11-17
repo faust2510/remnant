@@ -1,8 +1,16 @@
 extends Node2D
 ## 单局流程：以拉谷。把模拟层接到渲染层与 UI 层，负责刷怪、掉落、祭坛、BOSS。
 
-const DEFAULT_CHARACTER := "david"
-const DEFAULT_STAGE := "elah_valley"
+const DEFAULT_CHARACTER := "adam"
+const DEFAULT_STAGE := "ch01_eden"
+const BLESSING_DEFS := [
+	{"id": "b_damage", "name": "刚强的灵", "tag": "常备祝福", "desc": "武器伤害 +8%（可重复领受）", "scripture": "赛 11:2", "color": "#E0B85A"},
+	{"id": "b_cd", "name": "敏捷的手", "tag": "常备祝福", "desc": "全部冷却 -6%（可重复领受）", "scripture": "诗 18:34", "color": "#C9A66B"},
+	{"id": "b_speed", "name": "快如母鹿", "tag": "常备祝福", "desc": "移动速度 +6%（可重复领受）", "scripture": "诗 18:34", "color": "#B8C4A8"},
+	{"id": "b_hp", "name": "生命的泉源", "tag": "常备祝福", "desc": "生命上限 +6（可重复领受）", "scripture": "箴 14:27", "color": "#C98A6B"},
+	{"id": "b_area", "name": "宽阔之地", "tag": "常备祝福", "desc": "范围 +7%（可重复领受）", "scripture": "诗 18:19", "color": "#9FB8C8"},
+	{"id": "b_xp", "name": "明光照眼", "tag": "常备祝福", "desc": "经验获取 +10%（可重复领受）", "scripture": "诗 19:8", "color": "#E0D8B8"},
+];
 const VIEW := Vector2(640, 360)
 
 var character_id: String = DEFAULT_CHARACTER
@@ -135,7 +143,30 @@ var shot_pause: bool = false     # --shot-pause：拍暂停菜单（先开暂停
 var shot_fast: int = 1
 var shot_modal: bool = false
 
-const CAM_ZOOM := 1.35
+## V5 视野拉远：1.35 → 1.0。窗口 1280x720 对 640x360 视口是整数 2x，
+## zoom=1.0 时 1 世界像素恰好落在 2x2 屏幕像素上（最锐利，移动不抖）。
+const CAM_ZOOM := 1.0
+## 运行期缩放：--zoom= 可覆盖（三档对比截图用）；相机与出生环都读它。
+var cam_zoom: float = CAM_ZOOM
+## V5 敌弹配额：全场敌弹（白名单远程 + 精英词条 + BOSS 技能弹）共用这一同屏上限。
+## 纯逻辑、不消耗 rng，因此 --sim 的确定性不受影响。
+const HOSTILE_BULLET_CAP := 18
+## 刷怪密度闸（详见 _spawner）：击杀数与同屏规模向 VS 靠拢，0.55 由 --sim 校准。
+const SPAWN_RATE_SCALE := 0.55
+const SPAWN_ALIVE_SCALE := 0.55
+const SPAWN_ALIVE_MIN := 120
+## 击杀密度减半后经验也要跟上（否则第 13 章会因等级不足在 7 分钟阵亡）。
+## 1.4 = 0.55 密度 × 1.4 ≈ 原经验产出的 0.77，终局等级落在 L33-L38 区间。
+const GEM_XP_SCALE := 1.4
+## 同屏敌弹硬上限（可在命令行覆盖：--bullet-cap=N，0 表示不限）。
+## 超限的排队弹在落地前丢弃，因此不会白耗实体池，也不会造成"远处看不见的弹"。
+var bullet_cap: int = HOSTILE_BULLET_CAP
+## --verbose：把敌弹量化统计写进 --sim 日志（默认关闭，不参与模拟）
+var verbose: bool = false
+var enemy_bullets_spawned: int = 0
+var enemy_bullets_dropped: int = 0
+var enemy_bullets_peak: int = 0
+var enemy_bullets_peak_at: float = 0.0
 var rng := RandomNumberGenerator.new()
 ## 纯表现随机（震屏抖动 / 音效音高）：独立于 gameplay rng，避免视觉随机扰动模拟。
 var fx_rng := RandomNumberGenerator.new()
@@ -183,6 +214,12 @@ func _ready() -> void:
 			stage_id = a.substr(8)
 		elif a == "--no-meta":
 			no_meta = true
+		elif a.begins_with("--zoom="):
+			cam_zoom = clampf(float(a.substr(7)), 0.5, 2.0)
+		elif a == "--verbose":
+			verbose = true
+		elif a.begins_with("--bullet-cap="):
+			bullet_cap = clampi(int(a.substr(13)), 0, 1024)
 		elif a == "--shot-pause":
 			shot_pause = true
 		elif a == "--shot-end":
@@ -249,7 +286,7 @@ func _ready() -> void:
 	player_hp = player_max_hp
 
 	cam = Camera2D.new()
-	cam.zoom = Vector2(CAM_ZOOM, CAM_ZOOM)
+	cam.zoom = Vector2(cam_zoom, cam_zoom)
 	add_child(cam)
 	cam.make_current()
 
@@ -278,6 +315,7 @@ func _ready() -> void:
 	chooser.picked.connect(_on_picked)
 	chooser.reroll_requested.connect(_on_reroll)
 	ui2.add_child(chooser)
+	_setup_intro()
 
 	# ---- 局内系统接线：属性补丁 → 机关 / 奖励 / 约 / 成就 ----
 	run_duration = float(stage.get("duration", 780.0))
@@ -297,8 +335,71 @@ func _ready() -> void:
 func player_pos() -> Vector2:
 	return player
 
+## ---- 章节开场字幕（data/intro.json 的 chapter_intro；纯表现，sim 跳过）----
+var intro_layer: CanvasLayer = null
+var intro_labels: Array = []
+var intro_t: float = 0.0
+var intro_interval: float = 2.2
+
+func _setup_intro() -> void:
+	if sim_mode:
+		return
+	var f: FileAccess = FileAccess.open("res://data/intro.json", FileAccess.READ)
+	if f == null:
+		return
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	var ci: Dictionary = (parsed as Dictionary).get("chapter_intro", {})
+	var ch: Dictionary = ci.get(stage_id, {})
+	var lines: Array = ch.get("lines", [])
+	if lines.is_empty():
+		return
+	intro_interval = maxf(0.6, float(ch.get("line_interval_sec", 2.2)))
+	intro_layer = CanvasLayer.new()
+	intro_layer.layer = 11
+	add_child(intro_layer)
+	var font: Font = GameFont.get_font()
+	for i in range(lines.size()):
+		var lb := Label.new()
+		lb.text = String(lines[i])
+		if font != null:
+			lb.add_theme_font_override("font", font)
+		lb.add_theme_font_size_override("font_size", 10)
+		lb.add_theme_color_override("font_color", Color(0.88, 0.81, 0.63))
+		lb.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+		lb.add_theme_constant_override("shadow_offset_x", 1)
+		lb.add_theme_constant_override("shadow_offset_y", 1)
+		lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lb.size = Vector2(600, 14)
+		lb.position = Vector2(20, 226 + 16 * i)
+		lb.modulate.a = 0.0
+		intro_layer.add_child(lb)
+		intro_labels.append(lb)
+
+func _update_intro(d: float) -> void:
+	if intro_labels.is_empty():
+		return
+	intro_t += d
+	var hold_end: float = intro_interval * float(intro_labels.size() - 1) + 1.6
+	var fade_out: float = clampf(1.0 - (intro_t - hold_end) / 1.0, 0.0, 1.0)
+	for i in range(intro_labels.size()):
+		var t0: float = intro_interval * float(i)
+		var a: float = clampf((intro_t - t0) / 0.35, 0.0, 1.0)
+		if intro_t > hold_end:
+			a *= fade_out
+		intro_labels[i].modulate.a = a
+	if intro_t > hold_end + 1.0 and intro_layer != null:
+		intro_layer.queue_free()
+		intro_layer = null
+		intro_labels = []
+
 func _process(delta: float) -> void:
 	var d: float = minf(delta, 0.05)
+	if not intro_labels.is_empty():
+		_update_intro(d)
 	if sim_mode:
 		if over:
 			if shot_end:
@@ -443,6 +544,11 @@ func step(delta: float) -> void:
 	enemies.rebuild_grid()
 
 	_drain_enemy_shots()
+	if verbose:
+		var hb: int = _hostile_bullet_count()
+		if hb > enemy_bullets_peak:
+			enemy_bullets_peak = hb
+			enemy_bullets_peak_at = elapsed
 	var shot_dmg: float = shots.player_hit_damage(player.x, player.y, 6.0)
 	if shot_dmg > 0.0:
 		if dash_iframe > 0.0:
@@ -548,7 +654,8 @@ func _move_player(delta: float) -> void:
 			aim_dir = Vector2.ZERO
 
 	cam.position = player
-	if shake > 0.01:
+	# 特效档 0（设置里关掉）时相机也不抖：镜头抖动属于特效层
+	if shake > 0.01 and UserSettings.fx_at_least(1):
 		cam.offset = Vector2(fx_rng.randf_range(-1.0, 1.0), fx_rng.randf_range(-1.0, 1.0)) * shake
 	else:
 		cam.offset = Vector2.ZERO
@@ -749,7 +856,8 @@ func _sim_choose() -> void:
 			else:
 				s = 34.0 + lv * 3.0
 		elif kind == "new_weapon":
-			s = 52.0 if state.weapons.size() < 3 else 22.0
+			# 槽位空着就该先拿新武器：旧阈值写死 3，第 4 个槽永远空着，压测出来的都是 2-3 武器残废构筑。
+			s = 52.0 if state.weapons.size() < state.max_weapon_slots() else 22.0
 		elif kind == "new_passive":
 			s = 24.0
 			for w in state.weapons:
@@ -758,6 +866,8 @@ func _sim_choose() -> void:
 					s = 72.0
 		elif kind == "up_passive":
 			s = 18.0
+		elif kind == "blessing":
+			s = 20.0
 		if s > best_s:
 			best_s = s
 			best_i = i
@@ -770,6 +880,14 @@ func _sim_log() -> void:
 	sim_log.append(bucket)
 	print("[sim] t=%d lv=%d kills=%d alive=%d hp=%.0f gems=%d coals=%d" % [
 		int(elapsed), state.level, state.kills, enemies.count, player_hp, gems.size(), state.coals])
+	if verbose:
+		var rn: int = 0
+		for i in range(enemies.count):
+			if enemies.is_ranged(i):
+				rn += 1
+		print("[sim-v] t=%d bullets_now=%d peak=%d spawned=%d dropped=%d ranged_alive=%d" % [
+			int(elapsed), _hostile_bullet_count(), enemy_bullets_peak, enemy_bullets_spawned,
+			enemy_bullets_dropped, rn])
 
 func _sim_report() -> void:
 	print("[sim] ==== RESULT ====")
@@ -782,7 +900,28 @@ func _sim_report() -> void:
 	for p in state.passives:
 		pp.append("%s(Lv%d)" % [String(GameData.passives.get(p["id"], {}).get("name", p["id"])), int(p["level"])])
 	print("[sim] passives=", ", ".join(pp))
+	if not state.blessings.is_empty():
+		print("[sim] blessings=", str(state.blessings))
+	var pcs: Array = []
+	for k in pick_counts.keys():
+		pcs.append("%s=%d" % [String(k), int(pick_counts[k])])
+	pcs.sort()
+	print("[sim] levelups opens=%d empty=%d picks %s" % [level_opens, level_empty_opens, " ".join(pcs)])
 	print("[sim] stage=%s seal=%d reward=%d shillings=%d saved=%s armor=%d ground_coins=%d picked=%d" % [stage_id, seal, reward, Meta.shillings, str(not sim_mode or save_run), state.armor.size(), ground_coins.size(), picked_shillings])
+	if verbose:
+		var by: Array = []
+		for k in enemies.emit_by_type.keys():
+			by.append("%s=%d" % [String(k), int(enemies.emit_by_type[k])])
+		by.sort()
+		print("[sim-v] ==== BULLETS ==== cap=%d peak=%d peak_at=%.1fs spawned=%d dropped=%d emitted=%d" % [
+			bullet_cap, enemy_bullets_peak, enemy_bullets_peak_at, enemy_bullets_spawned, enemy_bullets_dropped, enemies.emit_count])
+		print("[sim-v] emit_by_type ", ", ".join(by))
+		var wl: Array = []
+		for i in range(enemies.ranged_cfg.size()):
+			if not (enemies.ranged_cfg[i] as Dictionary).is_empty():
+				wl.append(String(enemies.type_ids[i]))
+		wl.sort()
+		print("[sim-v] ranged_whitelist=", ", ".join(wl), " | downgraded_to_chase=", ", ".join(enemies.downgraded))
 	var srcs: Array = []
 	for k in dmg_by_src.keys():
 		srcs.append("%s=%.0f" % [String(k), float(dmg_by_src[k])])
@@ -931,7 +1070,16 @@ func set_muted(v: bool) -> void:
 			hud.set("muted", muted)
 		hud.queue_redraw()
 
+## 场上仍活着的敌方弹（非 friendly）数量：配额与 --verbose 统计共用。
+func _hostile_bullet_count() -> int:
+	var n: int = 0
+	for j in range(shots.count):
+		if shots.friendly[j] == 0:
+			n += 1
+	return n
+
 func _drain_enemy_shots() -> void:
+	var live_hostile: int = _hostile_bullet_count()
 	var k: int = 0
 	while k < enemies.shot_count:
 		var o: int = k * 5
@@ -948,12 +1096,21 @@ func _drain_enemy_shots() -> void:
 				vx = nx
 				vy = ny
 				friendly = bool(mod.get("friendly", false))
+		if not friendly:
+			# V5：同屏敌弹硬上限。超限直接丢弃（不 spawn），屏幕永远不会出现"一片弹幕"。
+			if bullet_cap > 0 and live_hostile >= bullet_cap:
+				enemy_bullets_dropped += 1
+				k += 1
+				continue
+			live_hostile += 1
 		var sp: float = sqrt(vx * vx + vy * vy)
 		if sp < 1.0:
 			sp = 1.0
 		shots.spawn(enemies.shot_queue[o], enemies.shot_queue[o + 1], vx, vy, sp, enemies.shot_queue[o + 4], friendly, {
 			"life": 4.0, "radius": 2.5, "size": 3.0, "color": ProjectileSim.COL_SOUND if friendly else ProjectileSim.COL_ENEMY
 		})
+		if not friendly:
+			enemy_bullets_spawned += 1
 		k += 1
 	enemies.shot_count = 0
 
@@ -988,7 +1145,7 @@ func _consume_deaths() -> void:
 		var dpos := Vector2(float(d["x"]), float(d["y"]))
 		if mechanics != null:
 			mechanics.on_kill(dpos)
-		var xp: int = int(float(d["xp"]) * (mechanics.xp_mult_at(dpos) if mechanics != null else 1.0))
+		var xp: int = int(float(d["xp"]) * GEM_XP_SCALE * (mechanics.xp_mult_at(dpos) if mechanics != null else 1.0))
 		if rewards != null:
 			rewards.add_gem(dpos.x, dpos.y, xp)
 		else:
@@ -1156,10 +1313,13 @@ func _spawner(delta: float) -> void:
 	# 七印的刷怪加成前 5 分钟渐入（开局不至于被淹没，后期才真正变密集）
 	var rate_seal: float = 1.0 + (seal_rate - 1.0) * clampf(elapsed / 300.0, 0.0, 1.0)
 	var rate: float = (float(budget.get("base", 58)) + float(budget.get("per_minute", 22)) * (elapsed / 60.0)) * rate_seal / 60.0
+	# 全局密度闸：data/stages.json 的预算按「旧版手感」写，实测同屏可达 520 只、整局击杀 5.7k，
+	# 约为吸血鬼幸存者同类关卡的 2 倍。两档缩放都在这里收，避免逐章改 24 份数据。
+	rate *= SPAWN_RATE_SCALE
 	# 开局渐入：前 75 秒只放 45%→100%，避免「比玩家快的敌人」一上来就贴脸滴血
 	var ramp_in: float = lerpf(0.45, 1.0, clampf(elapsed / 75.0, 0.0, 1.0))
 	rate *= ramp_in
-	var max_alive: int = int(budget.get("max_alive", 420))
+	var max_alive: int = maxi(SPAWN_ALIVE_MIN, int(round(float(budget.get("max_alive", 420)) * SPAWN_ALIVE_SCALE)))
 	spawn_acc += rate * delta
 	while spawn_acc >= 1.0:
 		spawn_acc -= 1.0
@@ -1197,8 +1357,8 @@ func _spawn_mix() -> void:
 func _spawn_at_ring(ti: int, margin_min: float = 34.0, margin_max: float = 96.0) -> void:
 	# 在可视矩形外沿生成，永远不从屏幕里凭空出现
 	var m: float = rng.randf_range(margin_min, margin_max)
-	var hw: float = 320.0 / CAM_ZOOM + m
-	var hh: float = 180.0 / CAM_ZOOM + m
+	var hw: float = 320.0 / cam_zoom + m
+	var hh: float = 180.0 / cam_zoom + m
 	var a: float = rng.randf() * TAU
 	var dx: float = cos(a)
 	var dy: float = sin(a)
@@ -1311,10 +1471,16 @@ func _recompute_boss() -> void:
 
 # ---------------------------------------------------------------- 面板
 
+var level_opens: int = 0
+var level_empty_opens: int = 0
+var pick_counts: Dictionary = {}
+
 func _open_levelup() -> void:
 	pending_levels -= 1
+	level_opens += 1
 	var opts: Array = _level_options()
 	if opts.is_empty():
+		level_empty_opens += 1
 		modal = false
 		chooser.close()
 		return
@@ -1325,6 +1491,22 @@ func _open_levelup() -> void:
 	shake = maxf(shake, 2.0)
 	level_flash = 1.0
 	sfx.play("level", -2.0, 1.0, 0.3)
+
+## 解锁池抽空时的兜底卡：三张不重复的常备祝福（数值可叠加，故不会「升了级白升」）
+func _blessing_options() -> Array:
+	var pool: Array = []
+	for b in BLESSING_DEFS:
+		if int(state.blessings.get(String(b["id"]), 0)) >= 30:
+			continue
+		var o: Dictionary = b.duplicate(true)
+		o["kind"] = "blessing"
+		pool.append(o)
+	for i in range(pool.size() - 1, 0, -1):
+		var j: int = rng.randi_range(0, i)
+		var t: Variant = pool[i]
+		pool[i] = pool[j]
+		pool[j] = t
+	return pool.slice(0, mini(3, pool.size()))
 
 func _level_options() -> Array:
 	var cand: Array = []
@@ -1359,6 +1541,9 @@ func _level_options() -> Array:
 		if int(ps["level"]) >= int(pdef.get("max_level", 5)):
 			continue
 		cand.append({ "kind": "up_passive", "id": String(ps["id"]), "name": String(pdef.get("name", ps["id"])), "tag": "强化 Lv%d → Lv%d" % [int(ps["level"]), int(ps["level"]) + 1], "desc": String(pdef.get("desc", "")), "color": Color("#B8C4A8") })
+	# 解锁池抽空（新武器/新宝物都进不来、现有全满级）→ 三张常备祝福兜底，不让等级白丢
+	if cand.is_empty():
+		cand = _blessing_options()
 	if cand.is_empty():
 		return []
 	# 洗牌取 3
@@ -1558,7 +1743,9 @@ func _apply_level_choice(index: int) -> void:
 		return
 	var o: Dictionary = current_options[index]
 	var id: String = String(o["id"])
-	match String(o["kind"]):
+	var pk: String = String(o["kind"])
+	pick_counts[pk] = int(pick_counts.get(pk, 0)) + 1
+	match pk:
 		"new_weapon":
 			state.add_weapon(id)
 		"up_weapon":
@@ -1573,6 +1760,8 @@ func _apply_level_choice(index: int) -> void:
 				if String(state.passives[i]["id"]) == id:
 					state.upgrade_passive_at(i)
 					break
+		"blessing":
+			state.add_blessing(id)
 	player_max_hp = float(state.stats.get("max_hp", player_max_hp))
 	# 领受即得安慰：每次升级回复 12% 生命上限
 	if not god and player_hp > 0.0:
