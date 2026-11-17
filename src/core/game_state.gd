@@ -7,7 +7,10 @@ signal stats_changed
 signal slots_changed
 
 const BASE_WEAPON_SLOTS := 4
+## 被动/宝物槽：v2 起固定 4 格（圣典：3 -> 4）。宝物 = kind 为 "treasure" 的被动，
+## 与果子共用这 4 格，但另有 4 件的上限，防止全是宝物把祝圣必需的果子挤光。
 const BASE_PASSIVE_SLOTS := 4
+const BASE_TREASURE_SLOTS := 4
 const XP_BASE := 8.0
 const XP_GROWTH := 1.13
 
@@ -20,6 +23,10 @@ var meta_bonus: Dictionary = {}
 var stage_cd: float = 1.0         # 营地永久强化，由 Meta.bonus() 提供
 
 var armor: Array = []              # 全副军装：精英战利品，不占被动槽、不进升级池、不参与祝圣配方
+## 圣物：局外用 Meta.unlock_relic 解锁，局内整局生效。这里只是 Meta.relics 的只读镜像。
+var relics: Array = []
+## 觉醒缓存：-1 未查过 / 0 未觉醒 / 1 已觉醒（3 印通关后由 Meta.awakened_ids 点亮）
+var _awakened: int = -1
 
 var level: int = 1
 var xp: float = 0.0
@@ -28,9 +35,15 @@ var kills: int = 0
 var coals: int = 0
 var ascended_count: int = 0
 
-func setup(character_id: String, bonus: Dictionary = {}) -> void:
+## relic_ids 留空时自动从 Meta.relics 拉取（局外解锁的圣物整局生效）。
+func setup(character_id: String, bonus: Dictionary = {}, relic_ids: Array = []) -> void:
 	meta_bonus = bonus
 	character = GameData.characters_by_id.get(character_id, {})
+	_awakened = -1
+	relics = []
+	var ids: Array = relic_ids if not relic_ids.is_empty() else _meta_relics()
+	for rid in ids:
+		add_relic(String(rid))
 	weapons = []
 	passives = []
 	armor = []
@@ -45,15 +58,113 @@ func setup(character_id: String, bonus: Dictionary = {}) -> void:
 		add_weapon(String(character["weapon"]))
 	recompute()
 
+## 角色 perk 与「觉醒 perk」的合并读取。
+## 数值键相加（乘性键 _mult 相乘），非数值键由觉醒覆盖；觉醒未点亮时只有角色 perk。
 func perf(key: String, default_value: Variant = 0.0) -> Variant:
 	var perk: Dictionary = character.get("perk", {})
-	return perk.get(key, default_value)
+	var has_base: bool = perk.has(key)
+	var v: Variant = perk.get(key, default_value)
+	var aw: Dictionary = _awakening_perk()
+	if aw.is_empty() or not aw.has(key):
+		return v
+	var av: Variant = aw[key]
+	var v_num: bool = typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT
+	var a_num: bool = typeof(av) == TYPE_INT or typeof(av) == TYPE_FLOAT
+	if not (v_num and a_num):
+		return av
+	var mult: bool = key.ends_with("_mult")
+	var base_num: float = float(v)
+	if not has_base:
+		base_num = 1.0 if mult else float(default_value)
+	if mult:
+		return base_num * float(av)
+	return base_num + float(av)
 
 func max_weapon_slots() -> int:
 	return int(perf("weapon_slots", BASE_WEAPON_SLOTS))
 
 func max_passive_slots() -> int:
-	return BASE_PASSIVE_SLOTS
+	return BASE_PASSIVE_SLOTS + int(perf("passive_slots", 0.0))
+
+## 这 4 格里最多能放几件宝物（圣典 v2：宝物槽 4）
+func max_treasure_slots() -> int:
+	return BASE_TREASURE_SLOTS + int(perf("treasure_slots", 0.0))
+
+func treasure_count() -> int:
+	var n: int = 0
+	for p in passives:
+		var def: Dictionary = GameData.passives.get(p["id"], {})
+		if String(def.get("kind", "")) == "treasure":
+			n += 1
+	return n
+
+func passive_def(entry: Dictionary) -> Dictionary:
+	return GameData.passives.get(entry.get("id", ""), {})
+
+func is_treasure(entry: Dictionary) -> bool:
+	return String(passive_def(entry).get("kind", "")) == "treasure"
+
+# ---------------------------------------------------------------- 圣物
+
+func has_relic(id: String) -> bool:
+	return relics.has(id)
+
+## 局内加入圣物（只在本局 stats 里生效，不解锁存档；解锁走 Meta.unlock_relic）。
+func add_relic(id: String) -> bool:
+	if id.is_empty() or relics.has(id):
+		return false
+	if not GameData.relics_by_id.has(id):
+		return false
+	relics.append(id)
+	return true
+
+func relic_defs() -> Array:
+	var out: Array = []
+	for id in relics:
+		var d: Dictionary = GameData.relics_by_id.get(id, {})
+		if not d.is_empty():
+			out.append(d)
+	return out
+
+# ---------------------------------------------------------------- 觉醒
+
+func is_awakened() -> bool:
+	if _awakened < 0:
+		_awakened = 1 if _meta_is_awakened() else 0
+	return _awakened == 1
+
+## 觉醒 perk；未觉醒或该见证人没有 awakening 时返回空字典。
+func _awakening_perk() -> Dictionary:
+	if not is_awakened():
+		return {}
+	var aw: Variant = character.get("awakening", {})
+	if typeof(aw) != TYPE_DICTIONARY:
+		return {}
+	var perk: Variant = aw.get("perk", {})
+	if typeof(perk) != TYPE_DICTIONARY:
+		return {}
+	return perk
+
+func _meta_node() -> Node:
+	var loop: MainLoop = Engine.get_main_loop()
+	if loop is SceneTree:
+		return (loop as SceneTree).root.get_node_or_null("Meta")
+	return null
+
+func _meta_relics() -> Array:
+	var meta: Node = _meta_node()
+	if meta == null:
+		return []
+	var arr: Variant = meta.get("relics")
+	if typeof(arr) != TYPE_ARRAY:
+		return []
+	return arr
+
+func _meta_is_awakened() -> bool:
+	var meta: Node = _meta_node()
+	if meta == null or not meta.has_method("is_awakened"):
+		return false
+	return bool(meta.call("is_awakened", String(character.get("id", ""))))
 
 func base_hp() -> float:
 	return float(character.get("hp", 100))
@@ -95,6 +206,10 @@ func add_passive(id: String) -> bool:
 	for p in passives:
 		if String(p["id"]) == id:
 			return false
+	# v2：宝物（kind = "treasure"）与果子共用 4 个被动槽，但同类宝物最多 4 件
+	var def: Dictionary = GameData.passives.get(id, {})
+	if String(def.get("kind", "")) == "treasure" and treasure_count() >= max_treasure_slots():
+		return false
 	passives.append({ "id": id, "level": 1 })
 	recompute()
 	slots_changed.emit()
@@ -254,7 +369,9 @@ func try_ascend(all_kills: int) -> Array:
 		if int(w["level"]) < int(evo.get("level", 5)):
 			continue
 		# 成全长按「武器成圣之后」累计的击杀算，而不是整局总击杀（否则中后期一到 5 级就立刻触发）
-		if all_kills - int(w.get("born_kills", 0)) < int(evo.get("kills", 500)):
+		var thresh_mult: float = float(get_meta("fusion_threshold_mult", 1.0))
+		var need_kills: int = int(float(evo.get("kills", 500)) * thresh_mult)
+		if all_kills - int(w.get("born_kills", 0)) < need_kills:
 			continue
 		w["ascended"] = true
 		ascended_count += 1
@@ -281,12 +398,32 @@ func recompute() -> void:
 		"dot_mult": 1.0,
 		"damage_mult": 1.0,
 		"knockback_mult": 1.0,
-		"proj_speed_mult": 1.0
+		"proj_speed_mult": 1.0,
+		# ---- v2 契约第 5 节新增 stat：旧键全保留，函数末尾把新键镜像回旧键 ----
+		"area_pct": 0.0,          # 范围 +%（area_mult = 1 + area_pct）
+		"projectile_speed": 1.0,  # 弹速倍率（proj_speed_mult 镜像）
+		"duration": 1.0,          # 效果持续倍率（灼烧 / 领域 / 回旋）
+		"knockback": 0.0,         # 击退 +%（knockback_mult = 1 + knockback）
+		"crit_damage": 0.0,       # 暴伤加成（crit_mult = 基础 1.6 + crit_damage）
+		"heal_per_sec": 0.0,      # 每秒回血 HP/s
+		"silver_gain": 0.0,       # 银两 +%
+		"enemy_speed_slow": 0.0,  # 敌人减速（0..0.8）
+		# ---- v2 契约第 6 节新增 perk 落点（角色 / 觉醒 / 圣物 / 契约都能改）----
+		"max_hp_bonus": 0.0,
+		"damage_taken_mult": 1.0, # 受到伤害倍率（<1 = 减伤）
+		"pickup_bonus": 0.0,      # 拾取范围 +%（独立于恩典强化的乘区）
+		"level_heal_bonus": 0.0,  # 升级回血 +%
+		"melee_only_bonus": 0.0,  # 仅近战加成（weapon_runner 按行为类型消费）
+		"burn_stack_max": 1.0,    # 灼烧最大层数
+		"silver_bonus": 0.0,      # 结算银两 +%
+		"silver_mult": 1.0,
+		"extra_projectile": 0.0   # 投射物 +N（取整消费，weapon_runner._extra_projectiles）
 	}
 	for p in passives:
 		_apply_passive_def(p, s)
 	for a in armor:
 		_apply_passive_def(a, s)
+	_apply_relic_effects(s)
 
 	# 营地永久强化
 	s["damage_mult"] += float(meta_bonus.get("damage_mult", 0.0))
@@ -302,7 +439,44 @@ func recompute() -> void:
 
 	s["crit_chance"] += float(perf("crit_chance", 0.0))
 	s["knockback_mult"] *= float(perf("knockback_mult", 1.0))
+
+	# ---- v2 契约第 6 节 perk ----
+	s["max_hp_bonus"] = float(s["max_hp_bonus"]) + float(perf("max_hp_bonus", 0.0))
+	s["damage_taken_mult"] = float(s["damage_taken_mult"]) * float(perf("damage_taken_mult", 1.0))
+	s["projectile_speed"] = float(s["projectile_speed"]) * float(perf("projectile_speed", 1.0))
+	s["duration"] = float(s["duration"]) * float(perf("duration_mult", 1.0))
+	s["pickup_bonus"] = float(s["pickup_bonus"]) + float(perf("pickup_bonus", 0.0))
+	s["level_heal_bonus"] = float(s["level_heal_bonus"]) + float(perf("level_heal_bonus", 0.0))
+	s["melee_only_bonus"] = float(s["melee_only_bonus"]) + float(perf("melee_only_bonus", 0.0))
+	s["burn_stack_max"] = float(s["burn_stack_max"]) + float(perf("burn_stack_max", 0.0))
+	s["silver_bonus"] = float(s["silver_bonus"]) + float(perf("silver_bonus", 0.0))
+	s["max_hp"] += float(s["max_hp_bonus"])
+	s["level_heal"] = float(s["level_heal"]) + float(s["level_heal_bonus"])
+	s["pickup_radius"] *= 1.0 + float(s["pickup_bonus"])
+
+	# ---- 镜像：weapon_runner / run.gd 只认旧键，新键必须同步回旧键 ----
+	s["area_mult"] = float(s["area_mult"]) * (1.0 + float(s["area_pct"]))
+	s["proj_speed_mult"] = float(s["proj_speed_mult"]) * float(s["projectile_speed"])
+	s["knockback_mult"] = float(s["knockback_mult"]) * (1.0 + float(s["knockback"]))
+	s["crit_mult"] = float(s["crit_mult"]) + float(s["crit_damage"])
+	s["silver_mult"] = (1.0 + float(s["silver_gain"])) * (1.0 + float(s["silver_bonus"]))
+	s["enemy_speed_slow"] = clampf(float(s["enemy_speed_slow"]), 0.0, 0.8)
+	s["damage_taken_mult"] = clampf(float(s["damage_taken_mult"]), 0.05, 4.0)
 	s["damage_reduction"] = clampf(s["damage_reduction"], 0.0, 0.75)
+
+	# 约 · 大卫宝座：每少装备 1 把武器（4 槽基准），范围 +25%、最终伤害 +35%
+	if bool(get_meta("covenant_david_throne", false)):
+		var missing: int = maxi(max_weapon_slots() - weapons.size(), 0)
+		if missing > 0:
+			s["damage_mult"] = float(s["damage_mult"]) * (1.0 + 0.35 * float(missing))
+			s["area_mult"] = float(s["area_mult"]) * (1.0 + 0.25 * float(missing))
+
+	# 约 · 更美之约：每点亮 1 件成全，伤害与范围永久 +12%（成全门槛另在 try_ascend 里降 40%）
+	if bool(get_meta("covenant_better_promise", false)):
+		var asc: int = int(ascended_count)
+		if asc > 0:
+			s["damage_mult"] = float(s["damage_mult"]) * (1.0 + 0.12 * float(asc))
+			s["area_mult"] = float(s["area_mult"]) * (1.0 + 0.08 * float(asc))
 
 	# 基甸：每空 1 个武器槽，全伤害提升
 	var dps: float = float(perf("damage_per_empty_slot", 0.0))
@@ -314,13 +488,22 @@ func recompute() -> void:
 	stats_changed.emit()
 
 
-## 被动与军装共用的属性累加（果子与军装都是 {id, level}）
+## 被动 / 宝物 / 军装共用的属性累加（都是 {id, level}；kind 只决定它算不算宝物，不影响计算）
 func _apply_passive_def(p: Dictionary, s: Dictionary) -> void:
 	var def: Dictionary = GameData.passives.get(p["id"], {})
 	if def.is_empty():
 		return
 	var amount: float = float(def["per_level"]) * float(p["level"])
-	match String(def["stat"]):
+	_apply_stat(s, String(def["stat"]), amount)
+	# 双效果被动 / 宝物（圣典里 fruit/treasure 有 5 件是两个属性）：第二属性用 stat2 + per_level2
+	if def.has("stat2") and String(def["stat2"]) != "":
+		var amount2: float = float(def.get("per_level2", def["per_level"])) * float(p["level"])
+		_apply_stat(s, String(def["stat2"]), amount2)
+
+
+## 把一条 stat 叠进属性字典（被 _apply_passive_def 的 stat / stat2 共用）
+func _apply_stat(s: Dictionary, stat_id: String, amount: float) -> void:
+	match stat_id:
 		"lifesteal": s["lifesteal"] += amount
 		"xp_gain": s["xp_gain"] += amount
 		"damage_reduction": s["damage_reduction"] += amount
@@ -332,11 +515,58 @@ func _apply_passive_def(p: Dictionary, s: Dictionary) -> void:
 		"cooldown": s["cooldown_mult"] *= (1.0 - minf(amount, 0.6))
 		"damage_pct": s["damage_mult"] += amount
 		"max_hp": s["max_hp"] += amount
+		# ---- v2 契约第 5 节新增 stat ----
+		"area_pct": s["area_pct"] += amount
+		"projectile_speed": s["projectile_speed"] *= (1.0 + amount)
+		"duration": s["duration"] *= (1.0 + amount)
+		"knockback": s["knockback"] += amount
+		"crit_damage": s["crit_damage"] += amount
+		"heal_per_sec": s["heal_per_sec"] += amount
+		"silver_gain": s["silver_gain"] += amount
+		"enemy_speed_slow": s["enemy_speed_slow"] += amount
+		# ---- v2 契约第 6 节新增 perk（写成被动 stat 时也认）----
+		"max_hp_bonus": s["max_hp_bonus"] += amount
+		"damage_taken_mult": s["damage_taken_mult"] *= (1.0 - minf(amount, 0.9))
+		"pickup_bonus": s["pickup_bonus"] += amount
+		"level_heal_bonus": s["level_heal_bonus"] += amount
+		"melee_only_bonus": s["melee_only_bonus"] += amount
+		"burn_stack_max": s["burn_stack_max"] += amount
+		"silver_bonus": s["silver_bonus"] += amount
+		"extra_projectile": s["extra_projectile"] += amount
 		_: pass
+
+## 圣物效果：data/relics.json 里若写了 "stats": {键: 值}，就按 stats 的键叠进 s。
+## （圣典第 6 节多数圣物改的是规则而非数值，那类由 systems 读 has_relic 自行生效。）
+func _apply_relic_effects(s: Dictionary) -> void:
+	for id in relics:
+		var d: Dictionary = GameData.relics_by_id.get(id, {})
+		if d.is_empty():
+			continue
+		var bonus: Variant = d.get("stats", {})
+		if typeof(bonus) != TYPE_DICTIONARY:
+			continue
+		for k in bonus.keys():
+			var key: String = String(k)
+			if not s.has(key):
+				continue
+			if typeof(s[key]) == TYPE_FLOAT or typeof(s[key]) == TYPE_INT:
+				if key.ends_with("_mult") or key == "projectile_speed" or key == "duration":
+					s[key] = float(s[key]) * float(bonus[k])
+				else:
+					s[key] = float(s[key]) + float(bonus[k])
+
 func total_damage_reduction() -> float:
 	var armor: float = float(stats.get("armor", 0.0))
 	var armor_red: float = armor / (armor + 50.0)
 	return clampf(armor_red + float(stats.get("damage_reduction", 0.0)), 0.0, 0.85)
+
+## 实际承伤倍率：普适减伤之后再乘 damage_taken_mult（0.05..4.0）
+func incoming_damage_mult() -> float:
+	return (1.0 - total_damage_reduction()) * float(stats.get("damage_taken_mult", 1.0))
+
+## 银两倍率（拾取 / 结算都用这一个）
+func silver_mult() -> float:
+	return float(stats.get("silver_mult", 1.0))
 
 # ---------------------------------------------------------------- 经验
 

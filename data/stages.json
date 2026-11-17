@@ -1,11 +1,1604 @@
 {
-  "_comment": "试炼地图表。budget: 每分钟基础刷怪数；elite_at / boss_at 为秒。",
+  "_comment": "章节表（V2，24 章）。budget: base 为每分钟基础刷怪数，per_minute 为每分钟递增，max_alive 为同屏上限。mix 按 t 秒切换配比；elites 的 n 与 count 同义（count 为旧 run.gd 兼容键）；boss 指向 bosses.json 的 id。ground 为地面三色；mods 见 docs/V2-数据-关卡敌人.md 的键位表；mechanic_id 一章一个。elah_valley（13 章）与 judea_wilderness（17 章）为存量 id，数值保留原样。",
   "stages": [
+    {
+      "id": "ch01_eden",
+      "name": "伊甸与东门",
+      "scripture": "创 1-3",
+      "chapter": 1,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 180,
+        "per_minute": 55,
+        "max_alive": 520
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "fallen_sentry",
+              "w": 70
+            },
+            {
+              "id": "serpent_brood",
+              "w": 30
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "fallen_sentry",
+              "w": 55
+            },
+            {
+              "id": "serpent_brood",
+              "w": 25
+            },
+            {
+              "id": "thorn_crawler",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "fallen_sentry",
+              "w": 40
+            },
+            {
+              "id": "thorn_crawler",
+              "w": 25
+            },
+            {
+              "id": "serpent_brood",
+              "w": 20
+            },
+            {
+              "id": "brick_golem",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "thorn_crawler",
+              "w": 30
+            },
+            {
+              "id": "brick_golem",
+              "w": 25
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 25
+            },
+            {
+              "id": "serpent_brood",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "nephilim_shade",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "nephilim_shade",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 510,
+          "id": "babel_overseer",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 630,
+          "id": "babel_overseer",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "cherub_flame_sword",
+      "ground": {
+        "base": "#233622",
+        "speckle": "#334E30",
+        "zone": "#466B42"
+      },
+      "mods": {
+        "cooldown": 0.85,
+        "heal_per_sec": 1.2
+      },
+      "mechanic_id": "eden_fall",
+      "desc": "果树与禁果：吃果伤害 +40% 但经验 -15%，不吃则保留 -10% 冷却。",
+      "unlock_wins": 0
+    },
+    {
+      "id": "ch02_flood",
+      "name": "大洪水与方舟",
+      "scripture": "创 6-8",
+      "chapter": 2,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 195,
+        "per_minute": 60,
+        "max_alive": 540
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "fallen_sentry",
+              "w": 60
+            },
+            {
+              "id": "serpent_brood",
+              "w": 40
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "serpent_brood",
+              "w": 40
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 35
+            },
+            {
+              "id": "thorn_crawler",
+              "w": 25
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "thorn_crawler",
+              "w": 35
+            },
+            {
+              "id": "brick_golem",
+              "w": 20
+            },
+            {
+              "id": "serpent_brood",
+              "w": 25
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "brick_golem",
+              "w": 30
+            },
+            {
+              "id": "thorn_crawler",
+              "w": 30
+            },
+            {
+              "id": "serpent_brood",
+              "w": 25
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 15
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "nephilim_shade",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "babel_overseer",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 510,
+          "id": "nephilim_shade",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "babel_overseer",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "leviathan_tide",
+      "ground": {
+        "base": "#1B2A38",
+        "speckle": "#273E52",
+        "zone": "#3B5B75"
+      },
+      "mods": {
+        "area": 1.2
+      },
+      "mechanic_id": "flood_tide",
+      "desc": "每 90s 暴雨涨潮 30s：低洼深水减速 25%，站上方舟木台免减速并攻速 +15%。",
+      "unlock_wins": 1
+    },
+    {
+      "id": "ch03_babel",
+      "name": "巴别高塔之下",
+      "scripture": "创 11",
+      "chapter": 3,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 200,
+        "per_minute": 62,
+        "max_alive": 560
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "fallen_sentry",
+              "w": 65
+            },
+            {
+              "id": "serpent_brood",
+              "w": 20
+            },
+            {
+              "id": "brick_golem",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "fallen_sentry",
+              "w": 45
+            },
+            {
+              "id": "brick_golem",
+              "w": 25
+            },
+            {
+              "id": "thorn_crawler",
+              "w": 30
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "brick_golem",
+              "w": 35
+            },
+            {
+              "id": "thorn_crawler",
+              "w": 30
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 20
+            },
+            {
+              "id": "serpent_brood",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "brick_golem",
+              "w": 40
+            },
+            {
+              "id": "thorn_crawler",
+              "w": 25
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 20
+            },
+            {
+              "id": "serpent_brood",
+              "w": 15
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "babel_overseer",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "babel_overseer",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "nephilim_shade",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "babel_overseer",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "nimrod_colossus",
+      "ground": {
+        "base": "#332920",
+        "speckle": "#4A3B2C",
+        "zone": "#634F3B"
+      },
+      "mods": {
+        "enemy_projectile_speed": 0.9
+      },
+      "mechanic_id": "babel_confusion",
+      "desc": "每 120s 变乱口音 20s：敌方弹幕开启友军伤害并偏转 35°。",
+      "unlock_wins": 2
+    },
+    {
+      "id": "ch04_moriah",
+      "name": "摩利亚与雅各坛",
+      "scripture": "创 22, 32",
+      "chapter": 4,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 205,
+        "per_minute": 64,
+        "max_alive": 560
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "thorn_crawler",
+              "w": 50
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 50
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "thorn_crawler",
+              "w": 40
+            },
+            {
+              "id": "brick_golem",
+              "w": 20
+            },
+            {
+              "id": "serpent_brood",
+              "w": 25
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "brick_golem",
+              "w": 30
+            },
+            {
+              "id": "thorn_crawler",
+              "w": 30
+            },
+            {
+              "id": "serpent_brood",
+              "w": 20
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "brick_golem",
+              "w": 35
+            },
+            {
+              "id": "serpent_brood",
+              "w": 25
+            },
+            {
+              "id": "thorn_crawler",
+              "w": 25
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 15
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "nephilim_shade",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 330,
+          "id": "babel_overseer",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "babel_overseer",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "nephilim_shade",
+          "n": 3,
+          "count": 3
+        }
+      ],
+      "boss": "peniel_wrestler",
+      "ground": {
+        "base": "#28282E",
+        "speckle": "#3A3A44",
+        "zone": "#50505E",
+        "rocks": true
+      },
+      "mods": {
+        "elite_xp": 1.3
+      },
+      "mechanic_id": "altar_charge",
+      "desc": "中央古坛半径 64px 内每 40 杀召来替罪金羊，向四周冲撞清场 220 点。",
+      "unlock_wins": 3
+    },
+    {
+      "id": "ch05_plagues",
+      "name": "埃及十灾荒野",
+      "scripture": "出 7-12",
+      "chapter": 5,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 210,
+        "per_minute": 65,
+        "max_alive": 580
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "fallen_sentry",
+              "w": 40
+            },
+            {
+              "id": "blood_wraith",
+              "w": 30
+            },
+            {
+              "id": "plague_locust",
+              "w": 30
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "blood_wraith",
+              "w": 30
+            },
+            {
+              "id": "plague_locust",
+              "w": 30
+            },
+            {
+              "id": "thorn_crawler",
+              "w": 20
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "blood_wraith",
+              "w": 25
+            },
+            {
+              "id": "plague_locust",
+              "w": 25
+            },
+            {
+              "id": "chariot_phantom",
+              "w": 20
+            },
+            {
+              "id": "fiery_serpent",
+              "w": 15
+            },
+            {
+              "id": "thorn_crawler",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "chariot_phantom",
+              "w": 25
+            },
+            {
+              "id": "fiery_serpent",
+              "w": 25
+            },
+            {
+              "id": "blood_wraith",
+              "w": 25
+            },
+            {
+              "id": "plague_locust",
+              "w": 25
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "pharaoh_sorcerer",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "chariot_captain",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 510,
+          "id": "pharaoh_sorcerer",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "chariot_captain",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "firstborn_reaper",
+      "ground": {
+        "base": "#362020",
+        "speckle": "#4D2B2B",
+        "zone": "#693838"
+      },
+      "mods": {
+        "status_duration": 1.25
+      },
+      "mechanic_id": "plague_cycle",
+      "desc": "每 120s 轮换一灾：血河 / 蛙群 / 火雹 / 三日之暗（视野缩到 140px）。",
+      "unlock_wins": 4
+    },
+    {
+      "id": "ch06_red_sea",
+      "name": "红海海底走廊",
+      "scripture": "出 14",
+      "chapter": 6,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 215,
+        "per_minute": 66,
+        "max_alive": 600
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "plague_locust",
+              "w": 35
+            },
+            {
+              "id": "serpent_brood",
+              "w": 25
+            },
+            {
+              "id": "blood_wraith",
+              "w": 40
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "blood_wraith",
+              "w": 30
+            },
+            {
+              "id": "fiery_serpent",
+              "w": 25
+            },
+            {
+              "id": "plague_locust",
+              "w": 25
+            },
+            {
+              "id": "chariot_phantom",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "chariot_phantom",
+              "w": 30
+            },
+            {
+              "id": "fiery_serpent",
+              "w": 25
+            },
+            {
+              "id": "blood_wraith",
+              "w": 25
+            },
+            {
+              "id": "plague_locust",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "chariot_phantom",
+              "w": 35
+            },
+            {
+              "id": "fiery_serpent",
+              "w": 25
+            },
+            {
+              "id": "blood_wraith",
+              "w": 20
+            },
+            {
+              "id": "plague_locust",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "chariot_captain",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "pharaoh_sorcerer",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "chariot_captain",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "pharaoh_sorcerer",
+          "n": 3,
+          "count": 3
+        }
+      ],
+      "boss": "pharaoh_chariot",
+      "ground": {
+        "base": "#1A2E3B",
+        "speckle": "#264557",
+        "zone": "#346078"
+      },
+      "mods": {
+        "knockback": 1.25
+      },
+      "mechanic_id": "sea_walls",
+      "desc": "两侧水墙每 90s 由 420px 合拢到 220px，擦到者每秒 18 点活水伤害。",
+      "unlock_wins": 5
+    },
+    {
+      "id": "ch07_sinai",
+      "name": "西乃雷轰山麓",
+      "scripture": "出 19, 32",
+      "chapter": 7,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 215,
+        "per_minute": 68,
+        "max_alive": 600
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "fallen_sentry",
+              "w": 55
+            },
+            {
+              "id": "blood_wraith",
+              "w": 18
+            },
+            {
+              "id": "plague_locust",
+              "w": 27
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "brick_golem",
+              "w": 32
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 30
+            },
+            {
+              "id": "fiery_serpent",
+              "w": 18
+            },
+            {
+              "id": "blood_wraith",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "brick_golem",
+              "w": 36
+            },
+            {
+              "id": "chariot_phantom",
+              "w": 24
+            },
+            {
+              "id": "fiery_serpent",
+              "w": 18
+            },
+            {
+              "id": "blood_wraith",
+              "w": 22
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "chariot_phantom",
+              "w": 34
+            },
+            {
+              "id": "brick_golem",
+              "w": 26
+            },
+            {
+              "id": "fiery_serpent",
+              "w": 18
+            },
+            {
+              "id": "blood_wraith",
+              "w": 22
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "pharaoh_sorcerer",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 330,
+          "id": "chariot_captain",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "pharaoh_sorcerer",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "chariot_captain",
+          "n": 3,
+          "count": 3
+        }
+      ],
+      "boss": "golden_calf",
+      "ground": {
+        "base": "#2B2623",
+        "speckle": "#403833",
+        "zone": "#594D46",
+        "rocks": true
+      },
+      "mods": {
+        "crit_damage": 1.2
+      },
+      "mechanic_id": "lightning_zones",
+      "desc": "顶部山界不可逾越；每 12s 降 3 个 1.5s 延迟雷击圈，34 点伤害，敌我同伤。",
+      "unlock_wins": 6
+    },
+    {
+      "id": "ch08_wilderness_serpent",
+      "name": "苦水与铜蛇旷野",
+      "scripture": "出 15, 民 21",
+      "chapter": 8,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 220,
+        "per_minute": 68,
+        "max_alive": 600
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "fiery_serpent",
+              "w": 35
+            },
+            {
+              "id": "serpent_brood",
+              "w": 35
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 30
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "fiery_serpent",
+              "w": 35
+            },
+            {
+              "id": "plague_locust",
+              "w": 25
+            },
+            {
+              "id": "blood_wraith",
+              "w": 20
+            },
+            {
+              "id": "serpent_brood",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "fiery_serpent",
+              "w": 30
+            },
+            {
+              "id": "chariot_phantom",
+              "w": 25
+            },
+            {
+              "id": "blood_wraith",
+              "w": 20
+            },
+            {
+              "id": "brick_golem",
+              "w": 25
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "fiery_serpent",
+              "w": 30
+            },
+            {
+              "id": "chariot_phantom",
+              "w": 30
+            },
+            {
+              "id": "blood_wraith",
+              "w": 20
+            },
+            {
+              "id": "brick_golem",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "pharaoh_sorcerer",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "chariot_captain",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "pharaoh_sorcerer",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "chariot_captain",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "serpent_king",
+      "ground": {
+        "base": "#2E3022",
+        "speckle": "#434730",
+        "zone": "#5B6140"
+      },
+      "mods": {
+        "dot_damage": 1.15
+      },
+      "mechanic_id": "bitter_water",
+      "desc": "6 处玛拉苦水池踩入每秒掉 2 HP；每 60s 刷铜蛇杆，靠近清负面并回血 8s。",
+      "unlock_wins": 7
+    },
+    {
+      "id": "ch09_jericho",
+      "name": "耶利哥外城环道",
+      "scripture": "书 6",
+      "chapter": 9,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 220,
+        "per_minute": 70,
+        "max_alive": 620
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "shadow_raider",
+              "w": 35
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 30
+            },
+            {
+              "id": "blood_wraith",
+              "w": 20
+            },
+            {
+              "id": "iron_shielder",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "shadow_raider",
+              "w": 35
+            },
+            {
+              "id": "iron_shielder",
+              "w": 25
+            },
+            {
+              "id": "camel_rider",
+              "w": 20
+            },
+            {
+              "id": "night_owl",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "iron_shielder",
+              "w": 30
+            },
+            {
+              "id": "camel_rider",
+              "w": 25
+            },
+            {
+              "id": "shadow_raider",
+              "w": 25
+            },
+            {
+              "id": "night_owl",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "iron_shielder",
+              "w": 30
+            },
+            {
+              "id": "camel_rider",
+              "w": 30
+            },
+            {
+              "id": "shadow_raider",
+              "w": 20
+            },
+            {
+              "id": "night_owl",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "midian_prowler",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "anakim_giant",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 510,
+          "id": "midian_prowler",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "anakim_giant",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "jericho_warden",
+      "ground": {
+        "base": "#382E22",
+        "speckle": "#4F4130",
+        "zone": "#6B5840",
+        "rocks": true
+      },
+      "mods": {
+        "area": 1.2
+      },
+      "mechanic_id": "wall_ring",
+      "desc": "中央 160px 内城墙不可穿过；绕满 7 圈或音波轰击 50 次震塌，爆 3 个银宝箱。",
+      "unlock_wins": 8
+    },
+    {
+      "id": "ch10_gideon_camp",
+      "name": "基甸深夜营盘",
+      "scripture": "士 7",
+      "chapter": 10,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 225,
+        "per_minute": 70,
+        "max_alive": 620
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "shadow_raider",
+              "w": 45
+            },
+            {
+              "id": "night_owl",
+              "w": 30
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 25
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "shadow_raider",
+              "w": 40
+            },
+            {
+              "id": "night_owl",
+              "w": 25
+            },
+            {
+              "id": "camel_rider",
+              "w": 20
+            },
+            {
+              "id": "iron_shielder",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "camel_rider",
+              "w": 30
+            },
+            {
+              "id": "night_owl",
+              "w": 25
+            },
+            {
+              "id": "shadow_raider",
+              "w": 25
+            },
+            {
+              "id": "iron_shielder",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "camel_rider",
+              "w": 30
+            },
+            {
+              "id": "iron_shielder",
+              "w": 25
+            },
+            {
+              "id": "shadow_raider",
+              "w": 25
+            },
+            {
+              "id": "night_owl",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "midian_prowler",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 330,
+          "id": "anakim_giant",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 510,
+          "id": "midian_prowler",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "anakim_giant",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "midian_twin_kings",
+      "ground": {
+        "base": "#141824",
+        "speckle": "#1E2538",
+        "zone": "#2C3652"
+      },
+      "mods": {
+        "fear_damage": 2.0
+      },
+      "mechanic_id": "darkness_lamp",
+      "desc": "黑夜视野仅 110px；每 30s 刷 6 个火把瓦罐，打破照亮全屏并令 180px 内敌群战兢互踩。",
+      "unlock_wins": 9
+    },
+    {
+      "id": "ch11_timnah",
+      "name": "亭拿麦田与利希",
+      "scripture": "士 14-15",
+      "chapter": 11,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 225,
+        "per_minute": 72,
+        "max_alive": 620
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "camel_rider",
+              "w": 30
+            },
+            {
+              "id": "shadow_raider",
+              "w": 35
+            },
+            {
+              "id": "beast",
+              "w": 20
+            },
+            {
+              "id": "night_owl",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "camel_rider",
+              "w": 30
+            },
+            {
+              "id": "beast",
+              "w": 25
+            },
+            {
+              "id": "night_owl",
+              "w": 20
+            },
+            {
+              "id": "shadow_raider",
+              "w": 25
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "beast",
+              "w": 30
+            },
+            {
+              "id": "camel_rider",
+              "w": 25
+            },
+            {
+              "id": "iron_shielder",
+              "w": 25
+            },
+            {
+              "id": "night_owl",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "beast",
+              "w": 30
+            },
+            {
+              "id": "camel_rider",
+              "w": 30
+            },
+            {
+              "id": "iron_shielder",
+              "w": 20
+            },
+            {
+              "id": "night_owl",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "anakim_giant",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "midian_prowler",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "anakim_giant",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "midian_prowler",
+          "n": 3,
+          "count": 3
+        }
+      ],
+      "boss": "dagon_pillar_lord",
+      "ground": {
+        "base": "#3D321E",
+        "speckle": "#57472A",
+        "zone": "#756038"
+      },
+      "mods": {
+        "melee_damage": 1.15
+      },
+      "mechanic_id": "burnable_field",
+      "desc": "圣火命中麦田引发连环烧荒（6s，每秒 14 点）；8 根石柱可被近战打塌砸死路径敌人。",
+      "unlock_wins": 10
+    },
+    {
+      "id": "ch12_adullam",
+      "name": "亚杜兰洞掩体",
+      "scripture": "撒上 22",
+      "chapter": 12,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 230,
+        "per_minute": 72,
+        "max_alive": 620
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "shadow_raider",
+              "w": 40
+            },
+            {
+              "id": "iron_shielder",
+              "w": 20
+            },
+            {
+              "id": "night_owl",
+              "w": 25
+            },
+            {
+              "id": "fallen_sentry",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "iron_shielder",
+              "w": 30
+            },
+            {
+              "id": "shadow_raider",
+              "w": 30
+            },
+            {
+              "id": "night_owl",
+              "w": 20
+            },
+            {
+              "id": "camel_rider",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "iron_shielder",
+              "w": 35
+            },
+            {
+              "id": "camel_rider",
+              "w": 25
+            },
+            {
+              "id": "shadow_raider",
+              "w": 20
+            },
+            {
+              "id": "night_owl",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "iron_shielder",
+              "w": 35
+            },
+            {
+              "id": "camel_rider",
+              "w": 30
+            },
+            {
+              "id": "shadow_raider",
+              "w": 20
+            },
+            {
+              "id": "night_owl",
+              "w": 15
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "midian_prowler",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 330,
+          "id": "anakim_giant",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "midian_prowler",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "anakim_giant",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "saul_pursuer",
+      "ground": {
+        "base": "#211F26",
+        "speckle": "#312E38",
+        "zone": "#44404F",
+        "rocks": true
+      },
+      "mods": {
+        "pierce_bonus": 1
+      },
+      "mechanic_id": "cave_choke",
+      "desc": "岩壁生成 64px 窄口，怪群被迫排队；每 90s 点燃篝火，靠近回 25% HP。",
+      "unlock_wins": 11
+    },
     {
       "id": "elah_valley",
       "name": "以拉谷",
       "scripture": "撒上 17",
-      "phase": "P1",
+      "chapter": 13,
       "duration": 780,
       "boss_at": 690,
       "budget": {
@@ -91,21 +1684,25 @@
         {
           "t": 150,
           "id": "six_finger_giant",
+          "n": 1,
           "count": 1
         },
         {
           "t": 330,
           "id": "six_finger_giant",
+          "n": 1,
           "count": 1
         },
         {
           "t": 510,
           "id": "six_finger_giant",
+          "n": 1,
           "count": 1
         },
         {
           "t": 630,
           "id": "six_finger_giant",
+          "n": 2,
           "count": 2
         }
       ],
@@ -115,17 +1712,428 @@
         "speckle": "#3A3122",
         "zone": "#3E382A"
       },
-      "desc": "黄昏砂岩谷地：干涸河床的碎石让武器冷却 -10%。",
-      "unlock_wins": 0,
       "mods": {
         "cooldown": 0.9
-      }
+      },
+      "mechanic_id": "dry_creek",
+      "desc": "黄昏砂岩谷地：干涸河床的碎石让武器冷却 -10%。",
+      "unlock_wins": 0
+    },
+    {
+      "id": "ch14_carmel",
+      "name": "迦密山祭坛巅",
+      "scripture": "王上 18",
+      "chapter": 14,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 230,
+        "per_minute": 74,
+        "max_alive": 640
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "soldier",
+              "w": 40
+            },
+            {
+              "id": "raven",
+              "w": 25
+            },
+            {
+              "id": "archer",
+              "w": 20
+            },
+            {
+              "id": "camel_rider",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "soldier",
+              "w": 35
+            },
+            {
+              "id": "raven",
+              "w": 25
+            },
+            {
+              "id": "archer",
+              "w": 20
+            },
+            {
+              "id": "beast",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "soldier",
+              "w": 30
+            },
+            {
+              "id": "archer",
+              "w": 25
+            },
+            {
+              "id": "beast",
+              "w": 25
+            },
+            {
+              "id": "iron_shielder",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "beast",
+              "w": 30
+            },
+            {
+              "id": "archer",
+              "w": 25
+            },
+            {
+              "id": "soldier",
+              "w": 25
+            },
+            {
+              "id": "iron_shielder",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "baal_zealot",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "six_finger_giant",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 510,
+          "id": "baal_zealot",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "six_finger_giant",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "baal_colossus",
+      "ground": {
+        "base": "#332822",
+        "speckle": "#4A3930",
+        "zone": "#664E42",
+        "rocks": true
+      },
+      "mods": {
+        "heal_mult": 0.5
+      },
+      "mechanic_id": "drought_fire",
+      "desc": "三年旱灾回血减半；210s / 420s 注满 4 桶水，天降大雨与天火，回血反转为 +50%。",
+      "unlock_wins": 13
+    },
+    {
+      "id": "ch15_nineveh",
+      "name": "尼尼微与鱼腹",
+      "scripture": "拿 1-4",
+      "chapter": 15,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 235,
+        "per_minute": 74,
+        "max_alive": 640
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "soldier",
+              "w": 40
+            },
+            {
+              "id": "raven",
+              "w": 30
+            },
+            {
+              "id": "archer",
+              "w": 30
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "soldier",
+              "w": 35
+            },
+            {
+              "id": "raven",
+              "w": 25
+            },
+            {
+              "id": "archer",
+              "w": 20
+            },
+            {
+              "id": "beast",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "beast",
+              "w": 30
+            },
+            {
+              "id": "archer",
+              "w": 25
+            },
+            {
+              "id": "raven",
+              "w": 25
+            },
+            {
+              "id": "soldier",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "beast",
+              "w": 30
+            },
+            {
+              "id": "raven",
+              "w": 25
+            },
+            {
+              "id": "archer",
+              "w": 25
+            },
+            {
+              "id": "soldier",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "six_finger_giant",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "baal_zealot",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "six_finger_giant",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "baal_zealot",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "abyss_leviathan",
+      "ground": {
+        "base": "#1E2E2B",
+        "speckle": "#2C4540",
+        "zone": "#3D615A"
+      },
+      "mods": {
+        "shillings": 1.2
+      },
+      "mechanic_id": "belly_shade",
+      "desc": "0-360s 在鱼腹中受胃酸边界收缩；360s 后烈日每秒掉 1 HP，需站蓖麻树荫并攻速 +25%。",
+      "unlock_wins": 14
+    },
+    {
+      "id": "ch16_babylon_furnace",
+      "name": "巴比伦火窑狮坑",
+      "scripture": "但 3, 6",
+      "chapter": 16,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 240,
+        "per_minute": 75,
+        "max_alive": 650
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "soldier",
+              "w": 35
+            },
+            {
+              "id": "beast",
+              "w": 25
+            },
+            {
+              "id": "archer",
+              "w": 25
+            },
+            {
+              "id": "raven",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "beast",
+              "w": 30
+            },
+            {
+              "id": "archer",
+              "w": 25
+            },
+            {
+              "id": "soldier",
+              "w": 25
+            },
+            {
+              "id": "iron_shielder",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "iron_shielder",
+              "w": 25
+            },
+            {
+              "id": "beast",
+              "w": 30
+            },
+            {
+              "id": "archer",
+              "w": 25
+            },
+            {
+              "id": "raven",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "iron_shielder",
+              "w": 30
+            },
+            {
+              "id": "beast",
+              "w": 30
+            },
+            {
+              "id": "archer",
+              "w": 20
+            },
+            {
+              "id": "raven",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "baal_zealot",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "six_finger_giant",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "baal_zealot",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "six_finger_giant",
+          "n": 3,
+          "count": 3
+        }
+      ],
+      "boss": "babylon_statue",
+      "ground": {
+        "base": "#381C18",
+        "speckle": "#522822",
+        "zone": "#70362E",
+        "rocks": true
+      },
+      "mods": {
+        "fire_resist": 0.3,
+        "xp_gain": 1.2
+      },
+      "mechanic_id": "furnace_rings",
+      "desc": "内圈七倍烈火窑：地面微灼烧但掉落双倍经验；外圈饥饿狮坑刷高速扑咬狂狮。",
+      "unlock_wins": 15
     },
     {
       "id": "judea_wilderness",
       "name": "犹大旷野",
       "scripture": "太 4",
-      "phase": "P3",
+      "chapter": 17,
       "duration": 750,
       "boss_at": 660,
       "budget": {
@@ -219,21 +2227,25 @@
         {
           "t": 120,
           "id": "six_finger_giant",
+          "n": 1,
           "count": 1
         },
         {
           "t": 300,
           "id": "six_finger_giant",
+          "n": 2,
           "count": 2
         },
         {
           "t": 480,
           "id": "beast",
+          "n": 6,
           "count": 6
         },
         {
           "t": 600,
           "id": "six_finger_giant",
+          "n": 2,
           "count": 2
         }
       ],
@@ -248,8 +2260,968 @@
         "enemy_speed": 1.12,
         "shillings": 1.25
       },
+      "mechanic_id": "temptation_choice",
       "desc": "正午灼热的石灰岩荒原：敌人更快，但舍客勒 +25%。",
       "unlock_wins": 1
+    },
+    {
+      "id": "ch18_galilee",
+      "name": "加利利狂风海",
+      "scripture": "可 4",
+      "chapter": 18,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 240,
+        "per_minute": 76,
+        "max_alive": 650
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "scorpion",
+              "w": 35
+            },
+            {
+              "id": "drowned_shade",
+              "w": 25
+            },
+            {
+              "id": "raven",
+              "w": 25
+            },
+            {
+              "id": "soldier",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "drowned_shade",
+              "w": 30
+            },
+            {
+              "id": "storm_petrel",
+              "w": 25
+            },
+            {
+              "id": "scorpion",
+              "w": 25
+            },
+            {
+              "id": "archer",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "storm_petrel",
+              "w": 30
+            },
+            {
+              "id": "drowned_shade",
+              "w": 25
+            },
+            {
+              "id": "scorpion",
+              "w": 25
+            },
+            {
+              "id": "law_golem",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "storm_petrel",
+              "w": 30
+            },
+            {
+              "id": "law_golem",
+              "w": 25
+            },
+            {
+              "id": "drowned_shade",
+              "w": 25
+            },
+            {
+              "id": "scorpion",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "dune_scorpion_king",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "possessed_brute",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 510,
+          "id": "dune_scorpion_king",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "possessed_brute",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "legion",
+      "ground": {
+        "base": "#162636",
+        "speckle": "#223A52",
+        "zone": "#305273"
+      },
+      "mods": {
+        "dodge_cooldown": 0.8
+      },
+      "mechanic_id": "storm_push",
+      "desc": "每 45s 狂风 12s，对全场敌我施加 28 px/s 横向推力；点亮船尾灯笼可平息 20s 并附活水光环。",
+      "unlock_wins": 17
+    },
+    {
+      "id": "ch19_pentecost",
+      "name": "耶路撒冷五旬节",
+      "scripture": "路 24, 徒 2",
+      "chapter": 19,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 245,
+        "per_minute": 78,
+        "max_alive": 660
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "drowned_shade",
+              "w": 35
+            },
+            {
+              "id": "scorpion",
+              "w": 25
+            },
+            {
+              "id": "soldier",
+              "w": 25
+            },
+            {
+              "id": "archer",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "drowned_shade",
+              "w": 30
+            },
+            {
+              "id": "law_golem",
+              "w": 25
+            },
+            {
+              "id": "storm_petrel",
+              "w": 25
+            },
+            {
+              "id": "scorpion",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "law_golem",
+              "w": 30
+            },
+            {
+              "id": "storm_petrel",
+              "w": 25
+            },
+            {
+              "id": "drowned_shade",
+              "w": 25
+            },
+            {
+              "id": "scorpion",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "law_golem",
+              "w": 30
+            },
+            {
+              "id": "storm_petrel",
+              "w": 25
+            },
+            {
+              "id": "drowned_shade",
+              "w": 25
+            },
+            {
+              "id": "shadow_raider",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "possessed_brute",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "dune_scorpion_king",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "possessed_brute",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "dune_scorpion_king",
+          "n": 3,
+          "count": 3
+        }
+      ],
+      "boss": "yoke_colossus",
+      "ground": {
+        "base": "#302A24",
+        "speckle": "#473E35",
+        "zone": "#615549"
+      },
+      "mods": {
+        "sanctified_damage": 1.2
+      },
+      "mechanic_id": "pentecost_rush",
+      "desc": "每 75s 降 3 团火舌，拾取后 10s 全武器冷却 -40%、弹幕附圣火 + 致盲。",
+      "unlock_wins": 18
+    },
+    {
+      "id": "ch20_philippi",
+      "name": "腓立比地牢震动",
+      "scripture": "徒 16",
+      "chapter": 20,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 245,
+        "per_minute": 78,
+        "max_alive": 660
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "shadow_raider",
+              "w": 30
+            },
+            {
+              "id": "iron_shielder",
+              "w": 25
+            },
+            {
+              "id": "drowned_shade",
+              "w": 25
+            },
+            {
+              "id": "scorpion",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "iron_shielder",
+              "w": 30
+            },
+            {
+              "id": "drowned_shade",
+              "w": 25
+            },
+            {
+              "id": "law_golem",
+              "w": 20
+            },
+            {
+              "id": "shadow_raider",
+              "w": 25
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "law_golem",
+              "w": 30
+            },
+            {
+              "id": "iron_shielder",
+              "w": 30
+            },
+            {
+              "id": "drowned_shade",
+              "w": 20
+            },
+            {
+              "id": "storm_petrel",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "law_golem",
+              "w": 30
+            },
+            {
+              "id": "iron_shielder",
+              "w": 30
+            },
+            {
+              "id": "storm_petrel",
+              "w": 20
+            },
+            {
+              "id": "drowned_shade",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "possessed_brute",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 330,
+          "id": "dune_scorpion_king",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "possessed_brute",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "dune_scorpion_king",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "jailer_warden",
+      "ground": {
+        "base": "#1C1E26",
+        "speckle": "#2A2D3B",
+        "zone": "#3B3F52",
+        "rocks": true
+      },
+      "mods": {
+        "armor_bonus": 5
+      },
+      "mechanic_id": "prison_quake",
+      "desc": "幽闭石牢；每 120s 午夜赞美诗大地震，全场敌人震慑 3s，震开 2 扇铁牢门必掉军装。",
+      "unlock_wins": 19
+    },
+    {
+      "id": "ch21_seven_churches",
+      "name": "七教会金灯台",
+      "scripture": "启 1-3",
+      "chapter": 21,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 250,
+        "per_minute": 80,
+        "max_alive": 680
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "smoke_specter",
+              "w": 30
+            },
+            {
+              "id": "star_ember",
+              "w": 25
+            },
+            {
+              "id": "iron_locust",
+              "w": 25
+            },
+            {
+              "id": "drowned_shade",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "iron_locust",
+              "w": 30
+            },
+            {
+              "id": "star_ember",
+              "w": 25
+            },
+            {
+              "id": "smoke_specter",
+              "w": 25
+            },
+            {
+              "id": "dragon_spawn",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "iron_locust",
+              "w": 30
+            },
+            {
+              "id": "dragon_spawn",
+              "w": 25
+            },
+            {
+              "id": "star_ember",
+              "w": 25
+            },
+            {
+              "id": "smoke_specter",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "dragon_spawn",
+              "w": 30
+            },
+            {
+              "id": "iron_locust",
+              "w": 25
+            },
+            {
+              "id": "star_ember",
+              "w": 25
+            },
+            {
+              "id": "smoke_specter",
+              "w": 20
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "horsemen_vanguard",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "false_idol",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 510,
+          "id": "horsemen_vanguard",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "false_idol",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "dark_angel_shade",
+      "ground": {
+        "base": "#241E30",
+        "speckle": "#362D47",
+        "zone": "#4B3E63"
+      },
+      "mods": {
+        "pickup_radius": 1.3
+      },
+      "mechanic_id": "seven_lamps",
+      "desc": "7 座金灯台每 40s 亮 2 座；站亮灯旁得教会祝福（加攻 / 免死护盾 / 熄灯则减速）。",
+      "unlock_wins": 20
+    },
+    {
+      "id": "ch22_abyss",
+      "name": "无底坑与蝗虫海",
+      "scripture": "启 9",
+      "chapter": 22,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 260,
+        "per_minute": 82,
+        "max_alive": 700
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "iron_locust",
+              "w": 40
+            },
+            {
+              "id": "smoke_specter",
+              "w": 30
+            },
+            {
+              "id": "star_ember",
+              "w": 30
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "iron_locust",
+              "w": 35
+            },
+            {
+              "id": "smoke_specter",
+              "w": 25
+            },
+            {
+              "id": "star_ember",
+              "w": 20
+            },
+            {
+              "id": "dragon_spawn",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "iron_locust",
+              "w": 35
+            },
+            {
+              "id": "dragon_spawn",
+              "w": 25
+            },
+            {
+              "id": "smoke_specter",
+              "w": 20
+            },
+            {
+              "id": "star_ember",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "dragon_spawn",
+              "w": 35
+            },
+            {
+              "id": "iron_locust",
+              "w": 30
+            },
+            {
+              "id": "smoke_specter",
+              "w": 20
+            },
+            {
+              "id": "star_ember",
+              "w": 15
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "false_idol",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "horsemen_vanguard",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "false_idol",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "horsemen_vanguard",
+          "n": 3,
+          "count": 3
+        }
+      ],
+      "boss": "abaddon",
+      "ground": {
+        "base": "#1F1A1C",
+        "speckle": "#33292C",
+        "zone": "#4A3B40",
+        "rocks": true
+      },
+      "mods": {
+        "max_alive_bonus": 80
+      },
+      "mechanic_id": "abyss_vents",
+      "desc": "3 座无底坑井口每 5s 喷铁甲蝗虫；站井口旁 4s 封印，每封 1 座掉 1 个银宝箱。",
+      "unlock_wins": 21
+    },
+    {
+      "id": "ch23_babylon_fall",
+      "name": "大巴比伦与白马",
+      "scripture": "启 17-19",
+      "chapter": 23,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 265,
+        "per_minute": 85,
+        "max_alive": 700
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "star_ember",
+              "w": 30
+            },
+            {
+              "id": "smoke_specter",
+              "w": 30
+            },
+            {
+              "id": "iron_locust",
+              "w": 25
+            },
+            {
+              "id": "beast",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "iron_locust",
+              "w": 30
+            },
+            {
+              "id": "star_ember",
+              "w": 25
+            },
+            {
+              "id": "dragon_spawn",
+              "w": 25
+            },
+            {
+              "id": "smoke_specter",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "dragon_spawn",
+              "w": 30
+            },
+            {
+              "id": "iron_locust",
+              "w": 30
+            },
+            {
+              "id": "star_ember",
+              "w": 20
+            },
+            {
+              "id": "smoke_specter",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "dragon_spawn",
+              "w": 35
+            },
+            {
+              "id": "iron_locust",
+              "w": 30
+            },
+            {
+              "id": "star_ember",
+              "w": 20
+            },
+            {
+              "id": "smoke_specter",
+              "w": 15
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "horsemen_vanguard",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 330,
+          "id": "false_idol",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "horsemen_vanguard",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "false_idol",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "scarlet_beast",
+      "ground": {
+        "base": "#3B1A22",
+        "speckle": "#572632",
+        "zone": "#753343",
+        "rocks": true
+      },
+      "mods": {
+        "shillings": 1.5
+      },
+      "mechanic_id": "meteor_horde",
+      "desc": "高烈度爽图：每 60s 陨星火雨无差别轰炸，同时四面精英方阵推进，击杀必掉金宝箱。",
+      "unlock_wins": 22
+    },
+    {
+      "id": "ch24_armageddon",
+      "name": "哈米吉多顿玻璃海",
+      "scripture": "启 19-22",
+      "chapter": 24,
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 280,
+        "per_minute": 90,
+        "max_alive": 720
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "iron_locust",
+              "w": 30
+            },
+            {
+              "id": "star_ember",
+              "w": 30
+            },
+            {
+              "id": "smoke_specter",
+              "w": 20
+            },
+            {
+              "id": "dragon_spawn",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "dragon_spawn",
+              "w": 30
+            },
+            {
+              "id": "iron_locust",
+              "w": 30
+            },
+            {
+              "id": "star_ember",
+              "w": 20
+            },
+            {
+              "id": "smoke_specter",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "dragon_spawn",
+              "w": 35
+            },
+            {
+              "id": "iron_locust",
+              "w": 30
+            },
+            {
+              "id": "star_ember",
+              "w": 20
+            },
+            {
+              "id": "smoke_specter",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "dragon_spawn",
+              "w": 40
+            },
+            {
+              "id": "iron_locust",
+              "w": 30
+            },
+            {
+              "id": "star_ember",
+              "w": 15
+            },
+            {
+              "id": "smoke_specter",
+              "w": 15
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "false_idol",
+          "n": 1,
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "horsemen_vanguard",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 510,
+          "id": "false_idol",
+          "n": 2,
+          "count": 2
+        },
+        {
+          "t": 630,
+          "id": "horsemen_vanguard",
+          "n": 2,
+          "count": 2
+        }
+      ],
+      "boss": "beast_of_sea",
+      "ground": {
+        "base": "#182436",
+        "speckle": "#283D5C",
+        "zone": "#E0B85A"
+      },
+      "mods": {
+        "all_stats": 1.1,
+        "fusion_kills_bonus": -100
+      },
+      "mechanic_id": "glass_sea",
+      "desc": "360s 后化为掺火的玻璃海：活水与圣火自动连携爆炸；每 90s 圣所光柱全额回血。",
+      "unlock_wins": 23
     }
   ]
 }

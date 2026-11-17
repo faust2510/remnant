@@ -36,6 +36,8 @@ var fear_t: PackedFloat32Array
 var timer: PackedFloat32Array
 var state: PackedInt32Array
 var touch_cd: PackedFloat32Array
+## 俯冲锁定方向（dive 行为专用：起手时锁定角度，冲刺阶段不再追人）
+var dive_a: PackedFloat32Array
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var sim_time: float = 0.0
 var hp_scale: float = 1.0
@@ -59,6 +61,42 @@ var stat_hp: PackedFloat32Array
 var stat_dmg: PackedFloat32Array
 var stat_xp: PackedInt32Array
 
+# ---- BOSS 控制器（每关最多一只；SoA 被 _swap_remove 搬动时索引会迁移）
+var boss_ai: BossAI = null
+var boss_idx: int = -1
+
+# ---- 精英词条：按类型预解码成位掩码，避免每帧比中文字符串
+const AFFIX_ARMOR := 1      ## 护甲：受击 -30%
+const AFFIX_SUMMON := 2     ## 召唤：每 6 秒召 2 只护卫
+const AFFIX_QUAKE := 4      ## 震地：每 4.5 秒一圈冲击波
+const AFFIX_AURA := 8       ## 光环：周围小怪加速 25% / 加伤 25%
+const AFFIX_SPLIT := 16     ## 分裂：死亡时分裂 4 只溺水暗影
+const AFFIX_TELEPORT := 32  ## 瞬移：贴近 90px 时贴脸突刺
+const AFFIX_RING := 64      ## 重踏：每 4 秒 6 颗环形巨石
+const AFFIX_PILLAR := 128   ## 火柱：每 5 秒在玩家脚下落火柱
+var affix_flags: PackedInt32Array
+
+# ---- 图腾：totem_t > 0 表示这是召唤柱（不动、不打人、到期静默消失）
+var totem_t: PackedFloat32Array
+var totem_count: int = 0
+
+# ---- 场地危害（BOSS 技能 / 精英火柱）：{x,y,r,dmg,life,tick,tick_t,kind,color}
+var hazards: Array = []
+
+# ---- 光环笼罩剩余时间（被精英加成的普通怪）
+var haste_t: PackedFloat32Array
+var affix_t: PackedFloat32Array
+
+# ---- 灼烧叠层上限，由武器层按被动 burn_stack_max 覆写
+var burn_cap: int = 5
+
+# ---- BOSS 累计承伤（遥测用，REMNANT_BOSS_TRACE 打印）
+var boss_dmg_taken: float = 0.0
+
+# ---- 精英词条主动技能总开关。REMNANT_NO_AFFIX=1 时关闭（光环/瞬移/召唤/震地/环形/火柱/分裂），
+#      供平衡排查时把「精英机制太狠」和「章节预算太狠」分开归因。
+var affix_enabled: bool = true
+
 func setup(type_defs: Array) -> void:
 	types = type_defs
 	type_ids = []
@@ -69,7 +107,18 @@ func setup(type_defs: Array) -> void:
 	rad.resize(CAPACITY); typ.resize(CAPACITY); flash.resize(CAPACITY); armor_shred.resize(CAPACITY)
 	burn_stack.resize(CAPACITY); burn_t.resize(CAPACITY); burn_dps.resize(CAPACITY)
 	tremor_t.resize(CAPACITY); blind_t.resize(CAPACITY); wet_t.resize(CAPACITY); fear_t.resize(CAPACITY)
-	timer.resize(CAPACITY); state.resize(CAPACITY); touch_cd.resize(CAPACITY)
+	timer.resize(CAPACITY); state.resize(CAPACITY); touch_cd.resize(CAPACITY); dive_a.resize(CAPACITY)
+	totem_t.resize(CAPACITY); affix_t.resize(CAPACITY); haste_t.resize(CAPACITY)
+	affix_flags.resize(types.size())
+	for k in range(types.size()):
+		affix_flags[k] = _decode_affix(String(types[k].get("elite_affix", "")))
+	hazards = []
+	boss_ai = null
+	boss_idx = -1
+	totem_count = 0
+	burn_cap = 5
+	boss_dmg_taken = 0.0
+	affix_enabled = OS.get_environment("REMNANT_NO_AFFIX") != "1"
 	grid = SpatialGrid.new()
 	grid.setup(CAPACITY, 32.0)
 	query_buf.resize(MAX_QUERY)
@@ -87,6 +136,11 @@ func clear() -> void:
 	deaths.clear()
 	hp_scale = 1.0
 	speed_scale = 1.0
+	hazards = []
+	boss_ai = null
+	boss_idx = -1
+	totem_count = 0
+	burn_cap = 5
 
 func type_index_of(id: String) -> int:
 	return type_ids.find(id)
@@ -111,17 +165,38 @@ func spawn(ti: int, x: float, y: float, phase: int = 0) -> int:
 	timer[i] = rng.randf() * 1.5
 	state[i] = 0
 	touch_cd[i] = 0.0
+	dive_a[i] = 0.0
+	totem_t[i] = 0.0
+	haste_t[i] = 0.0
+	affix_t[i] = rng.randf() * 1.5
+	# BOSS 自带三阶段技能控制器：挂在模拟层内，run 侧无需接线
+	if String(t.get("behavior", "")) == "boss":
+		boss_ai = BossAI.new()
+		boss_ai.setup(self, i, t, null, rng)
+		boss_idx = i
 	return i
 
 func _swap_remove(i: int) -> void:
 	var last: int = count - 1
+	if totem_t[i] != 0.0:
+		totem_count = maxi(totem_count - 1, 0)
 	if i != last:
 		px[i] = px[last]; py[i] = py[last]; vx[i] = vx[last]; vy[i] = vy[last]
 		hp[i] = hp[last]; max_hp[i] = max_hp[last]; spd[i] = spd[last]; dmg[i] = dmg[last]
 		rad[i] = rad[last]; typ[i] = typ[last]; flash[i] = flash[last]; armor_shred[i] = armor_shred[last]
 		burn_stack[i] = burn_stack[last]; burn_t[i] = burn_t[last]; burn_dps[i] = burn_dps[last]
 		tremor_t[i] = tremor_t[last]; blind_t[i] = blind_t[last]; wet_t[i] = wet_t[last]; fear_t[i] = fear_t[last]
-		timer[i] = timer[last]; state[i] = state[last]; touch_cd[i] = touch_cd[last]
+		timer[i] = timer[last]; state[i] = state[last]; touch_cd[i] = touch_cd[last]; dive_a[i] = dive_a[last]
+		totem_t[i] = totem_t[last]; haste_t[i] = haste_t[last]; affix_t[i] = affix_t[last]
+	# BOSS 索引迁移：被删的正好是 BOSS 就释放控制器，否则把控制器的 idx 跟到新槽位
+	if boss_idx >= 0:
+		if i == boss_idx:
+			boss_idx = -1
+			boss_ai = null
+		elif i < boss_idx and last == boss_idx:
+			boss_idx = i
+			if boss_ai != null:
+				boss_ai.idx = i
 	count -= 1
 
 func is_elite(i: int) -> bool:
@@ -140,11 +215,40 @@ func _record_death(i: int) -> void:
 		"coal": int(t.get("coal_drop", 0)),
 		"boss": String(t.get("behavior", "")) == "boss"
 	})
+	# 精英「分裂」词条：死亡时原地分裂出 4 只溺水暗影
+	if affix_enabled and affix_flags[typ[i]] & AFFIX_SPLIT != 0:
+		var sti: int = type_ids.find("drowned_shade")
+		if sti >= 0:
+			for k in range(4):
+				var a: float = TAU * float(k) / 4.0 + rng.randf() * 0.35
+				_emit_summon(px[i] + cos(a) * 24.0, py[i] + sin(a) * 24.0, sti)
+
+## 约 · 宝座前七灵：敌人每带 1 种异常状态，承受伤害独立 ×(1+bonus)（0 = 关闭）
+var status_dmg_bonus: float = 0.0
+
+func status_count(i: int) -> int:
+	var n: int = 0
+	if burn_t[i] > 0.0: n += 1
+	if tremor_t[i] > 0.0: n += 1
+	if blind_t[i] > 0.0: n += 1
+	if wet_t[i] > 0.0: n += 1
+	if fear_t[i] > 0.0: n += 1
+	return n
 
 ## 造成伤害。返回是否击杀。
 func damage(i: int, amount: float) -> bool:
 	if i < 0 or i >= count:
 		return false
+	if status_dmg_bonus > 0.0:
+		var sc: int = status_count(i)
+		if sc > 0:
+			amount *= pow(1.0 + status_dmg_bonus, float(sc))
+	if i == boss_idx:
+		boss_dmg_taken += amount
+	if i == boss_idx and boss_ai != null:
+		amount *= 1.0 - clampf(boss_ai.dr + boss_ai.shield_dr(), 0.0, 0.85)
+	elif affix_flags[typ[i]] & AFFIX_ARMOR != 0:
+		amount *= 0.7
 	hp[i] -= amount
 	flash[i] = 0.12
 	if hp[i] <= 0.0:
@@ -164,7 +268,7 @@ func apply_status(i: int, status: String, dps: float) -> void:
 		return
 	match status:
 		"burn":
-			burn_stack[i] = mini(burn_stack[i] + 1, 5)
+			burn_stack[i] = mini(burn_stack[i] + 1, maxi(burn_cap, 1))
 			burn_t[i] = maxf(burn_t[i], 3.0)
 			burn_dps[i] = maxf(burn_dps[i], dps)
 		"tremor":
@@ -197,7 +301,9 @@ func query(x: float, y: float, radius: float) -> int:
 func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 	sim_time += delta
 	var contact := 0.0
-	for i in range(count):
+	contact = maxf(contact, _tick_hazards(delta, ppos))
+	var i: int = 0
+	while i < count:
 		var t: Dictionary = types[typ[i]]
 		var beh: String = String(t.get("behavior", "chase"))
 
@@ -208,22 +314,38 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 			burn_t[i] -= delta
 			hp[i] -= burn_dps[i] * float(burn_stack[i]) * delta * dot_mult
 			if hp[i] <= 0.0:
-				_record_death(i)
-				_swap_remove(i)
-				i -= 1
+				_kill_index(i)
 				continue
 		if tremor_t[i] > 0.0: tremor_t[i] -= delta
 		if blind_t[i] > 0.0: blind_t[i] -= delta
 		if wet_t[i] > 0.0: wet_t[i] -= delta
 		if fear_t[i] > 0.0: fear_t[i] -= delta
+		if haste_t[i] > 0.0: haste_t[i] -= delta
+
+		# ---- 图腾：站桩、不造成接触伤害，寿命结束静默消失
+		if totem_t[i] > 0.0:
+			totem_t[i] -= delta
+			if totem_t[i] <= 0.0:
+				_swap_remove(i)
+				continue
+			vx[i] = 0.0
+			vy[i] = 0.0
+			i += 1
+			continue
 
 		var dx: float = ppos.x - px[i]
 		var dy: float = ppos.y - py[i]
 		var dist: float = sqrt(dx * dx + dy * dy)
 		if dist < 0.001: dist = 0.001
 
+		# ---- 精英词条（12 种精英按 elite_affix 文本解码，见 _decode_affix）
+		var fl: int = affix_flags[typ[i]]
+		if fl != 0:
+			_tick_affix(i, fl, delta, ppos, dx, dy, dist)
+
 		var slow: float = 0.7 if tremor_t[i] > 0.0 else 1.0
-		var speed: float = spd[i] * slow
+		var haste: float = 1.25 if haste_t[i] > 0.0 else 1.0
+		var speed: float = spd[i] * slow * haste
 
 		# ---- 行为
 		match beh:
@@ -236,14 +358,41 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 					timer[i] -= delta
 					if timer[i] <= 0.0 and dist < keep * 2.2:
 						timer[i] = float(t.get("shoot_cd", 2.6))
-						_emit_shot(px[i], py[i], dx / dist, dy / dist, float(t.get("shot_speed", 150)), float(t.get("shot_damage", 7)))
+						_emit_fan(i, t, dx / dist, dy / dist, dist)
 				else:
 					vx[i] = 0.0
 					vy[i] = 0.0
 			"dive":
-				var wob: float = sin(sim_time * 4.0 + float(i)) * 0.35
-				vx[i] = (dx / dist - dy / dist * wob) * speed
-				vy[i] = (dy / dist + dx / dist * wob) * speed
+				# 盘旋 → 起手 → 锁定方向冲刺 → 拉开，冲刺之外不贴身，避免「比玩家快的敌人」变成永久接触伤害
+				var hover: float = float(t.get("hover_dist", 88.0))
+				var tang: float = sin(sim_time * 0.9 + float(i)) * 0.5
+				timer[i] -= delta
+				if state[i] == 0:
+					var ring: float = 1.0 if dist > hover else -1.0
+					vx[i] = (dx / dist * ring - dy / dist * tang) * speed * 0.75
+					vy[i] = (dy / dist * ring + dx / dist * tang) * speed * 0.75
+					if dist < hover + 34.0 and timer[i] <= 0.0:
+						state[i] = 1
+						timer[i] = 0.45
+				elif state[i] == 1:
+					vx[i] = 0.0
+					vy[i] = 0.0
+					dive_a[i] = atan2(dy, dx)
+					if timer[i] <= 0.0:
+						state[i] = 2
+						timer[i] = 0.34
+				elif state[i] == 2:
+					vx[i] = cos(dive_a[i]) * speed * 3.2
+					vy[i] = sin(dive_a[i]) * speed * 3.2
+					if timer[i] <= 0.0:
+						state[i] = 3
+						timer[i] = 0.85
+				else:
+					vx[i] = -dx / dist * speed * 0.9
+					vy[i] = -dy / dist * speed * 0.9
+					if timer[i] <= 0.0:
+						state[i] = 0
+						timer[i] = rng.randf_range(0.4, 1.2)
 			"charger":
 				timer[i] -= delta
 				if state[i] == 0 and timer[i] <= 0.0 and dist < 220.0:
@@ -259,29 +408,31 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 					vx[i] = dx / dist * speed
 					vy[i] = dy / dist * speed
 			"boss":
-				timer[i] -= delta
-				vx[i] = dx / dist * speed
-				vy[i] = dy / dist * speed
-				if timer[i] <= 0.0:
-					timer[i] = 2.4
-					var ring: int = 10
-					for k in range(ring):
-						var a: float = TAU * float(k) / float(ring) + rng.randf() * 0.2
-						_emit_shot(px[i], py[i], cos(a), sin(a), 130.0, 9.0)
-					if rng.randf() < 0.5:
-						_emit_summon(px[i] + rng.randf_range(-40.0, 40.0), py[i] + rng.randf_range(-40.0, 40.0), 2)
+				if boss_ai != null and i == boss_idx:
+					# 三阶段技能控制器接管移动与出招（data/bosses.json 的 phases）
+					boss_ai.tick(delta, ppos)
+				else:
+					# 兜底：没有控制器时仍按旧的环弹行为跑，保证不空转
+					timer[i] -= delta
+					vx[i] = dx / dist * speed
+					vy[i] = dy / dist * speed
+					if timer[i] <= 0.0:
+						timer[i] = 2.4
+						var ring: int = 10
+						for k in range(ring):
+							var a: float = TAU * float(k) / float(ring) + rng.randf() * 0.2
+							_emit_shot(px[i], py[i], cos(a), sin(a), 130.0, 9.0)
 			_:
 				vx[i] = dx / dist * speed
 				vy[i] = dy / dist * speed
 
-		if fear_t[i] > 0.0:
-			vx[i] = -vx[i]
-			vy[i] = -vy[i]
-
-		var idle: bool = (beh == "ranged" and blind_t[i] > 0.0)
-		if idle:
-			vx[i] *= 0.2
-			vy[i] *= 0.2
+		if beh != "boss":
+			if fear_t[i] > 0.0:
+				vx[i] = -vx[i]
+				vy[i] = -vy[i]
+			if beh == "ranged" and blind_t[i] > 0.0:
+				vx[i] *= 0.2
+				vy[i] *= 0.2
 
 		px[i] += vx[i] * delta
 		py[i] += vy[i] * delta
@@ -294,10 +445,163 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 		var rr: float = rad[i] + 7.0
 		if dist < rr and touch_cd[i] <= 0.0:
 			# 只吃「最强的那一下」，不做多体叠加，否则被围住就是秒杀
-			contact = maxf(contact, dmg[i])
+			contact = maxf(contact, dmg[i] * haste)
 			touch_cd[i] = 0.8
+		i += 1
 
 	return contact
+
+## 远程敌人通用齐射：count / spread_deg / shot_speed / shot_damage 全部可以只靠数据表达。
+## 数据没写这些键时，退化成原来的单发直射，老敌人行为不变。
+func _emit_fan(i: int, t: Dictionary, dxn: float, dyn: float, dist: float) -> void:
+	var n: int = maxi(int(t.get("count", 1)), 1)
+	var spread: float = deg_to_rad(float(t.get("spread_deg", 12.0)))
+	var spd: float = float(t.get("shot_speed", 150))
+	var dmg_out: float = float(t.get("shot_damage", 6))
+	var keep: float = float(t.get("keep_dist", 110))
+	if dist > keep * 2.2:
+		return
+	for k in range(n):
+		var off: float = 0.0
+		if n > 1:
+			off = (float(k) - float(n - 1) * 0.5) * spread
+		var ca: float = cos(off)
+		var sa: float = sin(off)
+		_emit_shot(px[i], py[i], dxn * ca - dyn * sa, dxn * sa + dyn * ca, spd, dmg_out)
+
+# ---------------------------------------------------------------- 击杀 / 危害 / 精英
+
+func _kill_index(i: int) -> void:
+	# 故意不前进 i：swap_remove 把最后一个敌人搬进当前槽位，下一轮立刻处理它
+	_record_death(i)
+	_swap_remove(i)
+
+## BOSS / 精英技能落下的场地危害。delay 是预警时间；dmg 为 0 时只当特效标记。
+func add_hazard(x: float, y: float, radius: float, dmg_out: float, life: float, tick: float, kind: String, color: Color, delay: float = 0.0) -> void:
+	if hazards.size() >= 48:
+		return
+	hazards.append({
+		"x": x, "y": y, "r": radius, "dmg": dmg_out,
+		"life": life, "tick": maxf(tick, 0.2), "tick_t": maxf(delay, 0.0),
+		"kind": kind, "color": color
+	})
+
+func _tick_hazards(delta: float, ppos: Vector2) -> float:
+	if hazards.is_empty():
+		return 0.0
+	var out := 0.0
+	var i: int = hazards.size() - 1
+	while i >= 0:
+		var h: Dictionary = hazards[i]
+		h["life"] = float(h["life"]) - delta
+		if float(h["life"]) <= 0.0:
+			hazards.remove_at(i)
+			i -= 1
+			continue
+		h["tick_t"] = float(h["tick_t"]) - delta
+		var rr: float = float(h["r"]) + 7.0
+		var hx: float = ppos.x - float(h["x"])
+		var hy: float = ppos.y - float(h["y"])
+		if hx * hx + hy * hy <= rr * rr and float(h["tick_t"]) <= 0.0:
+			h["tick_t"] = float(h.get("tick", 1.0))
+			out = maxf(out, float(h["dmg"]))
+		i -= 1
+	return out
+
+## 召唤一根可打碎的图腾柱：不动、不造成接触伤害，life 秒后静默消失。
+## 外形借 enemies.json 里的 brick_golem（缺此 id 时退回血量最高的普通怪），不改数据结构。
+func spawn_totem(x: float, y: float, hp_override: float, life: float) -> int:
+	var ti: int = type_ids.find("brick_golem")
+	if ti < 0:
+		var best: float = -1.0
+		for k in range(types.size()):
+			var d: Dictionary = types[k]
+			if bool(d.get("elite", false)) or String(d.get("behavior", "")) == "boss":
+				continue
+			if float(d.get("hp", 0)) > best:
+				best = float(d.get("hp", 0))
+				ti = k
+	if ti < 0:
+		return -1
+	var i: int = spawn(ti, x, y)
+	if i < 0:
+		return -1
+	hp[i] = hp_override
+	max_hp[i] = hp_override
+	rad[i] = 10.0
+	spd[i] = 0.0
+	dmg[i] = 0.0
+	totem_t[i] = maxf(life, 1.0)
+	totem_count += 1
+	return i
+
+## 把 data/enemies.json 的中文 elite_affix 解码成位掩码；没有词条的普通怪为 0。
+func _decode_affix(text: String) -> int:
+	if text == "":
+		return 0
+	var f: int = 0
+	if text.contains("护甲"): f |= AFFIX_ARMOR
+	if text.contains("召唤"): f |= AFFIX_SUMMON
+	if text.contains("震地"): f |= AFFIX_QUAKE
+	if text.contains("加速"): f |= AFFIX_AURA
+	if text.contains("分裂"): f |= AFFIX_SPLIT
+	if text.contains("瞬移"): f |= AFFIX_TELEPORT
+	if text.contains("环形"): f |= AFFIX_RING
+	if text.contains("火柱"): f |= AFFIX_PILLAR
+	return f
+
+## 精英词条每帧推进：光环常驻、瞬移看距离、其余按自身计时器触发。
+func _tick_affix(i: int, fl: int, delta: float, ppos: Vector2, dx: float, dy: float, dist: float) -> void:
+	if not affix_enabled:
+		return
+	if fl & AFFIX_AURA != 0:
+		_apply_aura(i)
+	if fl & AFFIX_TELEPORT != 0:
+		if state[i] == 1:
+			affix_t[i] = maxf(affix_t[i] - delta, 0.0)
+			if affix_t[i] <= 0.0:
+				state[i] = 0
+		elif dist < 90.0:
+			# 瞬移突刺：贴到玩家身侧 34px，随后 2.5 秒冷却
+			var a: float = rng.randf() * TAU
+			px[i] = ppos.x + cos(a) * 34.0
+			py[i] = ppos.y + sin(a) * 34.0
+			vx[i] = 0.0
+			vy[i] = 0.0
+			state[i] = 1
+			affix_t[i] = 2.5
+	if fl & (AFFIX_SUMMON | AFFIX_QUAKE | AFFIX_RING | AFFIX_PILLAR) != 0:
+		affix_t[i] = maxf(affix_t[i] - delta, 0.0)
+		if affix_t[i] > 0.0:
+			return
+		if fl & AFFIX_SUMMON != 0:
+			affix_t[i] = 6.0
+			var ti: int = type_ids.find("brick_golem")
+			if ti >= 0:
+				for k in range(2):
+					var a2: float = rng.randf() * TAU
+					_emit_summon(px[i] + cos(a2) * 34.0, py[i] + sin(a2) * 34.0, ti)
+		elif fl & AFFIX_QUAKE != 0:
+			affix_t[i] = 4.5
+			for k in range(8):
+				var a3: float = rng.randf() * TAU + TAU * float(k) / 8.0
+				_emit_shot(px[i], py[i], cos(a3), sin(a3), 62.0, 5.0)
+		elif fl & AFFIX_RING != 0:
+			affix_t[i] = 4.0
+			for k in range(6):
+				var a4: float = TAU * float(k) / 6.0
+				_emit_shot(px[i], py[i], cos(a4), sin(a4), 80.0, 6.0)
+		elif fl & AFFIX_PILLAR != 0:
+			affix_t[i] = 5.0
+			add_hazard(ppos.x, ppos.y, 44.0, 7.0, 1.4, 0.5, "pillar", Color("#E0731A"), 0.65)
+
+## 光环：给 170px 内的普通怪挂 0.4 秒加速/加伤（每帧续挂，离开即失效）。
+func _apply_aura(i: int) -> void:
+	var n: int = query(px[i], py[i], 170.0)
+	for k in range(n):
+		var j: int = query_buf[k]
+		if j != i and affix_flags[typ[j]] == 0:
+			haste_t[j] = 0.4
 
 # ---- 供武器系统批量使用 ----
 
@@ -313,7 +617,7 @@ func damage_in_circle(cx: float, cy: float, radius: float, amount: float, status
 			var ddy: float = py[i] - cy
 			if status != "":
 				apply_status(i, status, dps)
-			if kb > 0.0:
+			if absf(kb) > 0.01:
 				knockback(i, ddx, ddy, kb)
 			damage(i, amount)
 			hits += 1

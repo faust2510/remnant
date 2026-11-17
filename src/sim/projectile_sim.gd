@@ -22,6 +22,11 @@ var kb: PackedFloat32Array
 var color: PackedInt32Array    # 0 圣石 1 音 2 火 3 水 4 敌弹
 var splash_r: PackedFloat32Array
 var splash_dmg: PackedFloat32Array
+## 约 · 阿尔法与俄梅戛：1 = 这发弹幕寿命耗尽时要折返玩家方向再穿透一次（折返后置 0）
+var returning: PackedByteArray
+## 该弹上一次命中的敌人索引：穿透弹在同一个大体积敌人身上停留多帧时，
+## 必须只判定一次，否则 BOSS/巨怪会每帧挨一次（曾经的穿透伤害虚高根因）。
+var last_hit: PackedInt32Array
 
 const STATUS_NAMES := ["", "burn", "tremor", "blind", "wet", "fear"]
 const COL_STONE := 0
@@ -36,6 +41,7 @@ func setup() -> void:
 	size.resize(CAPACITY); friendly.resize(CAPACITY); homing.resize(CAPACITY)
 	status.resize(CAPACITY); dps.resize(CAPACITY); kb.resize(CAPACITY); color.resize(CAPACITY)
 	splash_r.resize(CAPACITY); splash_dmg.resize(CAPACITY)
+	last_hit.resize(CAPACITY); returning.resize(CAPACITY)
 	count = 0
 
 func clear() -> void:
@@ -67,6 +73,8 @@ func spawn(x: float, y: float, dir_x: float, dir_y: float, speed: float, dmg_out
 	color[i] = int(opts.get("color", 0))
 	splash_r[i] = float(opts.get("splash_r", 0.0))
 	splash_dmg[i] = float(opts.get("splash_dmg", 0.0))
+	last_hit[i] = -1
+	returning[i] = 1 if bool(opts.get("return", false)) and is_friendly else 0
 
 func _swap_remove(i: int) -> void:
 	var last: int = count - 1
@@ -76,13 +84,30 @@ func _swap_remove(i: int) -> void:
 		size[i] = size[last]; friendly[i] = friendly[last]; homing[i] = homing[last]
 		status[i] = status[last]; dps[i] = dps[last]; kb[i] = kb[last]; color[i] = color[last]
 		splash_r[i] = splash_r[last]; splash_dmg[i] = splash_dmg[last]
+		last_hit[i] = last_hit[last]; returning[i] = returning[last]
 	count -= 1
 
 ## 推进并结算对敌人的命中。hit_callback 用于特效/音效（可选）。
-func update(delta: float, enemies: EnemySim, on_hit: Callable = Callable()) -> void:
+func update(delta: float, enemies: EnemySim, on_hit: Callable = Callable(), focus: Vector2 = Vector2.ZERO) -> void:
 	var i: int = count - 1
 	while i >= 0:
 		if life[i] <= 0.0:
+			if returning[i] == 1:
+				# 折返：朝玩家方向重新飞，重新算一次穿透（阿尔法与俄梅戛）
+				returning[i] = 0
+				var rx: float = focus.x - px[i]
+				var ry: float = focus.y - py[i]
+				var rl: float = sqrt(rx * rx + ry * ry)
+				if rl < 0.001:
+					rx = -vx[i]; ry = -vy[i]; rl = sqrt(rx * rx + ry * ry)
+					if rl < 0.001: rl = 1.0
+				var sp: float = sqrt(vx[i] * vx[i] + vy[i] * vy[i])
+				vx[i] = rx / rl * sp
+				vy[i] = ry / rl * sp
+				life[i] = 1.1
+				last_hit[i] = -1
+				i -= 1
+				continue
 			_swap_remove(i)
 			i -= 1
 			continue
@@ -127,9 +152,13 @@ func update(delta: float, enemies: EnemySim, on_hit: Callable = Callable()) -> v
 					var dy2: float = enemies.py[e] - py[i]
 					if dx2 * dx2 + dy2 * dy2 > dd * dd:
 						continue
+					if e == last_hit[i]:
+						# 同一目标只吃一次穿透伤害（等它先命中别人再说）
+						continue
+					last_hit[i] = e
 					if status[i] > 0:
 						enemies.apply_status(e, STATUS_NAMES[status[i]], dps[i])
-					if kb[i] > 0.0:
+					if absf(kb[i]) > 0.01:
 						enemies.knockback(e, dx2, dy2, kb[i])
 					enemies.damage(e, dmg[i])
 					if splash_r[i] > 0.0:

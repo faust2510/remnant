@@ -1,5 +1,5 @@
 {
-  "_comment": "固定一对一祝圣：武器 Lv5 + 指定被动已持有（不消耗）+ 祭坛 1 火炭。dual 为双武器合鸣（A Lv5 + B Lv5，合二为一）。",
+  "_comment": "祝圣与合鸣（设计圣典 v2.0 第 4.2/4.3 节）。weapon_passive = 基础武器 Lv5 + 持有对应宝物 + 祭坛火炭，每把基础武器恰好一条。dual_weapon = 两把 Lv5 武器合鸣。modifier 只取契约第 2 节 6 种（shockwave_on_hit / tidal_push / wall_push / trail_fire / holy_smoke / echo_blade）。duals 同时写 weapons[]（契约）与 weapon_a/weapon_b（当前 game_state.gd 读取）。",
   "fusions": [
     {
       "id": "goliaths_knell",
@@ -21,12 +21,15 @@
         "size": 4
       },
       "scaling": {
-        "damage": 0.3,
+        "damage": 0.297,
         "cooldown": -0.06,
         "count": 0
       },
       "overrides": {
         "3": {
+          "count": 4
+        },
+        "4": {
           "count": 4
         },
         "5": {
@@ -38,11 +41,14 @@
         "name": "五块光滑石子",
         "scripture": "撒上 17:40",
         "level": 5,
-        "kills": 500,
-        "behavior": "nova",
+        "kills": 300,
+        "overrides": {
+          "count": 5,
+          "pierce": 7
+        },
         "brew": "stone_rain"
       },
-      "desc": "穿透圣石命中时炸开破甲音波，并把敌人拉向落点。"
+      "desc": "圣石命中即爆 34px 音波溅射（45% 伤害）并破甲 15%。成全后石子命中会向最近未命中的敌人弹射一次。"
     },
     {
       "id": "moses_staff",
@@ -62,22 +68,30 @@
         "count": 2
       },
       "scaling": {
-        "damage": 0.3,
+        "damage": 0.292,
         "cooldown": -0.06,
         "range": 0.09,
         "knockback": 0.12
       },
-      "overrides": {},
+      "overrides": {
+        "5": {
+          "range": 106,
+          "cooldown": 0.5
+        }
+      },
       "modifier": "tidal_push",
       "evolves_to": {
         "name": "红海合拢",
         "scripture": "出 14:26",
         "level": 5,
-        "kills": 500,
-        "behavior": "nova",
+        "kills": 300,
+        "overrides": {
+          "count": 4,
+          "range": 135
+        },
         "brew": "twin_tide"
       },
-      "desc": "双向浪潮横扫，击退翻倍并在身后留下活水地带。"
+      "desc": "左右双向浪潮横扫，前方留下 2.5s 活水减速带（每秒 8 点水伤）。成全后四面合拢并聚拢敌人。"
     },
     {
       "id": "burning_bush",
@@ -97,13 +111,16 @@
         "size": 10
       },
       "scaling": {
-        "damage": 0.3,
-        "radius": 0.1,
+        "damage": 0.292,
+        "radius": 0.097,
         "count": 0
       },
       "overrides": {
         "3": {
           "count": 6
+        },
+        "4": {
+          "count": 7
         },
         "5": {
           "count": 8
@@ -114,11 +131,14 @@
         "name": "坛上不灭的火",
         "scripture": "利 6:13",
         "level": 5,
-        "kills": 500,
-        "behavior": "nova",
+        "kills": 300,
+        "overrides": {
+          "count": 12,
+          "radius": 86
+        },
         "brew": "eternal_flame"
       },
-      "desc": "环绕圣火在身后留下不灭火径，灼烧不断蔓延。"
+      "desc": "每颗环绕火球沿路留下 1.8s 圣火余烬。成全后内外双圈 12 球逆向旋转。"
     },
     {
       "id": "jericho_horn",
@@ -135,25 +155,33 @@
         "range": 130,
         "arc_deg": 90,
         "knockback": 320,
-        "count": 2
+        "count": 1
       },
       "scaling": {
-        "damage": 0.3,
+        "damage": 0.292,
         "cooldown": -0.05,
-        "range": 0.08,
+        "range": 0.081,
         "knockback": 0.12
       },
-      "overrides": {},
+      "overrides": {
+        "5": {
+          "range": 172,
+          "cooldown": 0.64
+        }
+      },
       "modifier": "wall_push",
       "evolves_to": {
         "name": "城墙倾覆",
         "scripture": "书 6:20",
         "level": 5,
-        "kills": 500,
-        "behavior": "nova",
+        "kills": 300,
+        "overrides": {
+          "arc_deg": 360,
+          "knockback": 320
+        },
         "brew": "walls_fall"
       },
-      "desc": "音波推开一圈实心墙，撞墙敌人受到额外碎甲伤害。"
+      "desc": "吹响音波把敌人摁进实心墙，撞墙引发 28px 二次碎甲震爆。成全后进化为 360° 全屏环形音爆。"
     },
     {
       "id": "golden_altar",
@@ -166,29 +194,36 @@
       "status": "burn",
       "params": {
         "damage": 11,
+        "cooldown": 1.55,
         "radius": 56,
         "duration": 4.2,
-        "cooldown": 1.55,
         "tick": 0.32,
         "throw_dist": 110,
-        "count": 2
+        "count": 2,
+        "range": 200
       },
       "scaling": {
-        "damage": 0.3,
-        "radius": 0.1,
-        "duration": 0.08
+        "damage": 0.296,
+        "radius": 0.098
       },
-      "overrides": {},
+      "overrides": {
+        "5": {
+          "radius": 78
+        }
+      },
       "modifier": "holy_smoke",
       "evolves_to": {
         "name": "金坛的倾倒",
         "scripture": "启 8:5",
         "level": 5,
-        "kills": 500,
-        "behavior": "nova",
+        "kills": 300,
+        "overrides": {
+          "count": 4,
+          "radius": 78
+        },
         "brew": "censer_pour"
       },
-      "desc": "烟云升腾并持续治疗玩家，进入烟云的敌人被点燃。"
+      "desc": "香云内每秒回复 1.5 HP，烟云每 1.2s 射出一颗追踪火炭。成全后每次投掷召唤 4 团巨型金香云。"
     },
     {
       "id": "zion_psalm",
@@ -210,12 +245,14 @@
         "size": 4
       },
       "scaling": {
-        "damage": 0.28,
-        "cooldown": -0.06,
-        "life": 0.06
+        "damage": 0.269,
+        "cooldown": -0.059
       },
       "overrides": {
         "3": {
+          "count": 4
+        },
+        "4": {
           "count": 4
         },
         "5": {
@@ -227,51 +264,797 @@
         "name": "天上的新歌",
         "scripture": "启 14:3",
         "level": 5,
-        "kills": 500,
-        "behavior": "nova",
+        "kills": 300,
+        "overrides": {
+          "count": 8,
+          "pierce": 2
+        },
         "brew": "new_song"
       },
-      "desc": "音刃命中后回响一次，留下致盲音环。"
+      "desc": "音刃命中后 0.22s 回响一轮，并在原地留下 1.5s【致盲】音环。成全后 8 刃带穿透穿梭。"
+    },
+    {
+      "id": "rainbow_covenant",
+      "type": "weapon_passive",
+      "name": "彩虹之约",
+      "scripture": "创 9:13",
+      "weapon": "olive_branch",
+      "passive": "love",
+      "behavior": "orbit",
+      "status": "wet",
+      "params": {
+        "damage": 11,
+        "radius": 60,
+        "angular_speed": 2.4,
+        "tick": 0.3,
+        "count": 6,
+        "size": 10
+      },
+      "scaling": {
+        "damage": 0.296,
+        "radius": 0.1
+      },
+      "overrides": {},
+      "modifier": "trail_fire",
+      "evolves_to": {
+        "name": "新天新地",
+        "scripture": "启 21:1",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "radius": 120
+        },
+        "brew": "new_creation"
+      },
+      "desc": "七彩水环所经地面留下沸腾水痕持续灼烧；每击杀 15 只回复 3% 最大生命。成全后半径 120 并蒸发圈内敌方弹幕。"
+    },
+    {
+      "id": "lehi_spring",
+      "type": "weapon_passive",
+      "name": "利希的泉源",
+      "scripture": "士 15:19",
+      "weapon": "jawbone",
+      "passive": "gospel_shoes",
+      "behavior": "line_projectile",
+      "status": "tremor",
+      "params": {
+        "damage": 28,
+        "speed": 360,
+        "pierce": 8,
+        "cooldown": 0.85,
+        "range": 260,
+        "count": 2,
+        "spread_deg": 6,
+        "size": 7
+      },
+      "scaling": {
+        "damage": 0.304,
+        "cooldown": -0.059
+      },
+      "overrides": {
+        "3": {
+          "count": 3
+        },
+        "4": {
+          "count": 3
+        },
+        "5": {
+          "count": 4
+        }
+      },
+      "modifier": "shockwave_on_hit",
+      "evolves_to": {
+        "name": "千军辟易",
+        "scripture": "士 15:16",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "count": 5,
+          "pierce": 10
+        },
+        "brew": "thousand_slain"
+      },
+      "desc": "回旋腮骨飞至最远端折返时喷发 45px 击退泉水。成全后每次命中精英/BOSS 额外爆裂并缩短冷却 0.1s。"
+    },
+    {
+      "id": "miriam_anthem",
+      "type": "weapon_passive",
+      "name": "米利暗的凯歌",
+      "scripture": "出 15:20",
+      "weapon": "tambourine",
+      "passive": "gentleness",
+      "behavior": "zone",
+      "status": "tremor",
+      "params": {
+        "damage": 15,
+        "cooldown": 1.1,
+        "radius": 82,
+        "duration": 0.45,
+        "tick": 0.45,
+        "count": 1,
+        "range": 1
+      },
+      "scaling": {
+        "damage": 0.3,
+        "cooldown": -0.057,
+        "radius": 0.101
+      },
+      "overrides": {
+        "5": {
+          "radius": 115,
+          "cooldown": 0.85
+        }
+      },
+      "modifier": "holy_smoke",
+      "evolves_to": {
+        "name": "摩西之歌",
+        "scripture": "出 15:1",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "count": 3,
+          "radius": 130
+        },
+        "brew": "song_of_moses"
+      },
+      "desc": "全向震荡脉冲【震慑】全场；每次脉冲后 1.5s 内移速 +20%、弹速 +25%。成全后连续震荡三波。"
+    },
+    {
+      "id": "reaper_sickle",
+      "type": "weapon_passive",
+      "name": "末后的收割镰",
+      "scripture": "启 14:15",
+      "weapon": "sickle",
+      "passive": "kindness",
+      "behavior": "arc_melee",
+      "status": "fear",
+      "params": {
+        "damage": 20,
+        "cooldown": 0.7,
+        "range": 75,
+        "arc_deg": 160,
+        "knockback": 60,
+        "count": 2
+      },
+      "scaling": {
+        "damage": 0.3,
+        "cooldown": -0.057,
+        "range": 0.09
+      },
+      "overrides": {
+        "5": {
+          "range": 102,
+          "cooldown": 0.54
+        }
+      },
+      "modifier": "tidal_push",
+      "evolves_to": {
+        "name": "庄稼熟透了",
+        "scripture": "启 14:15",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "arc_deg": 360,
+          "count": 2
+        },
+        "brew": "ripe_harvest"
+      },
+      "desc": "扇形金镰把敌人与经验宝石一并强力拉向身前。成全后 360° 旋转切割，秒杀 20% 以下残血并双倍掉落。"
+    },
+    {
+      "id": "two_edged_sword",
+      "type": "weapon_passive",
+      "name": "两刃的利剑",
+      "scripture": "来 4:12",
+      "weapon": "spirit_blade",
+      "passive": "spirit_sword",
+      "behavior": "arc_melee",
+      "status": "blind",
+      "params": {
+        "damage": 26,
+        "cooldown": 0.68,
+        "range": 88,
+        "arc_deg": 45,
+        "knockback": 80,
+        "count": 4
+      },
+      "scaling": {
+        "damage": 0.298,
+        "cooldown": -0.059,
+        "range": 0.091
+      },
+      "overrides": {
+        "5": {
+          "range": 120,
+          "cooldown": 0.52
+        }
+      },
+      "modifier": "wall_push",
+      "evolves_to": {
+        "name": "言出法随",
+        "scripture": "启 19:13",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "arc_deg": 360,
+          "count": 8
+        },
+        "brew": "king_of_kings"
+      },
+      "desc": "四向十字剑气前推 140px，无视护甲且必定暴击。成全后升级为米字形八向贯穿剑气。"
+    },
+    {
+      "id": "seven_lamps",
+      "type": "weapon_passive",
+      "name": "七盏火灯",
+      "scripture": "启 4:5",
+      "weapon": "menorah",
+      "passive": "breastplate",
+      "behavior": "orbit",
+      "status": "blind",
+      "params": {
+        "damage": 14,
+        "radius": 85,
+        "angular_speed": 2,
+        "tick": 0.24,
+        "count": 7,
+        "size": 9
+      },
+      "scaling": {
+        "damage": 0.286,
+        "radius": 0.088
+      },
+      "overrides": {
+        "5": {
+          "radius": 115
+        }
+      },
+      "modifier": "trail_fire",
+      "evolves_to": {
+        "name": "玻璃海的烈焰",
+        "scripture": "启 15:2",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "count": 7,
+          "radius": 220
+        },
+        "brew": "sea_of_glass"
+      },
+      "desc": "七盏火灯每转满一圈同步射出七道穿透火束。成全后化为 7 道 220px 常驻旋转激光。"
+    },
+    {
+      "id": "wilderness_gaze",
+      "type": "weapon_passive",
+      "name": "旷野的仰望",
+      "scripture": "民 21:9",
+      "weapon": "bronze_serpent",
+      "passive": "helmet",
+      "behavior": "zone",
+      "status": "burn",
+      "params": {
+        "damage": 15,
+        "cooldown": 2,
+        "radius": 65,
+        "duration": 4.5,
+        "tick": 0.4,
+        "count": 2,
+        "range": 180
+      },
+      "scaling": {
+        "damage": 0.3,
+        "radius": 0.096
+      },
+      "overrides": {
+        "3": {
+          "count": 3
+        },
+        "4": {
+          "count": 3
+        },
+        "5": {
+          "radius": 90,
+          "count": 3
+        }
+      },
+      "modifier": "holy_smoke",
+      "evolves_to": {
+        "name": "生命树叶",
+        "scripture": "启 22:2",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "count": 1,
+          "radius": 140
+        },
+        "brew": "tree_of_life"
+      },
+      "desc": "图腾范围内敌人受到的所有伤害 +25%（易伤光环）。成全后图腾合而为一跟随玩家、落雷回血。"
+    },
+    {
+      "id": "whirlwind_ascent",
+      "type": "weapon_passive",
+      "name": "旋风升天",
+      "scripture": "王下 2:11",
+      "weapon": "chariot",
+      "passive": "shield_of_faith",
+      "behavior": "line_projectile",
+      "status": "burn",
+      "params": {
+        "damage": 32,
+        "speed": 340,
+        "pierce": 99,
+        "cooldown": 1.1,
+        "range": 340,
+        "count": 2,
+        "spread_deg": 4,
+        "size": 12
+      },
+      "scaling": {
+        "damage": 0.297,
+        "cooldown": -0.057
+      },
+      "overrides": {
+        "5": {
+          "count": 4,
+          "cooldown": 0.85
+        }
+      },
+      "modifier": "shockwave_on_hit",
+      "evolves_to": {
+        "name": "火马火车的凯旋",
+        "scripture": "王下 2:12",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "count": 6,
+          "pierce": 99
+        },
+        "brew": "chariots_of_fire"
+      },
+      "desc": "战车冲撞路径留下 24px、3s 的烈焰旋风带。成全后 6 辆战车从两侧交叉犁过全屏。"
+    },
+    {
+      "id": "cornerstone",
+      "type": "weapon_passive",
+      "name": "锡安的房角石",
+      "scripture": "赛 28:16",
+      "weapon": "hammer",
+      "passive": "belt_of_truth",
+      "behavior": "zone",
+      "status": "tremor",
+      "params": {
+        "damage": 34,
+        "cooldown": 1.4,
+        "radius": 56,
+        "duration": 1.5,
+        "tick": 0.4,
+        "count": 3,
+        "range": 160
+      },
+      "scaling": {
+        "damage": 0.301,
+        "cooldown": -0.0625,
+        "radius": 0.107
+      },
+      "overrides": {
+        "5": {
+          "count": 4,
+          "range": 150
+        }
+      },
+      "modifier": "holy_smoke",
+      "evolves_to": {
+        "name": "砸碎列国的石头",
+        "scripture": "但 2:34",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "count": 8,
+          "radius": 130
+        },
+        "brew": "mountain_stone"
+      },
+      "desc": "落石砸地后保留 3s 岩石实体，阻挡敌人并反弹弹幕。成全后巨型天石分裂成 8 块滚动巨石。"
+    },
+    {
+      "id": "golden_scepter",
+      "type": "weapon_passive",
+      "name": "施恩的金杖",
+      "scripture": "斯 5:2",
+      "weapon": "scepter",
+      "passive": "frankincense",
+      "behavior": "homing",
+      "status": "fear",
+      "params": {
+        "damage": 17,
+        "speed": 300,
+        "cooldown": 0.65,
+        "range": 260,
+        "count": 4,
+        "turn_rate": 6,
+        "life": 2.4,
+        "size": 5
+      },
+      "scaling": {
+        "damage": 0.294,
+        "cooldown": -0.058
+      },
+      "overrides": {
+        "3": {
+          "count": 5
+        },
+        "4": {
+          "count": 5
+        },
+        "5": {
+          "count": 6
+        }
+      },
+      "modifier": "echo_blade",
+      "evolves_to": {
+        "name": "王的恩宠",
+        "scripture": "斯 8:7",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "count": 6,
+          "pierce": 2
+        },
+        "brew": "kings_favor"
+      },
+      "desc": "命中【战兢】的敌人使其倒戈攻击同类 3s。成全后光束在敌群间闪电链弹射 10 次、逐次增伤。"
+    },
+    {
+      "id": "fragrant_altar",
+      "type": "weapon_passive",
+      "name": "馨香的祭坛",
+      "scripture": "利 4:7",
+      "weapon": "abel_blood",
+      "passive": "myrrh",
+      "behavior": "zone",
+      "status": "burn",
+      "params": {
+        "damage": 14,
+        "cooldown": 1.5,
+        "radius": 64,
+        "duration": 4,
+        "tick": 0.4,
+        "count": 1,
+        "range": 120
+      },
+      "scaling": {
+        "damage": 0.304,
+        "radius": 0.109
+      },
+      "overrides": {
+        "5": {
+          "radius": 92
+        }
+      },
+      "modifier": "holy_smoke",
+      "evolves_to": {
+        "name": "永远的献祭",
+        "scripture": "来 10:12",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "duration": 6,
+          "radius": 92
+        },
+        "brew": "eternal_offering"
+      },
+      "desc": "圈内玩家每损失 1 HP，该区域伤害倍率临时 +15%。成全后红环跟随玩家并吸收生命转化为护盾。"
+    },
+    {
+      "id": "straight_path",
+      "type": "weapon_passive",
+      "name": "修直的道路",
+      "scripture": "赛 40:3",
+      "weapon": "voice",
+      "passive": "olive_oil",
+      "behavior": "line_projectile",
+      "status": "wet",
+      "params": {
+        "damage": 21,
+        "speed": 320,
+        "pierce": 99,
+        "cooldown": 0.8,
+        "range": 360,
+        "count": 1,
+        "spread_deg": 0,
+        "size": 16
+      },
+      "scaling": {
+        "damage": 0.298,
+        "cooldown": -0.056,
+        "size": 0.1
+      },
+      "overrides": {
+        "5": {
+          "cooldown": 0.62
+        }
+      },
+      "modifier": "shockwave_on_hit",
+      "evolves_to": {
+        "name": "预备主的道",
+        "scripture": "赛 40:3",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "count": 4,
+          "size": 32
+        },
+        "brew": "prepare_the_way"
+      },
+      "desc": "声浪经过的地面化为 3s 光滑水路，玩家在其上移速 +30%。成全后四向 32px 贯穿圣言洪流。"
+    },
+    {
+      "id": "fishers_of_men",
+      "type": "weapon_passive",
+      "name": "得人如鱼的网",
+      "scripture": "太 4:19",
+      "weapon": "fishing_net",
+      "passive": "fine_linen",
+      "behavior": "zone",
+      "status": "wet",
+      "params": {
+        "damage": 15,
+        "cooldown": 1.6,
+        "radius": 72,
+        "duration": 2.8,
+        "tick": 0.4,
+        "count": 2,
+        "range": 200
+      },
+      "scaling": {
+        "damage": 0.3,
+        "cooldown": -0.055,
+        "radius": 0.097
+      },
+      "overrides": {
+        "5": {
+          "count": 2,
+          "radius": 100,
+          "cooldown": 1.25
+        }
+      },
+      "modifier": "holy_smoke",
+      "evolves_to": {
+        "name": "一百五十三条大鱼",
+        "scripture": "约 21:11",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "count": 2,
+          "radius": 160
+        },
+        "brew": "great_catch"
+      },
+      "desc": "收网把网内普通怪强制拖拽聚拢并定身 1.5s。成全后巨网覆盖半屏并引爆神圣水雷。"
+    },
+    {
+      "id": "key_of_david",
+      "type": "weapon_passive",
+      "name": "大卫的钥匙",
+      "scripture": "启 3:7",
+      "weapon": "heaven_keys",
+      "passive": "ephod",
+      "behavior": "homing",
+      "status": "blind",
+      "params": {
+        "damage": 22,
+        "speed": 320,
+        "cooldown": 0.9,
+        "range": 300,
+        "count": 4,
+        "turn_rate": 5,
+        "life": 2.4,
+        "size": 6
+      },
+      "scaling": {
+        "damage": 0.296,
+        "cooldown": -0.061
+      },
+      "overrides": {
+        "3": {
+          "count": 5
+        },
+        "4": {
+          "count": 5
+        },
+        "5": {
+          "count": 6,
+          "cooldown": 0.68
+        }
+      },
+      "modifier": "echo_blade",
+      "evolves_to": {
+        "name": "敞开的门",
+        "scripture": "启 4:1",
+        "level": 5,
+        "kills": 300,
+        "overrides": {
+          "count": 8,
+          "pierce": 6
+        },
+        "brew": "open_door"
+      },
+      "desc": "钥匙穿透 4 次后原地开启 2s 光门，持续喷射小光剑。成全后四周常驻 4 座光门齐射圣剑雨。"
     },
     {
       "id": "kings_song",
       "type": "dual_weapon",
       "name": "大卫与约书亚的凯歌",
       "scripture": "撒上 17:45；书 6:20",
+      "weapons": [
+        "sling",
+        "horn"
+      ],
       "weapon_a": "sling",
       "weapon_b": "horn",
       "behavior": "line_projectile",
       "status": "tremor",
       "params": {
-        "damage": 22,
+        "damage": 32,
         "speed": 400,
-        "pierce": 5,
-        "cooldown": 0.55,
-        "range": 260,
-        "count": 4,
+        "pierce": 6,
+        "cooldown": 0.5,
+        "range": 280,
+        "count": 6,
         "spread_deg": 12,
-        "size": 5
+        "size": 6
       },
       "scaling": {
-        "damage": 0.3,
-        "cooldown": -0.06,
-        "count": 0
+        "damage": 0.3125
       },
-      "overrides": {
-        "5": {
-          "count": 6
-        }
-      },
+      "overrides": {},
       "modifier": "shockwave_on_hit",
-      "evolves_to": {
-        "name": "万军之耶和华的凯旋",
-        "scripture": "撒上 17:47",
-        "level": 5,
-        "kills": 500,
-        "behavior": "nova",
-        "brew": "song_of_kings"
+      "desc": "六颗穿透圣石每次命中触发 65px 碎甲音爆，点杀与群控合一。"
+    },
+    {
+      "id": "pillar_cloud_fire",
+      "type": "dual_weapon",
+      "name": "云柱与火柱",
+      "scripture": "出 13:21；出 14:24",
+      "weapons": [
+        "staff",
+        "torch"
+      ],
+      "weapon_a": "staff",
+      "weapon_b": "torch",
+      "behavior": "orbit",
+      "status": "wet",
+      "params": {
+        "damage": 28,
+        "radius": 95,
+        "angular_speed": 2.2,
+        "tick": 0.45,
+        "count": 5,
+        "size": 14
       },
-      "desc": "穿透圣石每次命中爆出 360° 破甲音波，单体与群控合一。"
+      "scaling": {
+        "damage": 0.304
+      },
+      "overrides": {},
+      "modifier": "trail_fire",
+      "desc": "奇数分钟召唤跟随玩家的活水云柱，偶数分钟切换圣火风暴火柱，切换瞬间引爆全屏蒸汽冲击。"
+    },
+    {
+      "id": "prayers_of_saints",
+      "type": "dual_weapon",
+      "name": "众圣徒的祈祷",
+      "scripture": "启 8:4；启 5:8",
+      "weapons": [
+        "censer",
+        "harp"
+      ],
+      "weapon_a": "censer",
+      "weapon_b": "harp",
+      "behavior": "homing",
+      "status": "blind",
+      "params": {
+        "damage": 25,
+        "speed": 280,
+        "cooldown": 0.6,
+        "range": 320,
+        "count": 6,
+        "turn_rate": 5,
+        "life": 2.8,
+        "size": 6
+      },
+      "scaling": {
+        "damage": 0.3
+      },
+      "overrides": {},
+      "modifier": "echo_blade",
+      "desc": "追踪音刃每次命中都在原地留下一朵 3s 黄金香云，既烧怪又回血。"
+    },
+    {
+      "id": "seven_stars_sword",
+      "type": "dual_weapon",
+      "name": "右手七星与两刃剑",
+      "scripture": "启 1:16；来 4:12",
+      "weapons": [
+        "spirit_blade",
+        "menorah"
+      ],
+      "weapon_a": "spirit_blade",
+      "weapon_b": "menorah",
+      "behavior": "arc_melee",
+      "status": "blind",
+      "params": {
+        "damage": 36,
+        "cooldown": 0.55,
+        "range": 110,
+        "arc_deg": 90,
+        "knockback": 100,
+        "count": 4
+      },
+      "scaling": {
+        "damage": 0.306
+      },
+      "overrides": {},
+      "modifier": "wall_push",
+      "desc": "7 颗晨星环绕玩家；每次挥出十字圣言剑气，晨星同步向准星齐射 7 道贯穿激光。"
+    },
+    {
+      "id": "red_sea_whirlwind",
+      "type": "dual_weapon",
+      "name": "红海与旋风",
+      "scripture": "出 14:21；王下 2:11",
+      "weapons": [
+        "bronze_serpent",
+        "chariot"
+      ],
+      "weapon_a": "bronze_serpent",
+      "weapon_b": "chariot",
+      "behavior": "line_projectile",
+      "status": "burn",
+      "params": {
+        "damage": 42,
+        "speed": 380,
+        "pierce": 99,
+        "cooldown": 0.9,
+        "range": 320,
+        "count": 4,
+        "spread_deg": 6,
+        "size": 14
+      },
+      "scaling": {
+        "damage": 0.298
+      },
+      "overrides": {},
+      "modifier": "shockwave_on_hit",
+      "desc": "烈焰战车碾过铜蛇图腾时，图腾向八个方向喷发【活水+圣火】元素连携大爆炸。"
+    },
+    {
+      "id": "great_harvest_winepress",
+      "type": "dual_weapon",
+      "name": "大收割与大酒醡",
+      "scripture": "启 14:15；启 14:19",
+      "weapons": [
+        "sickle",
+        "abel_blood"
+      ],
+      "weapon_a": "sickle",
+      "weapon_b": "abel_blood",
+      "behavior": "arc_melee",
+      "status": "fear",
+      "params": {
+        "damage": 45,
+        "cooldown": 0.65,
+        "range": 130,
+        "arc_deg": 180,
+        "knockback": 40,
+        "count": 2
+      },
+      "scaling": {
+        "damage": 0.306
+      },
+      "overrides": {},
+      "modifier": "wall_push",
+      "desc": "巨型金镰把全屏敌人拖拽进脚下献祭血环绞杀，每击杀 1 只血环半径 +1px（上限 180px）。"
     }
   ]
 }

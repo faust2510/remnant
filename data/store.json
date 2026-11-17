@@ -1,0 +1,644 @@
+{
+  "version": 2,
+  "note": "会幕 6 建筑 + 9 项强化 + 21 阶灾变常量表。数值照设计圣典 v2.0 第 12 章，不得凭空放大缩小。",
+  "buildings": [
+    {
+      "id": "altar_burnt",
+      "name": "燔祭铜坛",
+      "scripture": "利未记 6:9-13",
+      "order": 1,
+      "desc": "会幕门口的第一件器具。全伤害与暴击的强化台。",
+      "upgrades": [
+        "might",
+        "faith"
+      ],
+      "unlocks": "初始可用"
+    },
+    {
+      "id": "table_shewbread",
+      "name": "陈设饼金桌",
+      "scripture": "出埃及记 25:23-30",
+      "order": 2,
+      "desc": "常摆陈设饼的桌子。生命与升级回血的强化台。",
+      "upgrades": [
+        "vitality",
+        "mercy"
+      ],
+      "unlocks": "初始可用"
+    },
+    {
+      "id": "laver_bronze",
+      "name": "铜洗濯盆",
+      "scripture": "出埃及记 30:17-21",
+      "order": 3,
+      "desc": "洗濯的盆。移动与拾取范围的强化台。",
+      "upgrades": [
+        "swift",
+        "grace"
+      ],
+      "unlocks": "初始可用"
+    },
+    {
+      "id": "lampstand_gold",
+      "name": "七枝金灯台",
+      "scripture": "出埃及记 25:31-40",
+      "order": 4,
+      "desc": "光照会幕的灯台。经验获取的强化台。",
+      "upgrades": [
+        "wisdom"
+      ],
+      "unlocks": "累计 3 局后"
+    },
+    {
+      "id": "altar_incense",
+      "name": "香坛",
+      "scripture": "出埃及记 30:1-10",
+      "order": 5,
+      "desc": "金香坛。武器冷却的强化台。",
+      "upgrades": [
+        "prayer"
+      ],
+      "unlocks": "通关 1 印后"
+    },
+    {
+      "id": "ark_holiest",
+      "name": "约柜至圣所",
+      "scripture": "出埃及记 25:10-22",
+      "order": 6,
+      "desc": "至圣所里的约柜。恩膏重随次数的强化台。",
+      "upgrades": [
+        "sanctuary"
+      ],
+      "unlocks": "通关 7 印后"
+    }
+  ],
+  "upgrades": [
+    {
+      "id": "might",
+      "name": "刚强",
+      "stat": "damage_pct",
+      "per_level": 0.04,
+      "max_level": 5,
+      "base": 50,
+      "step": 35,
+      "costs": [
+        50,
+        85,
+        120,
+        155,
+        190
+      ],
+      "total": 600,
+      "building": "altar_burnt",
+      "live": true,
+      "desc": "全伤害 +4% / 级",
+      "scripture": "以弗所书 6:10"
+    },
+    {
+      "id": "faith",
+      "name": "信心",
+      "stat": "crit_chance",
+      "per_level": 0.02,
+      "max_level": 5,
+      "base": 70,
+      "step": 50,
+      "costs": [
+        70,
+        120,
+        170,
+        220,
+        270
+      ],
+      "total": 850,
+      "building": "altar_burnt",
+      "live": false,
+      "desc": "暴击率 +2% / 级（第 2 波实装：需营地面板加第 7 行）",
+      "scripture": "希伯来书 11:1"
+    },
+    {
+      "id": "vitality",
+      "name": "壮胆",
+      "stat": "max_hp",
+      "per_level": 12,
+      "max_level": 5,
+      "base": 45,
+      "step": 30,
+      "costs": [
+        45,
+        75,
+        105,
+        135,
+        165
+      ],
+      "total": 525,
+      "building": "table_shewbread",
+      "live": true,
+      "desc": "生命上限 +12 / 级",
+      "scripture": "约书亚记 1:9"
+    },
+    {
+      "id": "mercy",
+      "name": "怜恤",
+      "stat": "level_heal",
+      "per_level": 0.03,
+      "max_level": 5,
+      "base": 60,
+      "step": 45,
+      "costs": [
+        60,
+        105,
+        150,
+        195,
+        240
+      ],
+      "total": 750,
+      "building": "table_shewbread",
+      "live": true,
+      "desc": "升级回血 +3% / 级",
+      "scripture": "马太福音 5:7"
+    },
+    {
+      "id": "swift",
+      "name": "快跑",
+      "stat": "move_speed",
+      "per_level": 0.03,
+      "max_level": 5,
+      "base": 40,
+      "step": 30,
+      "costs": [
+        40,
+        70,
+        100,
+        130,
+        160
+      ],
+      "total": 500,
+      "building": "laver_bronze",
+      "live": true,
+      "desc": "移动速度 +3% / 级",
+      "scripture": "诗篇 119:32"
+    },
+    {
+      "id": "grace",
+      "name": "恩典",
+      "stat": "pickup_radius",
+      "per_level": 0.1,
+      "max_level": 5,
+      "base": 35,
+      "step": 25,
+      "costs": [
+        35,
+        60,
+        85,
+        110,
+        135
+      ],
+      "total": 425,
+      "building": "laver_bronze",
+      "live": true,
+      "desc": "拾取范围 +10% / 级",
+      "scripture": "约翰福音 1:16"
+    },
+    {
+      "id": "wisdom",
+      "name": "智慧",
+      "stat": "xp_gain",
+      "per_level": 0.05,
+      "max_level": 5,
+      "base": 55,
+      "step": 40,
+      "costs": [
+        55,
+        95,
+        135,
+        175,
+        215
+      ],
+      "total": 675,
+      "building": "lampstand_gold",
+      "live": true,
+      "desc": "经验获取 +5% / 级",
+      "scripture": "箴言 9:10"
+    },
+    {
+      "id": "prayer",
+      "name": "祈祷",
+      "stat": "cooldown",
+      "per_level": 0.02,
+      "max_level": 5,
+      "base": 80,
+      "step": 60,
+      "costs": [
+        80,
+        140,
+        200,
+        260,
+        320
+      ],
+      "total": 1000,
+      "building": "altar_incense",
+      "live": false,
+      "desc": "武器冷却 -2% / 级（第 2 波实装：需营地面板加第 8 行）",
+      "scripture": "雅各书 5:16"
+    },
+    {
+      "id": "sanctuary",
+      "name": "恩膏重随",
+      "stat": "reroll",
+      "per_level": 1,
+      "max_level": 3,
+      "base": 150,
+      "step": 150,
+      "costs": [
+        150,
+        300,
+        500
+      ],
+      "total": 950,
+      "building": "ark_holiest",
+      "live": false,
+      "desc": "每局恩膏重随 +1 次（第 2 波实装：营地面板加第 9 行）",
+      "scripture": "出埃及记 40:9"
+    }
+  ],
+  "tiers": [
+    {
+      "tier": 1,
+      "name": "一印 · 白马",
+      "group": "seal",
+      "seal": 1,
+      "gated_relic": "",
+      "enemy_hp_mult": 1,
+      "enemy_dmg_mult": 1,
+      "spawn_mult": 1,
+      "silver_mult": 1,
+      "silver_step": 0.3,
+      "scale_in_seconds": 180,
+      "mods": {},
+      "note": "基线：敌 HP +0% / 敌伤 +0% / 刷怪 +0% / 银两 ×1.00"
+    },
+    {
+      "tier": 2,
+      "name": "二印 · 红马",
+      "group": "seal",
+      "seal": 2,
+      "gated_relic": "",
+      "enemy_hp_mult": 1.09,
+      "enemy_dmg_mult": 1.06,
+      "spawn_mult": 1.04,
+      "silver_mult": 1.3,
+      "silver_step": 0.3,
+      "scale_in_seconds": 180,
+      "mods": {
+        "enemy_speed": 0.05
+      },
+      "note": "敌速 +5%，冲锋怪提前出现"
+    },
+    {
+      "tier": 3,
+      "name": "三印 · 黑马",
+      "group": "seal",
+      "seal": 3,
+      "gated_relic": "",
+      "enemy_hp_mult": 1.18,
+      "enemy_dmg_mult": 1.12,
+      "spawn_mult": 1.08,
+      "silver_mult": 1.6,
+      "silver_step": 0.3,
+      "scale_in_seconds": 180,
+      "mods": {
+        "relic_drop": -0.25
+      },
+      "note": "奇物掉率 -25%"
+    },
+    {
+      "tier": 4,
+      "name": "四印 · 灰马",
+      "group": "seal",
+      "seal": 4,
+      "gated_relic": "",
+      "enemy_hp_mult": 1.27,
+      "enemy_dmg_mult": 1.18,
+      "spawn_mult": 1.12,
+      "silver_mult": 1.9,
+      "silver_step": 0.3,
+      "scale_in_seconds": 180,
+      "mods": {
+        "elite_double": 1
+      },
+      "note": "精英怪双刷（每波精英数量 ×2）"
+    },
+    {
+      "tier": 5,
+      "name": "五印 · 祭坛下的呼声",
+      "group": "seal",
+      "seal": 5,
+      "gated_relic": "",
+      "enemy_hp_mult": 1.36,
+      "enemy_dmg_mult": 1.24,
+      "spawn_mult": 1.16,
+      "silver_mult": 2.2,
+      "silver_step": 0.3,
+      "scale_in_seconds": 180,
+      "mods": {
+        "zone_radius": -0.2
+      },
+      "note": "祭坛祭圈半径 -20%"
+    },
+    {
+      "tier": 6,
+      "name": "六印 · 天震",
+      "group": "seal",
+      "seal": 6,
+      "gated_relic": "",
+      "enemy_hp_mult": 1.45,
+      "enemy_dmg_mult": 1.3,
+      "spawn_mult": 1.2,
+      "silver_mult": 2.5,
+      "silver_step": 0.3,
+      "scale_in_seconds": 180,
+      "mods": {
+        "falling_rock_interval": 180
+      },
+      "note": "每 180 秒落石一次（天震）"
+    },
+    {
+      "tier": 7,
+      "name": "七印 · 寂静",
+      "group": "seal",
+      "seal": 7,
+      "gated_relic": "",
+      "enemy_hp_mult": 1.54,
+      "enemy_dmg_mult": 1.36,
+      "spawn_mult": 1.24,
+      "silver_mult": 2.8,
+      "silver_step": 0.3,
+      "scale_in_seconds": 180,
+      "mods": {
+        "boss_clear_bullets": 1
+      },
+      "note": "BOSS 登场时清空场上弹幕，只留走位"
+    },
+    {
+      "tier": 8,
+      "name": "八号 · 火雹带血",
+      "group": "trumpet",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 1.63,
+      "enemy_dmg_mult": 1.42,
+      "spawn_mult": 1.28,
+      "silver_mult": 2.806,
+      "silver_step": 0.25,
+      "scale_in_seconds": 0,
+      "mods": {
+        "fire_hail": 1
+      },
+      "note": "火雹带血，天降火与血；需圣物《七印封印》解锁"
+    },
+    {
+      "tier": 9,
+      "name": "九号 · 火烧大山入海",
+      "group": "trumpet",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 1.72,
+      "enemy_dmg_mult": 1.48,
+      "spawn_mult": 1.32,
+      "silver_mult": 2.822,
+      "silver_step": 0.25,
+      "scale_in_seconds": 0,
+      "mods": {
+        "burning_mountain": 1
+      },
+      "note": "火烧大山入海，地图边缘持续燃烧；需圣物《七印封印》解锁"
+    },
+    {
+      "tier": 10,
+      "name": "十号 · 苦水茵陈",
+      "group": "trumpet",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 1.81,
+      "enemy_dmg_mult": 1.54,
+      "spawn_mult": 1.36,
+      "silver_mult": 2.847,
+      "silver_step": 0.25,
+      "scale_in_seconds": 0,
+      "mods": {
+        "bitter_water": 1
+      },
+      "note": "苦水茵陈，拾取物 20% 变苦水（回血变扣血）；需圣物《七印封印》解锁"
+    },
+    {
+      "tier": 11,
+      "name": "十一号 · 日月三分暗",
+      "group": "trumpet",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 1.9,
+      "enemy_dmg_mult": 1.6,
+      "spawn_mult": 1.4,
+      "silver_mult": 2.879,
+      "silver_step": 0.25,
+      "scale_in_seconds": 0,
+      "mods": {
+        "vision": -0.25
+      },
+      "note": "日月三分暗，视野 -25%；需圣物《七印封印》解锁"
+    },
+    {
+      "tier": 12,
+      "name": "十二号 · 无底坑蝗灾",
+      "group": "trumpet",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 1.99,
+      "enemy_dmg_mult": 1.66,
+      "spawn_mult": 1.44,
+      "silver_mult": 2.917,
+      "silver_step": 0.25,
+      "scale_in_seconds": 0,
+      "mods": {
+        "locust_swarm": 1
+      },
+      "note": "无底坑蝗灾，蝗虫潮每 90 秒一波；需圣物《七印封印》解锁"
+    },
+    {
+      "tier": 13,
+      "name": "十三号 · 伯拉大河马军",
+      "group": "trumpet",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 2.08,
+      "enemy_dmg_mult": 1.72,
+      "spawn_mult": 1.48,
+      "silver_mult": 2.957,
+      "silver_step": 0.25,
+      "scale_in_seconds": 0,
+      "mods": {
+        "charger_speed": 0.3
+      },
+      "note": "伯拉大河马军，冲锋怪速度 +30%；需圣物《七印封印》解锁"
+    },
+    {
+      "tier": 14,
+      "name": "十四号 · 天上大声音",
+      "group": "trumpet",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 2.17,
+      "enemy_dmg_mult": 1.78,
+      "spawn_mult": 1.52,
+      "silver_mult": 3,
+      "silver_step": 0.25,
+      "scale_in_seconds": 0,
+      "mods": {
+        "double_boss": 1
+      },
+      "note": "天上大声音，关底改双 BOSS；需圣物《七印封印》解锁"
+    },
+    {
+      "tier": 15,
+      "name": "十五碗 · 恶毒生疮",
+      "group": "bowl",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 2.26,
+      "enemy_dmg_mult": 1.84,
+      "spawn_mult": 1.56,
+      "silver_mult": 3.043,
+      "silver_step": 0.2,
+      "scale_in_seconds": 0,
+      "mods": {
+        "extra_scroll": 1,
+        "max_enemies": 750
+      },
+      "note": "恶毒生疮，开局多送 1 张约，同屏上限 750"
+    },
+    {
+      "tier": 16,
+      "name": "十六碗 · 海变死血",
+      "group": "bowl",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 2.35,
+      "enemy_dmg_mult": 1.9,
+      "spawn_mult": 1.6,
+      "silver_mult": 3.083,
+      "silver_step": 0.2,
+      "scale_in_seconds": 0,
+      "mods": {
+        "dead_blood": 1,
+        "max_enemies": 750
+      },
+      "note": "海变死血，海面区域变死血地形，同屏上限 750"
+    },
+    {
+      "tier": 17,
+      "name": "十七碗 · 江河变血",
+      "group": "bowl",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 2.44,
+      "enemy_dmg_mult": 1.96,
+      "spawn_mult": 1.64,
+      "silver_mult": 3.121,
+      "silver_step": 0.2,
+      "scale_in_seconds": 0,
+      "mods": {
+        "rivers_blood": 1,
+        "max_enemies": 750
+      },
+      "note": "江河变血，水域持续伤害，同屏上限 750"
+    },
+    {
+      "tier": 18,
+      "name": "十八碗 · 日头烤人",
+      "group": "bowl",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 2.53,
+      "enemy_dmg_mult": 2.02,
+      "spawn_mult": 1.68,
+      "silver_mult": 3.153,
+      "silver_step": 0.2,
+      "scale_in_seconds": 0,
+      "mods": {
+        "sun_scorch": 1,
+        "max_enemies": 750
+      },
+      "note": "日头烤人，正午灼烧 DEBUFF，同屏上限 750"
+    },
+    {
+      "tier": 19,
+      "name": "十九碗 · 兽座黑暗",
+      "group": "bowl",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 2.62,
+      "enemy_dmg_mult": 2.08,
+      "spawn_mult": 1.72,
+      "silver_mult": 3.178,
+      "silver_step": 0.2,
+      "scale_in_seconds": 0,
+      "mods": {
+        "beast_darkness": 1,
+        "max_enemies": 750
+      },
+      "note": "兽座黑暗，全场光照降低，同屏上限 750"
+    },
+    {
+      "tier": 20,
+      "name": "二十碗 · 伯拉河干涸",
+      "group": "bowl",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 2.71,
+      "enemy_dmg_mult": 2.14,
+      "spawn_mult": 1.76,
+      "silver_mult": 3.194,
+      "silver_step": 0.2,
+      "scale_in_seconds": 0,
+      "mods": {
+        "euphrates_dry": 1,
+        "max_enemies": 750
+      },
+      "note": "伯拉河干涸，地图断桥可通行，同屏上限 750"
+    },
+    {
+      "tier": 21,
+      "name": "二十一 · 成了",
+      "group": "bowl",
+      "seal": 0,
+      "gated_relic": "seven_seals_scroll",
+      "enemy_hp_mult": 2.8,
+      "enemy_dmg_mult": 2.2,
+      "spawn_mult": 1.8,
+      "silver_mult": 3.2,
+      "silver_step": 0.2,
+      "scale_in_seconds": 0,
+      "mods": {
+        "all_mods_max": 1,
+        "boss_phase4": 1,
+        "max_enemies": 750
+      },
+      "note": "成了：所有词条满载，BOSS 第四阶段，同屏上限 750"
+    }
+  ],
+  "tier_curve": {
+    "seal_end": 7,
+    "tier_max": 21,
+    "enemy_hp_step": 0.09,
+    "enemy_dmg_step": 0.06,
+    "spawn_step": 0.04,
+    "silver_step": 0.3,
+    "silver_step_trumpet": 0.25,
+    "silver_step_bowl": 0.2,
+    "seal_mult_step": 0.3,
+    "silver_mult_top": 3.2,
+    "scale_in_seconds": 180,
+    "max_enemies_bowl": 750,
+    "tier_unlock_relic": "seven_seals_scroll"
+  }
+}

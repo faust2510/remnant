@@ -1,0 +1,527 @@
+{
+  "_comment": "成就表。cond.type 只取契约第 12 节的 9 种；cond 里的 stage/flag 是给引擎的可选扩展键（当前代码忽略）。reward.silver=0 的项是「门槛型」成就，不给银两。",
+  "achievements": [
+    {
+      "id": "ach_01",
+      "name": "编年史 01：伊甸与东门",
+      "desc": "通关第 1 章《伊甸与东门》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch01_eden"
+      },
+      "reward": {
+        "silver": 100,
+        "relic": "R01"
+      }
+    },
+    {
+      "id": "ach_02",
+      "name": "编年史 02：大洪水与方舟",
+      "desc": "通关第 2 章《大洪水与方舟》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch02_flood"
+      },
+      "reward": {
+        "silver": 150
+      }
+    },
+    {
+      "id": "ach_03",
+      "name": "编年史 03：巴别高塔之下",
+      "desc": "通关第 3 章《巴别高塔之下》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch03_babel"
+      },
+      "reward": {
+        "silver": 180,
+        "relic": "R02"
+      }
+    },
+    {
+      "id": "ach_04",
+      "name": "编年史 04：摩利亚与雅各坛",
+      "desc": "通关第 4 章《摩利亚与雅各坛》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch04_moriah"
+      },
+      "reward": {
+        "silver": 200
+      }
+    },
+    {
+      "id": "ach_05",
+      "name": "编年史 05：埃及十灾荒野",
+      "desc": "通关第 5 章《埃及十灾荒野》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch05_plagues"
+      },
+      "reward": {
+        "silver": 220
+      }
+    },
+    {
+      "id": "ach_06",
+      "name": "编年史 06：红海海底走廊",
+      "desc": "通关第 6 章《红海海底走廊》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch06_red_sea"
+      },
+      "reward": {
+        "silver": 230,
+        "relic": "R03"
+      }
+    },
+    {
+      "id": "ach_07",
+      "name": "编年史 07：西乃雷轰山麓",
+      "desc": "通关第 7 章《西乃雷轰山麓》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch07_sinai"
+      },
+      "reward": {
+        "silver": 250
+      }
+    },
+    {
+      "id": "ach_08",
+      "name": "编年史 08：苦水与铜蛇旷野",
+      "desc": "通关第 8 章《苦水与铜蛇旷野》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch08_wilderness_serpent"
+      },
+      "reward": {
+        "silver": 260,
+        "relic": "R04"
+      }
+    },
+    {
+      "id": "ach_09",
+      "name": "编年史 09：耶利哥外城环道",
+      "desc": "通关第 9 章《耶利哥外城环道》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch09_jericho"
+      },
+      "reward": {
+        "silver": 280
+      }
+    },
+    {
+      "id": "ach_10",
+      "name": "编年史 10：基甸深夜营盘",
+      "desc": "通关第 10 章《基甸深夜营盘》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch10_gideon_camp"
+      },
+      "reward": {
+        "silver": 290,
+        "relic": "R05"
+      }
+    },
+    {
+      "id": "ach_11",
+      "name": "编年史 11：亭拿麦田与利希",
+      "desc": "通关第 11 章《亭拿麦田与利希》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch11_timnah"
+      },
+      "reward": {
+        "silver": 300
+      }
+    },
+    {
+      "id": "ach_12",
+      "name": "编年史 12：亚杜兰洞掩体",
+      "desc": "通关第 12 章《亚杜兰洞掩体》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch12_adullam"
+      },
+      "reward": {
+        "silver": 320
+      }
+    },
+    {
+      "id": "ach_13",
+      "name": "编年史 13：以拉谷",
+      "desc": "通关第 13 章《以拉谷》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "elah_valley"
+      },
+      "reward": {
+        "silver": 330,
+        "relic": "R06"
+      }
+    },
+    {
+      "id": "ach_14",
+      "name": "编年史 14：迦密山祭坛巅",
+      "desc": "通关第 14 章《迦密山祭坛巅》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch14_carmel"
+      },
+      "reward": {
+        "silver": 340,
+        "relic": "R07"
+      }
+    },
+    {
+      "id": "ach_15",
+      "name": "编年史 15：尼尼微与鱼腹",
+      "desc": "通关第 15 章《尼尼微与鱼腹》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch15_nineveh"
+      },
+      "reward": {
+        "silver": 350
+      }
+    },
+    {
+      "id": "ach_16",
+      "name": "编年史 16：巴比伦火窑狮坑",
+      "desc": "通关第 16 章《巴比伦火窑狮坑》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch16_babylon_furnace"
+      },
+      "reward": {
+        "silver": 360,
+        "relic": "R08"
+      }
+    },
+    {
+      "id": "ach_17",
+      "name": "编年史 17：犹大旷野",
+      "desc": "通关第 17 章《犹大旷野》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "judea_wilderness"
+      },
+      "reward": {
+        "silver": 380
+      }
+    },
+    {
+      "id": "ach_18",
+      "name": "编年史 18：加利利狂风海",
+      "desc": "通关第 18 章《加利利狂风海》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch18_galilee"
+      },
+      "reward": {
+        "silver": 390,
+        "relic": "R09"
+      }
+    },
+    {
+      "id": "ach_19",
+      "name": "编年史 19：耶路撒冷五旬节",
+      "desc": "通关第 19 章《耶路撒冷五旬节》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch19_pentecost"
+      },
+      "reward": {
+        "silver": 400
+      }
+    },
+    {
+      "id": "ach_20",
+      "name": "编年史 20：腓立比地牢震动",
+      "desc": "通关第 20 章《腓立比地牢震动》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch20_philippi"
+      },
+      "reward": {
+        "silver": 420
+      }
+    },
+    {
+      "id": "ach_21",
+      "name": "编年史 21：七教会金灯台",
+      "desc": "通关第 21 章《七教会金灯台》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch21_seven_churches"
+      },
+      "reward": {
+        "silver": 430,
+        "relic": "R10"
+      }
+    },
+    {
+      "id": "ach_22",
+      "name": "编年史 22：无底坑与蝗虫海",
+      "desc": "通关第 22 章《无底坑与蝗虫海》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch22_abyss"
+      },
+      "reward": {
+        "silver": 450
+      }
+    },
+    {
+      "id": "ach_23",
+      "name": "编年史 23：大巴比伦与白马",
+      "desc": "通关第 23 章《大巴比伦与白马》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch23_babylon_fall"
+      },
+      "reward": {
+        "silver": 460,
+        "relic": "R11"
+      }
+    },
+    {
+      "id": "ach_24",
+      "name": "编年史 24：哈米吉多顿玻璃海",
+      "desc": "通关第 24 章《哈米吉多顿玻璃海》",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch24_armageddon"
+      },
+      "reward": {
+        "silver": 500,
+        "relic": "R12"
+      }
+    },
+    {
+      "id": "ach_25_no_fruit",
+      "name": "持守约言",
+      "desc": "第 1 章《伊甸与东门》全程不吃分别善恶树禁果通关",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch01_eden",
+        "stage": "ch01_eden",
+        "flag": "no_forbidden_fruit"
+      },
+      "reward": {
+        "silver": 300
+      },
+      "note": "圣典口径：禁果限制。引擎支持 cond.flag 前退化为「通关第 1 章」；解锁见证人 亚伯拉罕。"
+    },
+    {
+      "id": "ach_26_flood_stand",
+      "name": "方舟舵手",
+      "desc": "第 2 章在深水涨潮区累计停留 60 秒并通关",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch02_flood",
+        "stage": "ch02_flood",
+        "flag": "deep_water_stand_60s"
+      },
+      "reward": {
+        "silver": 150
+      },
+      "note": "退化为「通关第 2 章」；解锁武器 W07 橄榄枝。"
+    },
+    {
+      "id": "ach_27_babel_ff",
+      "name": "口音变乱",
+      "desc": "第 3 章利用敌方混乱弹幕误伤击杀 30 只敌人",
+      "cond": {
+        "type": "kills_in_run",
+        "value": 30,
+        "stage": "ch03_babel",
+        "flag": "friendly_fire_kill"
+      },
+      "reward": {},
+      "note": "计数为「本局误伤击杀数」；引擎无该计数器时退化为「单局 30 杀」。解锁见证人 尼希米 + 武器 W15 筑城锤。"
+    },
+    {
+      "id": "ach_28_peniel_melee",
+      "name": "与神与人较力",
+      "desc": "第 4 章全程不使用空格闪避击败 BOSS",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch04_moriah",
+        "stage": "ch04_moriah",
+        "flag": "no_dodge"
+      },
+      "reward": {
+        "silver": 200
+      },
+      "note": "退化为「通关第 4 章」；解锁见证人 雅各。"
+    },
+    {
+      "id": "ach_29_red_sea_crush",
+      "name": "沧海桑田",
+      "desc": "第 6 章在水墙合拢期间累计击杀 300 只敌人",
+      "cond": {
+        "type": "kills_in_run",
+        "value": 300,
+        "stage": "ch06_red_sea",
+        "flag": "water_wall_kill"
+      },
+      "reward": {
+        "silver": 250
+      },
+      "note": "计数为「水墙期间击杀」；退化时按单局 300 杀。"
+    },
+    {
+      "id": "ach_30_sinai_thunder",
+      "name": "借雷审判",
+      "desc": "第 7 章引诱敌人被十诫雷击圈炸死 100 只",
+      "cond": {
+        "type": "kills_in_run",
+        "value": 100,
+        "stage": "ch07_sinai",
+        "flag": "lightning_kill"
+      },
+      "reward": {
+        "silver": 250
+      },
+      "note": "计数为「雷击圈击杀」；退化时按单局 100 杀。"
+    },
+    {
+      "id": "ach_31_jericho_wall",
+      "name": "城墙倒塌",
+      "desc": "第 9 章单局震塌耶利哥内城墙",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch09_jericho",
+        "stage": "ch09_jericho",
+        "flag": "jericho_inner_wall"
+      },
+      "reward": {
+        "silver": 300
+      },
+      "note": "退化为「通关第 9 章」；解锁 约书亚觉醒。"
+    },
+    {
+      "id": "ach_32_gideon_panic",
+      "name": "破瓶呐喊",
+      "desc": "第 10 章令【战兢】敌人互相踩踏致死 200 只",
+      "cond": {
+        "type": "kills_in_run",
+        "value": 200,
+        "stage": "ch10_gideon_camp",
+        "flag": "trample_kill"
+      },
+      "reward": {
+        "silver": 300
+      },
+      "note": "计数为「踩踏击杀」；退化时按单局 200 杀。"
+    },
+    {
+      "id": "ach_33_samson_melee",
+      "name": "拿细耳怪力",
+      "desc": "第 11 章仅携带近战/环绕武器通关",
+      "cond": {
+        "type": "weapon_only",
+        "value": "melee_orbit",
+        "stage": "ch11_timnah"
+      },
+      "reward": {},
+      "note": "解锁见证人 参孙 + 武器 W08 驴腮骨。"
+    },
+    {
+      "id": "ach_34_carmel_burn",
+      "name": "迦密天火",
+      "desc": "第 14 章用满层【圣火灼烧】累计烧死 500 只怪",
+      "cond": {
+        "type": "kills_in_run",
+        "value": 500,
+        "stage": "ch14_carmel",
+        "flag": "max_burn_kill"
+      },
+      "reward": {
+        "silver": 350
+      },
+      "note": "计数为「满层灼烧击杀」；退化时按单局 500 杀。解锁见证人 以利亚。"
+    },
+    {
+      "id": "ach_35_daniel_furnace",
+      "name": "火窑游行",
+      "desc": "第 16 章在七倍烈火窑内圈累计停留 120 秒",
+      "cond": {
+        "type": "survive_time",
+        "value": 120,
+        "stage": "ch16_babylon_furnace",
+        "flag": "furnace_inner_zone"
+      },
+      "reward": {},
+      "note": "计时为「窑内圈停留」；退化时按单局存活 120s。解锁见证人 但以理 & 以斯帖。"
+    },
+    {
+      "id": "ach_36_smash_bread",
+      "name": "不靠食物",
+      "desc": "第 17 章《犹大旷野》全程用武器击碎所有试探石饼",
+      "cond": {
+        "type": "stage_clear",
+        "value": "judea_wilderness",
+        "stage": "judea_wilderness",
+        "flag": "smash_all_bread"
+      },
+      "reward": {},
+      "note": "退化为「通关第 17 章」；解锁见证人 施洗约翰 + 武器 W18 旷野呼声。"
+    },
+    {
+      "id": "ach_37_peter_dodge",
+      "name": "履海不疑",
+      "desc": "第 18 章单局触发 5 次「守望者时刻（完美闪避）」",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch18_galilee",
+        "stage": "ch18_galilee",
+        "flag": "perfect_dodge_5"
+      },
+      "reward": {},
+      "note": "圣典写 5 次，见第 3 章解锁条件写 3 次（彼得一行）；此处取 5 次（成就表为准）。计数器需引擎新增 perfect_dodge；cond 用 stage_clear 只作闸门，真实判定看 flag。解锁见证人 彼得 + 武器 W19 加利利渔网。"
+    },
+    {
+      "id": "ach_38_paul_armor",
+      "name": "全副军装",
+      "desc": "单局同时穿戴 3 件「神的全副军装」宝物",
+      "cond": {
+        "type": "fusion_count",
+        "value": 3,
+        "flag": "armor_treasure_3"
+      },
+      "reward": {},
+      "note": "近似：契约无「宝物件数」计数器，暂用 fusion_count；建议引擎加 cond.type=treasure_count。解锁见证人 保罗 + 武器 W11 圣言利剑。"
+    },
+    {
+      "id": "ach_39_john_lamps",
+      "name": "七灵光照",
+      "desc": "第 21 章单局累计踩亮全部 7 座金灯台",
+      "cond": {
+        "type": "stage_clear",
+        "value": "ch21_seven_churches",
+        "stage": "ch21_seven_churches",
+        "flag": "lamps_7"
+      },
+      "reward": {},
+      "note": "退化为「通关第 21 章」；解锁见证人 拔摩岛约翰 + 武器 W12 金灯台。"
+    },
+    {
+      "id": "ach_40_seal_seven",
+      "name": "得胜的余民",
+      "desc": "在第 7 印难度下通关任意一张地图",
+      "cond": {
+        "type": "stage_clear_seal",
+        "value": 7
+      },
+      "reward": {
+        "silver": 1000
+      },
+      "note": "解锁金色主界面框。"
+    }
+  ]
+}

@@ -1,0 +1,2138 @@
+{
+  "_comment": "BOSS 表（V2，24 位）。三阶段 at_hp 固定 1.0 / 0.66 / 0.33。skills[].id 只能取 ring_burst / aimed_shot / summon / charge / zone_denial / heal_self / spawn_totem / nova。params 约定：ring_burst{count,damage,speed}、aimed_shot{count,damage,speed}、summon{enemy,n}、charge{damage,speed,count}、zone_denial{radius,damage,duration,tick,count}、heal_self{pct}、spawn_totem{hp,count,duration}、nova{radius,damage}。阶段可选扩展键：dr（本阶段减伤，0~1）、speed_mult（本阶段移速倍率）。behavior=boss / tier=boss 便于装载器合并进敌人类型表。",
+  "bosses": [
+    {
+      "id": "cherub_flame_sword",
+      "name": "火焰剑基路伯幻象",
+      "scripture": "创 3:24",
+      "chapter": 1,
+      "hp": 4000,
+      "speed": 46,
+      "damage": 11,
+      "radius": 18,
+      "xp": 120,
+      "color": "#C8642A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "把守东门的旋转火刃，十字四向开场，残血后八向连射。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 2.5,
+              "params": {
+                "count": 4,
+                "damage": 9,
+                "speed": 150
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 6.0,
+              "params": {
+                "damage": 12,
+                "speed": 260,
+                "count": 1
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 10.0,
+              "params": {
+                "radius": 180,
+                "damage": 6,
+                "duration": 8,
+                "tick": 1.0,
+                "count": 1
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 3.0,
+              "params": {
+                "count": 3,
+                "damage": 10,
+                "speed": 170
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 1.8,
+              "params": {
+                "count": 8,
+                "damage": 11,
+                "speed": 180
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 5.0,
+              "params": {
+                "damage": 14,
+                "speed": 280,
+                "count": 1
+              }
+            }
+          ],
+          "speed_mult": 1.25
+        }
+      ]
+    },
+    {
+      "id": "leviathan_tide",
+      "name": "深渊大水利维坦",
+      "scripture": "创 7",
+      "chapter": 2,
+      "hp": 4400,
+      "speed": 44,
+      "damage": 12,
+      "radius": 20,
+      "xp": 126,
+      "color": "#2E6E8E",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "深水化形，潜水后破水而出，残血时用漩涡把玩家往身上拉。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "aimed_shot",
+              "cd": 2.6,
+              "params": {
+                "count": 5,
+                "damage": 9,
+                "speed": 160
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 3.6,
+              "params": {
+                "count": 6,
+                "damage": 8,
+                "speed": 120
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 8.5,
+              "params": {
+                "radius": 70,
+                "damage": 18,
+                "duration": 1.2,
+                "tick": 0.3,
+                "count": 1
+              }
+            },
+            {
+              "id": "nova",
+              "cd": 8.5,
+              "params": {
+                "radius": 120,
+                "damage": 12
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 2.4,
+              "params": {
+                "count": 12,
+                "damage": 10,
+                "speed": 150
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 3.0,
+              "params": {
+                "radius": 90,
+                "damage": 5,
+                "duration": 3,
+                "tick": 1.0,
+                "count": 2
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nimrod_colossus",
+      "name": "宁录通天塔巨像",
+      "scripture": "创 10-11",
+      "chapter": 3,
+      "hp": 4800,
+      "speed": 40,
+      "damage": 12,
+      "radius": 22,
+      "xp": 132,
+      "color": "#7A5A3A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "投泥砖造障碍、召砖魔像挡路，塔崩后是无休止的落石。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 4.0,
+              "params": {
+                "radius": 48,
+                "damage": 6,
+                "duration": 8,
+                "tick": 2.0,
+                "count": 1
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 4.0,
+              "params": {
+                "count": 6,
+                "damage": 7,
+                "speed": 120
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "summon",
+              "cd": 9.0,
+              "params": {
+                "enemy": "brick_golem",
+                "n": 6
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 3.0,
+              "params": {
+                "count": 4,
+                "damage": 9,
+                "speed": 170
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 1.2,
+              "params": {
+                "radius": 44,
+                "damage": 14,
+                "duration": 1.0,
+                "tick": 0.4,
+                "count": 4
+              }
+            },
+            {
+              "id": "summon",
+              "cd": 10.0,
+              "params": {
+                "enemy": "brick_golem",
+                "n": 4
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "peniel_wrestler",
+      "name": "毗努伊勒摔跤天使影",
+      "scripture": "创 32:24-28",
+      "chapter": 4,
+      "hp": 5200,
+      "speed": 58,
+      "damage": 12,
+      "radius": 17,
+      "xp": 138,
+      "color": "#C8B48A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "贴身缠斗的摔跤者，结界圈住场地，残血后瞬移残影带电。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "charge",
+              "cd": 3.0,
+              "params": {
+                "damage": 14,
+                "speed": 300,
+                "count": 1
+              }
+            },
+            {
+              "id": "nova",
+              "cd": 4.5,
+              "params": {
+                "radius": 70,
+                "damage": 11
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 12.0,
+              "params": {
+                "radius": 140,
+                "damage": 4,
+                "duration": 6,
+                "tick": 1.0,
+                "count": 1
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 5.0,
+              "params": {
+                "damage": 13,
+                "speed": 280,
+                "count": 2
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "nova",
+              "cd": 2.0,
+              "params": {
+                "radius": 60,
+                "damage": 14
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 3.5,
+              "params": {
+                "damage": 16,
+                "speed": 340,
+                "count": 1
+              }
+            }
+          ],
+          "speed_mult": 1.3
+        }
+      ]
+    },
+    {
+      "id": "firstborn_reaper",
+      "name": "长子灭命黑影",
+      "scripture": "出 12:29",
+      "chapter": 5,
+      "hp": 5600,
+      "speed": 54,
+      "damage": 13,
+      "radius": 18,
+      "xp": 144,
+      "color": "#6E1E1E",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "月牙镰刀与黑门，屏幕一暗就是一波自爆血灵。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "aimed_shot",
+              "cd": 2.2,
+              "params": {
+                "count": 3,
+                "damage": 10,
+                "speed": 190
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 9.0,
+              "params": {
+                "radius": 60,
+                "damage": 5,
+                "duration": 4,
+                "tick": 1.0,
+                "count": 2
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "summon",
+              "cd": 8.0,
+              "params": {
+                "enemy": "blood_wraith",
+                "n": 4
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 10.0,
+              "params": {
+                "radius": 100,
+                "damage": 5,
+                "duration": 8,
+                "tick": 1.0,
+                "count": 1
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "nova",
+              "cd": 2.0,
+              "params": {
+                "radius": 90,
+                "damage": 15
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 4.0,
+              "params": {
+                "damage": 16,
+                "speed": 320,
+                "count": 1
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pharaoh_chariot",
+      "name": "法老铁车战灵",
+      "scripture": "出 14:23-28",
+      "chapter": 6,
+      "hp": 6000,
+      "speed": 64,
+      "damage": 13,
+      "radius": 20,
+      "xp": 150,
+      "color": "#A8502E",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "全屏红线预警后横穿冲锋，残血时两辆虚影副车交叉对穿。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "charge",
+              "cd": 3.5,
+              "params": {
+                "damage": 18,
+                "speed": 340,
+                "count": 1
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 2.8,
+              "params": {
+                "count": 4,
+                "damage": 9,
+                "speed": 200
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "charge",
+              "cd": 5.0,
+              "params": {
+                "damage": 16,
+                "speed": 300,
+                "count": 2
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 3.0,
+              "params": {
+                "count": 6,
+                "damage": 9,
+                "speed": 200
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "charge",
+              "cd": 5.0,
+              "params": {
+                "damage": 20,
+                "speed": 330,
+                "count": 3
+              }
+            },
+            {
+              "id": "summon",
+              "cd": 12.0,
+              "params": {
+                "enemy": "chariot_phantom",
+                "n": 2
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "golden_calf",
+      "name": "熔金牛犊巨兽",
+      "scripture": "出 32",
+      "chapter": 7,
+      "hp": 6400,
+      "speed": 50,
+      "damage": 13,
+      "radius": 21,
+      "xp": 156,
+      "color": "#D4A02A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "冲撞留下液态黄金灼烧带，咆哮落雷，残血八向喷火。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "charge",
+              "cd": 3.2,
+              "params": {
+                "damage": 16,
+                "speed": 260,
+                "count": 1
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 3.2,
+              "params": {
+                "radius": 36,
+                "damage": 6,
+                "duration": 4,
+                "tick": 1.0,
+                "count": 2
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 6.0,
+              "params": {
+                "radius": 46,
+                "damage": 15,
+                "duration": 0.8,
+                "tick": 0.4,
+                "count": 6
+              }
+            },
+            {
+              "id": "nova",
+              "cd": 5.0,
+              "params": {
+                "radius": 90,
+                "damage": 12
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 2.4,
+              "params": {
+                "count": 8,
+                "damage": 12,
+                "speed": 160
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 4.0,
+              "params": {
+                "damage": 16,
+                "speed": 300,
+                "count": 1
+              }
+            }
+          ],
+          "speed_mult": 1.3
+        }
+      ]
+    },
+    {
+      "id": "serpent_king",
+      "name": "旷野火蛇之王",
+      "scripture": "民 21:6-9",
+      "chapter": 8,
+      "hp": 6800,
+      "speed": 56,
+      "damage": 13,
+      "radius": 19,
+      "xp": 162,
+      "color": "#5E8E3A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "S 形游走的蛇王，盘身减伤召蛇，蜕皮后体型变小但极快。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "aimed_shot",
+              "cd": 2.0,
+              "params": {
+                "count": 5,
+                "damage": 8,
+                "speed": 170
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 6.0,
+              "params": {
+                "radius": 40,
+                "damage": 5,
+                "duration": 3,
+                "tick": 1.0,
+                "count": 2
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "summon",
+              "cd": 8.0,
+              "params": {
+                "enemy": "fiery_serpent",
+                "n": 6
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 2.4,
+              "params": {
+                "count": 5,
+                "damage": 9,
+                "speed": 180
+              }
+            }
+          ],
+          "dr": 0.5
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 1.6,
+              "params": {
+                "count": 10,
+                "damage": 10,
+                "speed": 190
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 4.0,
+              "params": {
+                "radius": 50,
+                "damage": 7,
+                "duration": 4,
+                "tick": 1.0,
+                "count": 3
+              }
+            }
+          ],
+          "speed_mult": 1.45
+        }
+      ]
+    },
+    {
+      "id": "jericho_warden",
+      "name": "耶利哥坚固营垒铁卫",
+      "scripture": "书 6",
+      "chapter": 9,
+      "hp": 7200,
+      "speed": 42,
+      "damage": 14,
+      "radius": 22,
+      "xp": 168,
+      "color": "#8A7A4A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "架盾正面减伤，召铁盾守卫平推，弃盾后双锤跳砸震全场。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "aimed_shot",
+              "cd": 3.0,
+              "params": {
+                "count": 1,
+                "damage": 12,
+                "speed": 140
+              }
+            },
+            {
+              "id": "nova",
+              "cd": 5.0,
+              "params": {
+                "radius": 90,
+                "damage": 12
+              }
+            }
+          ],
+          "dr": 0.5
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "summon",
+              "cd": 10.0,
+              "params": {
+                "enemy": "iron_shielder",
+                "n": 8
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 3.2,
+              "params": {
+                "count": 3,
+                "damage": 10,
+                "speed": 150
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "nova",
+              "cd": 2.6,
+              "params": {
+                "radius": 110,
+                "damage": 16
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 2.6,
+              "params": {
+                "count": 12,
+                "damage": 9,
+                "speed": 150
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "midian_twin_kings",
+      "name": "米甸双王（俄立与西伊伯）",
+      "scripture": "士 7:25",
+      "chapter": 10,
+      "hp": 7700,
+      "speed": 56,
+      "damage": 14,
+      "radius": 17,
+      "xp": 174,
+      "color": "#5A4A6A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "双王同场：一个远射一个近冲，锁链连起两人，死一个另一个变大回血。",
+      "twin": true,
+      "hp_split": 2,
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "aimed_shot",
+              "cd": 2.4,
+              "params": {
+                "count": 5,
+                "damage": 9,
+                "speed": 180
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 4.0,
+              "params": {
+                "damage": 14,
+                "speed": 280,
+                "count": 1
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 6.0,
+              "params": {
+                "radius": 60,
+                "damage": 8,
+                "duration": 6,
+                "tick": 1.0,
+                "count": 2
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 2.6,
+              "params": {
+                "count": 4,
+                "damage": 8,
+                "speed": 170
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "heal_self",
+              "cd": 20.0,
+              "params": {
+                "pct": 0.07
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 3.5,
+              "params": {
+                "damage": 16,
+                "speed": 300,
+                "count": 1
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dagon_pillar_lord",
+      "name": "大衮神庙巨柱统领",
+      "scripture": "士 16:23-30",
+      "chapter": 11,
+      "hp": 8200,
+      "speed": 46,
+      "damage": 14,
+      "radius": 21,
+      "xp": 180,
+      "color": "#8A6A3A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "断柱横扫击退极强，插下四根石柱放电分割战场，残血全屏落石。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "nova",
+              "cd": 3.0,
+              "params": {
+                "radius": 120,
+                "damage": 16
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 3.0,
+              "params": {
+                "count": 4,
+                "damage": 10,
+                "speed": 160
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "spawn_totem",
+              "cd": 14.0,
+              "params": {
+                "hp": 150,
+                "count": 4,
+                "duration": 20
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 3.0,
+              "params": {
+                "count": 8,
+                "damage": 9,
+                "speed": 140
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 2.0,
+              "params": {
+                "radius": 50,
+                "damage": 16,
+                "duration": 0.8,
+                "tick": 0.4,
+                "count": 5
+              }
+            },
+            {
+              "id": "nova",
+              "cd": 4.0,
+              "params": {
+                "radius": 90,
+                "damage": 12
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "saul_pursuer",
+      "name": "扫罗幽暗追兵统领",
+      "scripture": "撒上 23-24",
+      "chapter": 12,
+      "hp": 8800,
+      "speed": 58,
+      "damage": 14,
+      "radius": 18,
+      "xp": 186,
+      "color": "#2E2E44",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "预判投矛、召弓手齐射包围，红眼后三段高速突刺。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "aimed_shot",
+              "cd": 2.2,
+              "params": {
+                "count": 1,
+                "damage": 14,
+                "speed": 240
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 5.0,
+              "params": {
+                "damage": 15,
+                "speed": 300,
+                "count": 1
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "summon",
+              "cd": 12.0,
+              "params": {
+                "enemy": "archer",
+                "n": 10
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 2.0,
+              "params": {
+                "count": 3,
+                "damage": 11,
+                "speed": 220
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "charge",
+              "cd": 4.0,
+              "params": {
+                "damage": 18,
+                "speed": 320,
+                "count": 3
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 2.0,
+              "params": {
+                "count": 6,
+                "damage": 9,
+                "speed": 200
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "goliath",
+      "name": "歌利亚",
+      "scripture": "撒上 17",
+      "chapter": 13,
+      "hp": 9500,
+      "speed": 44,
+      "damage": 14,
+      "radius": 20,
+      "xp": 192,
+      "color": "#8E2F2F",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "重矛预判加近身践踏，架盾召护卫，狂暴后重踏震出十二发碎石。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "aimed_shot",
+              "cd": 2.6,
+              "params": {
+                "count": 1,
+                "damage": 14,
+                "speed": 260
+              }
+            },
+            {
+              "id": "nova",
+              "cd": 4.0,
+              "params": {
+                "radius": 72,
+                "damage": 12
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "summon",
+              "cd": 4.4,
+              "params": {
+                "enemy": "raven",
+                "n": 4
+              }
+            },
+            {
+              "id": "summon",
+              "cd": 4.4,
+              "params": {
+                "enemy": "soldier",
+                "n": 4
+              }
+            }
+          ],
+          "dr": 0.25
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "nova",
+              "cd": 2.4,
+              "params": {
+                "radius": 90,
+                "damage": 15
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 2.4,
+              "params": {
+                "count": 12,
+                "damage": 8,
+                "speed": 160
+              }
+            }
+          ],
+          "speed_mult": 1.3
+        }
+      ]
+    },
+    {
+      "id": "baal_colossus",
+      "name": "巴力伪坛四柱巨像",
+      "scripture": "王上 18:26-29",
+      "chapter": 14,
+      "hp": 9800,
+      "speed": 40,
+      "damage": 15,
+      "radius": 22,
+      "xp": 198,
+      "color": "#B0522E",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "延迟喷发的火柱与巴力石柱，拆完柱子才会露出破绽。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 4.5,
+              "params": {
+                "radius": 56,
+                "damage": 18,
+                "duration": 1.0,
+                "tick": 0.5,
+                "count": 4
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 3.6,
+              "params": {
+                "count": 3,
+                "damage": 10,
+                "speed": 150
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "spawn_totem",
+              "cd": 12.0,
+              "params": {
+                "hp": 180,
+                "count": 4,
+                "duration": 18
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 6.0,
+              "params": {
+                "radius": 60,
+                "damage": 14,
+                "duration": 0.8,
+                "tick": 0.4,
+                "count": 3
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 1.8,
+              "params": {
+                "count": 16,
+                "damage": 10,
+                "speed": 150
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 5.0,
+              "params": {
+                "damage": 16,
+                "speed": 260,
+                "count": 1
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "abyss_leviathan",
+      "name": "深渊大鱼幻影",
+      "scripture": "拿 1-2",
+      "chapter": 15,
+      "hp": 10050,
+      "speed": 52,
+      "damage": 16,
+      "radius": 22,
+      "xp": 204,
+      "color": "#2A5A6A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "吞噬吸力把玩家往里拉，排浪横穿，残血连续潜地突袭。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 8.0,
+              "params": {
+                "radius": 150,
+                "damage": 5,
+                "duration": 5,
+                "tick": 1.0,
+                "count": 1
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 2.8,
+              "params": {
+                "count": 6,
+                "damage": 10,
+                "speed": 150
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "nova",
+              "cd": 5.0,
+              "params": {
+                "radius": 180,
+                "damage": 16
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 6.0,
+              "params": {
+                "damage": 16,
+                "speed": 280,
+                "count": 1
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 2.6,
+              "params": {
+                "count": 16,
+                "damage": 9,
+                "speed": 190
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 5.0,
+              "params": {
+                "radius": 100,
+                "damage": 6,
+                "duration": 6,
+                "tick": 1.0,
+                "count": 2
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "babylon_statue",
+      "name": "尼布甲尼撒四段金像",
+      "scripture": "但 2-3",
+      "chapter": 16,
+      "hp": 10300,
+      "speed": 42,
+      "damage": 16,
+      "radius": 23,
+      "xp": 210,
+      "color": "#C8A02A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "金头银胸的聚焦光束，铜腹碎裂后喷熔岩，最后脚下留铁水池。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "aimed_shot",
+              "cd": 2.4,
+              "params": {
+                "count": 2,
+                "damage": 12,
+                "speed": 220
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 8.0,
+              "params": {
+                "radius": 40,
+                "damage": 8,
+                "duration": 5,
+                "tick": 1.0,
+                "count": 2
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "aimed_shot",
+              "cd": 2.2,
+              "params": {
+                "count": 7,
+                "damage": 11,
+                "speed": 170
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 3.0,
+              "params": {
+                "count": 8,
+                "damage": 10,
+                "speed": 150
+              }
+            }
+          ],
+          "speed_mult": 1.3
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 5.0,
+              "params": {
+                "radius": 50,
+                "damage": 10,
+                "duration": 6,
+                "tick": 1.0,
+                "count": 2
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 2.6,
+              "params": {
+                "count": 10,
+                "damage": 11,
+                "speed": 160
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "the_tempter",
+      "name": "旷野的试探者",
+      "scripture": "太 4:1-11",
+      "chapter": 17,
+      "hp": 10500,
+      "speed": 52,
+      "damage": 16,
+      "radius": 22,
+      "xp": 216,
+      "color": "#5A3E6E",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "不吃石饼就打碎它；P2 用荣华幻境圈逼你站进圈里，残血放分身。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "aimed_shot",
+              "cd": 2.4,
+              "params": {
+                "count": 5,
+                "damage": 10,
+                "speed": 150
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 9.0,
+              "params": {
+                "radius": 40,
+                "damage": 8,
+                "duration": 10,
+                "tick": 2.0,
+                "count": 2
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 14.0,
+              "params": {
+                "radius": 150,
+                "damage": 3,
+                "duration": 10,
+                "tick": 1.0,
+                "count": 1
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 2.6,
+              "params": {
+                "count": 5,
+                "damage": 10,
+                "speed": 160
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "summon",
+              "cd": 12.0,
+              "params": {
+                "enemy": "smoke_specter",
+                "n": 2
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 2.0,
+              "params": {
+                "count": 7,
+                "damage": 11,
+                "speed": 170
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "legion",
+      "name": "格拉森群鬼聚合体",
+      "scripture": "可 5:1-13",
+      "chapter": 18,
+      "hp": 12700,
+      "speed": 54,
+      "damage": 16,
+      "radius": 21,
+      "xp": 222,
+      "color": "#4A3A5A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "无数黑影拼成的巨兽，每破一档血量就炸裂成群鬼，12s 内不杀光会合体回血。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 2.6,
+              "params": {
+                "count": 10,
+                "damage": 9,
+                "speed": 140
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 5.0,
+              "params": {
+                "damage": 15,
+                "speed": 300,
+                "count": 1
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "summon",
+              "cd": 12.0,
+              "params": {
+                "enemy": "drowned_shade",
+                "n": 10
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 3.0,
+              "params": {
+                "count": 12,
+                "damage": 9,
+                "speed": 150
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "charge",
+              "cd": 3.0,
+              "params": {
+                "damage": 18,
+                "speed": 300,
+                "count": 3
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 2.2,
+              "params": {
+                "count": 12,
+                "damage": 10,
+                "speed": 160
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "yoke_colossus",
+      "name": "律法铁轭巨像",
+      "scripture": "加 5:1",
+      "chapter": 19,
+      "hp": 15400,
+      "speed": 44,
+      "damage": 17,
+      "radius": 22,
+      "xp": 228,
+      "color": "#6A6A8A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "十字锁链弹幕减速，石版重轭压场，铁轭崩断后化成高速飞轮。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 2.4,
+              "params": {
+                "count": 4,
+                "damage": 10,
+                "speed": 150
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 3.0,
+              "params": {
+                "count": 3,
+                "damage": 11,
+                "speed": 180
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 12.0,
+              "params": {
+                "radius": 110,
+                "damage": 4,
+                "duration": 20,
+                "tick": 1.0,
+                "count": 2
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 3.0,
+              "params": {
+                "count": 8,
+                "damage": 10,
+                "speed": 160
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 1.6,
+              "params": {
+                "count": 12,
+                "damage": 12,
+                "speed": 200
+              }
+            },
+            {
+              "id": "nova",
+              "cd": 3.0,
+              "params": {
+                "radius": 90,
+                "damage": 14
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jailer_warden",
+      "name": "铁链狱卒统领",
+      "scripture": "徒 16:23-34",
+      "chapter": 20,
+      "hp": 18700,
+      "speed": 50,
+      "damage": 17,
+      "radius": 20,
+      "xp": 234,
+      "color": "#4A4E6A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "钩锁拽人后重锤，十字铁栅把场地切成四块，残血雷环三圈扩散。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "aimed_shot",
+              "cd": 3.0,
+              "params": {
+                "count": 1,
+                "damage": 12,
+                "speed": 260
+              }
+            },
+            {
+              "id": "nova",
+              "cd": 5.0,
+              "params": {
+                "radius": 80,
+                "damage": 15
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "spawn_totem",
+              "cd": 15.0,
+              "params": {
+                "hp": 120,
+                "count": 4,
+                "duration": 25
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 3.4,
+              "params": {
+                "count": 3,
+                "damage": 11,
+                "speed": 230
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 2.0,
+              "params": {
+                "count": 16,
+                "damage": 11,
+                "speed": 170
+              }
+            },
+            {
+              "id": "nova",
+              "cd": 3.0,
+              "params": {
+                "radius": 100,
+                "damage": 15
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dark_angel_shade",
+      "name": "失落灯台黑影",
+      "scripture": "启 2:5",
+      "chapter": 21,
+      "hp": 22600,
+      "speed": 56,
+      "damage": 17,
+      "radius": 19,
+      "xp": 240,
+      "color": "#2A2438",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "专挑亮着的金灯台扑灭，灭一盏快一分；残血黑翼全屏折返掠袭。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "aimed_shot",
+              "cd": 2.2,
+              "params": {
+                "count": 6,
+                "damage": 11,
+                "speed": 180
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 9.0,
+              "params": {
+                "radius": 70,
+                "damage": 4,
+                "duration": 6,
+                "tick": 1.0,
+                "count": 1
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 2.4,
+              "params": {
+                "count": 10,
+                "damage": 10,
+                "speed": 160
+              }
+            },
+            {
+              "id": "charge",
+              "cd": 5.0,
+              "params": {
+                "damage": 16,
+                "speed": 330,
+                "count": 1
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "charge",
+              "cd": 3.0,
+              "params": {
+                "damage": 16,
+                "speed": 360,
+                "count": 4
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 4.0,
+              "params": {
+                "radius": 50,
+                "damage": 8,
+                "duration": 4,
+                "tick": 1.0,
+                "count": 3
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "abaddon",
+      "name": "无底坑王亚巴顿",
+      "scripture": "启 9:11",
+      "chapter": 22,
+      "hp": 27400,
+      "speed": 56,
+      "damage": 18,
+      "radius": 21,
+      "xp": 246,
+      "color": "#6A2A3A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "黑烟盲区与铁甲蝗虫护体，引力吸宝石回血，抢在它前面吃干净。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 10.0,
+              "params": {
+                "radius": 80,
+                "damage": 6,
+                "duration": 8,
+                "tick": 1.0,
+                "count": 1
+              }
+            },
+            {
+              "id": "summon",
+              "cd": 8.0,
+              "params": {
+                "enemy": "iron_locust",
+                "n": 8
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "heal_self",
+              "cd": 14.0,
+              "params": {
+                "pct": 0.06
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 3.0,
+              "params": {
+                "count": 10,
+                "damage": 9,
+                "speed": 150
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 2.0,
+              "params": {
+                "count": 16,
+                "damage": 12,
+                "speed": 180
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 2.4,
+              "params": {
+                "count": 3,
+                "damage": 14,
+                "speed": 220
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scarlet_beast",
+      "name": "巴比伦朱红兽幻象",
+      "scripture": "启 17:3-5",
+      "chapter": 23,
+      "hp": 33200,
+      "speed": 60,
+      "damage": 18,
+      "radius": 22,
+      "xp": 252,
+      "color": "#8E2A3A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "三段折线扑咬拖出朱红烈焰带，金杯毒雨密布红圈，终段冲锋炸火球。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "charge",
+              "cd": 4.5,
+              "params": {
+                "damage": 16,
+                "speed": 320,
+                "count": 3
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 8.0,
+              "params": {
+                "radius": 40,
+                "damage": 8,
+                "duration": 5,
+                "tick": 1.0,
+                "count": 3
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "zone_denial",
+              "cd": 8.0,
+              "params": {
+                "radius": 40,
+                "damage": 10,
+                "duration": 5,
+                "tick": 1.0,
+                "count": 6
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 2.8,
+              "params": {
+                "count": 6,
+                "damage": 10,
+                "speed": 200
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "charge",
+              "cd": 3.5,
+              "params": {
+                "damage": 18,
+                "speed": 350,
+                "count": 3
+              }
+            },
+            {
+              "id": "nova",
+              "cd": 3.0,
+              "params": {
+                "radius": 70,
+                "damage": 15
+              }
+            }
+          ],
+          "speed_mult": 1.25
+        }
+      ]
+    },
+    {
+      "id": "beast_of_sea",
+      "name": "海中七头十角兽",
+      "scripture": "启 13:1-7",
+      "chapter": 24,
+      "hp": 40000,
+      "speed": 48,
+      "damage": 18,
+      "radius": 25,
+      "xp": 258,
+      "color": "#2A4E7A",
+      "behavior": "boss",
+      "tier": "boss",
+      "desc": "七头轮流放火息、音爆与雷球，中段升泡沫护盾并召四马骑灵，第七头死伤医好后回血决战。",
+      "phases": [
+        {
+          "at_hp": 1.0,
+          "skills": [
+            {
+              "id": "ring_burst",
+              "cd": 2.4,
+              "params": {
+                "count": 10,
+                "damage": 11,
+                "speed": 160
+              }
+            },
+            {
+              "id": "aimed_shot",
+              "cd": 2.6,
+              "params": {
+                "count": 5,
+                "damage": 12,
+                "speed": 180
+              }
+            },
+            {
+              "id": "nova",
+              "cd": 5.0,
+              "params": {
+                "radius": 120,
+                "damage": 14
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.66,
+          "skills": [
+            {
+              "id": "spawn_totem",
+              "cd": 14.0,
+              "params": {
+                "hp": 220,
+                "count": 2,
+                "duration": 15
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 2.6,
+              "params": {
+                "count": 4,
+                "damage": 14,
+                "speed": 220
+              }
+            },
+            {
+              "id": "zone_denial",
+              "cd": 8.0,
+              "params": {
+                "radius": 160,
+                "damage": 6,
+                "duration": 8,
+                "tick": 1.0,
+                "count": 1
+              }
+            },
+            {
+              "id": "summon",
+              "cd": 12.0,
+              "params": {
+                "enemy": "horsemen_vanguard",
+                "n": 2
+              }
+            }
+          ]
+        },
+        {
+          "at_hp": 0.33,
+          "skills": [
+            {
+              "id": "heal_self",
+              "cd": 26.0,
+              "params": {
+                "pct": 0.06
+              }
+            },
+            {
+              "id": "ring_burst",
+              "cd": 1.8,
+              "params": {
+                "count": 20,
+                "damage": 13,
+                "speed": 180
+              }
+            },
+            {
+              "id": "nova",
+              "cd": 3.0,
+              "params": {
+                "radius": 130,
+                "damage": 16
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,56 +1,614 @@
 {
-  "_comment": "见证人表。perk 由 src/core/game_state.gd 解释。",
+  "_comment": "见证人表。perk 由 src/core/game_state.gd 解释（数值键相加，*_mult 键相乘）。awakening.hook 是给引擎的机制钩子声明（当前代码不读，属未知键，安全）。",
   "characters": [
     {
       "id": "david",
       "name": "大卫",
       "scripture": "撒上 17",
-      "weapon": "sling",
       "hp": 140,
       "speed": 72,
+      "weapon": "sling",
       "perk": {
         "crit_chance": 0.15,
         "aim_crit_mult": 2
       },
-      "desc": "信心之石：暴击 +15%\n锁定时暴击伤害 x2"
+      "awakening": {
+        "name": "牧者君王",
+        "desc": "锁头暴击命中精英/BOSS 时，必定附加 0.6s 眩晕与 15% 破甲",
+        "perk": {
+          "aim_crit_mult": 1.15
+        },
+        "hook": {
+          "id": "aimed_crit_debuff",
+          "params": {
+            "stun": 0.6,
+            "armor_break_pct": 0.15
+          }
+        }
+      },
+      "desc": "信心之石：暴击 +15%\n锁定时暴击伤害 x2",
+      "unlock": {
+        "stage": "",
+        "silver": 0,
+        "note": "默认解锁（初始可用）"
+      }
+    },
+    {
+      "id": "noah",
+      "name": "挪亚",
+      "scripture": "创 6–9",
+      "hp": 165,
+      "speed": 66,
+      "weapon": "olive_branch",
+      "perk": {
+        "max_hp_bonus": 25,
+        "damage_taken_mult": 0.65
+      },
+      "awakening": {
+        "name": "彩虹立约",
+        "desc": "方舟水幕开启期间，每 3s 召唤白鸽向最近敌群投下回血 10 HP 的橄榄果",
+        "perk": {
+          "level_heal_bonus": 0.1
+        },
+        "hook": {
+          "id": "dove_heal_drop",
+          "params": {
+            "interval": 3,
+            "heal": 10
+          }
+        }
+      },
+      "desc": "方舟庇护：最大生命 +25\n站立不动 1.2s 开启方舟水幕，受到伤害 -35%",
+      "unlock": {
+        "stage": "ch01_eden",
+        "silver": 100,
+        "note": "通关第 1 章《伊甸与东门》+100 银两"
+      }
+    },
+    {
+      "id": "abraham",
+      "name": "亚伯拉罕",
+      "scripture": "创 12, 22",
+      "hp": 135,
+      "speed": 70,
+      "weapon": "censer",
+      "perk": {
+        "level_heal_bonus": 0.1
+      },
+      "awakening": {
+        "name": "多国之父",
+        "desc": "每次完成祭坛祝圣，永久提升本局全武器伤害 +12%、拾取范围 +20%",
+        "perk": {
+          "pickup_bonus": 0.2
+        },
+        "hook": {
+          "id": "sanctify_stack_bonus",
+          "params": {
+            "damage_pct": 0.12,
+            "pickup_pct": 0.2
+          }
+        }
+      },
+      "desc": "信心之父：每局第 1 次祭坛祝圣免消耗火炭\n祝圣武器直接从 Lv.3 起跳",
+      "unlock": {
+        "stage": "ch01_eden",
+        "silver": 200,
+        "note": "需成就 ach_25_no_fruit「持守约言」+200 银两"
+      }
+    },
+    {
+      "id": "jacob",
+      "name": "雅各",
+      "scripture": "创 32",
+      "hp": 150,
+      "speed": 68,
+      "weapon": "staff",
+      "perk": {
+        "melee_only_bonus": 0.4
+      },
+      "awakening": {
+        "name": "以色列之名",
+        "desc": "受到精英或 BOSS 伤害后 5s 内：暴击率 +35%、抗击退 100%",
+        "perk": {
+          "crit_chance": 0.35
+        },
+        "hook": {
+          "id": "elite_hit_buff",
+          "params": {
+            "seconds": 5,
+            "knockback_immune": 1
+          }
+        }
+      },
+      "desc": "毗努伊勒摔跤：56px 内敌人受到的伤害 +40%\n近战击杀回复 1.5 HP",
+      "unlock": {
+        "stage": "ch04_moriah",
+        "silver": 250,
+        "note": "成就 ach_28_peniel_melee（第 4 章零闪避击败 BOSS）+250 银两"
+      }
+    },
+    {
+      "id": "miriam",
+      "name": "米利暗",
+      "scripture": "出 15",
+      "hp": 125,
+      "speed": 76,
+      "weapon": "tambourine",
+      "perk": {
+        "projectile_speed": 0.3,
+        "duration_mult": 0.3
+      },
+      "awakening": {
+        "name": "女先知领唱",
+        "desc": "每次触发【震慑】或【活水】时，移速叠加 +3%（上限 +30%，持续 4s）",
+        "perk": {},
+        "hook": {
+          "id": "status_move_speed_stack",
+          "params": {
+            "per_stack": 0.03,
+            "max": 0.3,
+            "seconds": 4
+          }
+        }
+      },
+      "desc": "红海赞美：全武器弹速 +30%\n持续区域寿命 +30%",
+      "unlock": {
+        "stage": "ch05_plagues",
+        "silver": 250,
+        "note": "通关第 5 章《埃及十灾荒野》+250 银两"
+      }
     },
     {
       "id": "moses",
       "name": "摩西",
       "scripture": "出 14",
-      "weapon": "staff",
       "hp": 138,
       "speed": 70,
+      "weapon": "staff",
       "perk": {
         "knockback_mult": 1.45,
         "hit_push": 30
       },
-      "desc": "分开红海：击退 +45%\n受击时推开周围敌人"
-    },
-    {
-      "id": "gideon",
-      "name": "基甸",
-      "scripture": "士 7",
-      "weapon": "torch",
-      "hp": 126,
-      "speed": 78,
-      "perk": {
-        "weapon_slots": 3,
-        "damage_per_empty_slot": 0.25
+      "awakening": {
+        "name": "磐石击水",
+        "desc": "受击水波额外造成 45 点【活水】伤害，并在地面留下 5s 治愈水带（每秒回 3 HP）",
+        "perk": {
+          "hit_push": 45,
+          "level_heal_bonus": 0.1
+        },
+        "hook": {
+          "id": "hit_wave_damage_band",
+          "params": {
+            "damage": 45,
+            "band_seconds": 5,
+            "heal_per_sec": 3
+          }
+        }
       },
-      "desc": "三百精兵：武器槽锁 3\n每空 1 槽，全伤害 +25%"
+      "desc": "分开红海：击退 +45%\n受击时推开周围敌人",
+      "unlock": {
+        "stage": "ch06_red_sea",
+        "silver": 300,
+        "note": "成就 ach_29_red_sea_crush（水墙合拢期击杀 300 怪）+300 银两"
+      }
     },
     {
       "id": "joshua",
       "name": "约书亚",
       "scripture": "书 6",
-      "weapon": "horn",
       "hp": 126,
       "speed": 74,
+      "weapon": "horn",
       "perk": {
         "move_shockwave": 70
       },
-      "desc": "绕城七日：每移动 80\n释放一次全向震荡波"
+      "awakening": {
+        "name": "日头停留",
+        "desc": "每释放 7 次移动震荡波，第 7 次范围扩大至 220px 并冻结敌人 1.8s",
+        "perk": {},
+        "hook": {
+          "id": "shockwave_seventh_nova",
+          "params": {
+            "every": 7,
+            "radius": 220,
+            "freeze": 1.8
+          }
+        }
+      },
+      "desc": "绕城七日：每移动 70px 自动释放半径 104px、伤害 19 的全向震荡波",
+      "unlock": {
+        "stage": "ch07_sinai",
+        "silver": 300,
+        "note": "成就 ach_30_sinai_thunder（借雷击击杀 100 怪）+300 银两"
+      }
+    },
+    {
+      "id": "gideon",
+      "name": "基甸",
+      "scripture": "士 7",
+      "hp": 126,
+      "speed": 78,
+      "weapon": "torch",
+      "perk": {
+        "weapon_slots": 3,
+        "damage_per_empty_slot": 0.25
+      },
+      "awakening": {
+        "name": "耶和华的刀",
+        "desc": "打破地图陶罐/瓦罐时 100% 触发一次全屏【战兢】闪光，并有 35% 概率掉火炭",
+        "perk": {},
+        "hook": {
+          "id": "pot_shatter_flash",
+          "params": {
+            "fear_seconds": 3,
+            "coal_chance": 0.35
+          }
+        }
+      },
+      "desc": "三百精兵：武器槽锁 3\n每空 1 槽，全伤害 +25%",
+      "unlock": {
+        "stage": "ch10_gideon_camp",
+        "silver": 350,
+        "note": "成就 ach_32_gideon_panic（令战兢敌人踩踏致死 200）+350 银两"
+      }
+    },
+    {
+      "id": "samson",
+      "name": "参孙",
+      "scripture": "士 15",
+      "hp": 160,
+      "speed": 72,
+      "weapon": "jawbone",
+      "perk": {
+        "melee_only_bonus": 0.35
+      },
+      "awakening": {
+        "name": "倾覆神庙",
+        "desc": "单局 1 次：HP 降至 1 时触发 5s 不死狂暴（攻速翻倍），结束时震爆全屏并回 50% HP",
+        "perk": {},
+        "hook": {
+          "id": "undying_rage_once",
+          "params": {
+            "seconds": 5,
+            "heal_pct": 0.5
+          }
+        }
+      },
+      "desc": "拿细耳人：不携带直线/追踪远程武器时\n近战与环绕范围 +40%、伤害 +35%",
+      "unlock": {
+        "stage": "ch11_timnah",
+        "silver": 400,
+        "note": "成就 ach_33_samson_melee（第 11 章纯近战通关）+400 银两"
+      }
+    },
+    {
+      "id": "deborah",
+      "name": "底波拉",
+      "scripture": "士 4–5",
+      "hp": 130,
+      "speed": 74,
+      "weapon": "harp",
+      "perk": {
+        "pickup_bonus": 0.4
+      },
+      "awakening": {
+        "name": "兴起之母",
+        "desc": "升级降下的流星数量增至 14 颗，且必定命中场内血量最高的精英或 BOSS",
+        "perk": {},
+        "hook": {
+          "id": "levelup_meteors",
+          "params": {
+            "count": 14,
+            "target": "highest_hp_elite"
+          }
+        }
+      },
+      "desc": "棕树下审断：拾取半径 +40%\n每次升级降下 8 颗流星轰击全屏",
+      "unlock": {
+        "stage": "ch12_adullam",
+        "silver": 400,
+        "note": "第 12 章单局击杀 10 只精英且不掉血 +400 银两"
+      }
+    },
+    {
+      "id": "ruth",
+      "name": "路得",
+      "scripture": "得 2",
+      "hp": 128,
+      "speed": 76,
+      "weapon": "sickle",
+      "perk": {
+        "silver_bonus": 0.25
+      },
+      "awakening": {
+        "name": "波阿斯的恩惠",
+        "desc": "每拾取 100 颗经验宝石，自动掉落 1 个「无花果饼」或「天降吗哪」",
+        "perk": {},
+        "hook": {
+          "id": "gem_pick_drop",
+          "params": {
+            "every": 100
+          }
+        }
+      },
+      "desc": "麦田拾穗：经验宝石与银两 25% 概率暴击翻倍\n地图可破坏物刷新频率 ×2",
+      "unlock": {
+        "stage": "ch15_nineveh",
+        "silver": 450,
+        "note": "第 15 章鱼腹阶段不吃回血通关 +450 银两"
+      }
+    },
+    {
+      "id": "elijah",
+      "name": "以利亚",
+      "scripture": "王上 18",
+      "hp": 132,
+      "speed": 72,
+      "weapon": "torch",
+      "perk": {
+        "burn_stack_max": 10
+      },
+      "awakening": {
+        "name": "火车接去",
+        "desc": "站在处于燃烧状态的敌人或火海 64px 内：移速 +25%、每秒回 1 HP",
+        "perk": {
+          "level_heal_bonus": 0.1
+        },
+        "hook": {
+          "id": "near_burn_buff",
+          "params": {
+            "radius": 64,
+            "move_pct": 0.25,
+            "heal_per_sec": 1
+          }
+        }
+      },
+      "desc": "迦密天火：【圣火灼烧】叠加上限 5→10 层\n叠满 10 层立刻降下天火雷击",
+      "unlock": {
+        "stage": "ch14_carmel",
+        "silver": 500,
+        "note": "成就 ach_34_carmel_burn（满层灼烧累计杀 500 怪）+500 银两"
+      }
+    },
+    {
+      "id": "elisha",
+      "name": "以利沙",
+      "scripture": "王下 2",
+      "hp": 136,
+      "speed": 72,
+      "weapon": "chariot",
+      "perk": {
+        "level_heal_bonus": 0.5
+      },
+      "awakening": {
+        "name": "骸骨复活",
+        "desc": "单局自带 1 次满血复活；复活瞬间清空全屏小怪并给全武器 10s 无限火力",
+        "perk": {},
+        "hook": {
+          "id": "revive_once",
+          "params": {
+            "heal_pct": 1,
+            "no_cooldown_seconds": 10
+          }
+        }
+      },
+      "desc": "加倍的灵：所有武器发射的投射物数量 +1\n所有回血效果 ×1.5",
+      "unlock": {
+        "stage": "ch23_babylon_fall",
+        "silver": 600,
+        "note": "第 23 章无伤击杀一波精英方阵 +600 银两"
+      }
+    },
+    {
+      "id": "nehemiah",
+      "name": "尼希米",
+      "scripture": "尼 4",
+      "hp": 155,
+      "speed": 68,
+      "weapon": "hammer",
+      "perk": {
+        "damage_taken_mult": 0.89
+      },
+      "awakening": {
+        "name": "重修城墙",
+        "desc": "石墙塔存在期间每秒向周围发射穿透碎石；被摧毁或到期时爆出 15 颗经验宝石",
+        "perk": {
+          "duration_mult": 0.3
+        },
+        "hook": {
+          "id": "wall_tower_shard",
+          "params": {
+            "gems": 15
+          }
+        }
+      },
+      "desc": "一手做工一手拿兵：护甲 +6\n每击杀 120 只怪在原地筑起持续 18s 的阻挡石墙塔",
+      "unlock": {
+        "stage": "ch03_babel",
+        "silver": 450,
+        "note": "成就 ach_27_babel_ff（诱使敌方弹幕误伤击杀 30）+450 银两"
+      }
+    },
+    {
+      "id": "esther",
+      "name": "以斯帖",
+      "scripture": "斯 4",
+      "hp": 124,
+      "speed": 75,
+      "weapon": "scepter",
+      "perk": {
+        "crit_chance": 0.3
+      },
+      "awakening": {
+        "name": "扭转谕旨",
+        "desc": "场上每 1 只处于【战兢】状态的敌人，玩家全伤害 +1%（上限 +60%）",
+        "perk": {},
+        "hook": {
+          "id": "fear_damage_bonus",
+          "params": {
+            "per_stack": 0.01,
+            "max": 0.6
+          }
+        }
+      },
+      "desc": "死就死吧：HP 低于 45% 时全武器暴击率 +30%\n受击释放全屏【畏惧战兢】",
+      "unlock": {
+        "stage": "ch16_babylon_furnace",
+        "silver": 500,
+        "note": "通关第 16 章《巴比伦火窑狮坑》+500 银两"
+      }
+    },
+    {
+      "id": "daniel",
+      "name": "但以理",
+      "scripture": "但 6",
+      "hp": 134,
+      "speed": 72,
+      "weapon": "censer",
+      "perk": {
+        "crit_chance": 0.1
+      },
+      "awakening": {
+        "name": "封住狮口",
+        "desc": "处于祷告祭圈或自身 zone 区域内时：免疫远程弹幕、接触伤害 -25%",
+        "perk": {
+          "damage_taken_mult": 0.75
+        },
+        "hook": {
+          "id": "prayer_zone_immunity",
+          "params": {
+            "contact_reduction": 0.25
+          }
+        }
+      },
+      "desc": "一日三次祷告：祷告祭圈坚守时间减半（仅需 6s）\n每完成 1 次永久增加本局 +10% 全伤害",
+      "unlock": {
+        "stage": "ch16_babylon_furnace",
+        "silver": 500,
+        "note": "成就 ach_35_daniel_furnace（烈火窑内圈存活 120s）+500 银两"
+      }
+    },
+    {
+      "id": "john_baptist",
+      "name": "施洗约翰",
+      "scripture": "太 3",
+      "hp": 130,
+      "speed": 76,
+      "weapon": "voice",
+      "perk": {
+        "crit_chance": 0.1
+      },
+      "awakening": {
+        "name": "天国近了",
+        "desc": "开局直接升至 Lv.3，且前 5 分钟经验获取 +35%",
+        "perk": {},
+        "hook": {
+          "id": "start_level_and_xp",
+          "params": {
+            "level": 3,
+            "xp_pct": 0.35,
+            "minutes": 5
+          }
+        }
+      },
+      "desc": "修直道路：直线类武器穿透数 +4\n对处于【活水】状态的敌人伤害 +45%",
+      "unlock": {
+        "stage": "judea_wilderness",
+        "silver": 550,
+        "note": "成就 ach_36_smash_bread（全程击碎试探石饼通关）+550 银两"
+      }
+    },
+    {
+      "id": "peter",
+      "name": "彼得",
+      "scripture": "路 5",
+      "hp": 145,
+      "speed": 72,
+      "weapon": "fishing_net",
+      "perk": {
+        "pickup_bonus": 0.2
+      },
+      "awakening": {
+        "name": "磐石之上",
+        "desc": "每成功完美闪避 1 次：本局最大生命永久 +8、护甲永久 +1（上限 10 次）",
+        "perk": {
+          "max_hp_bonus": 80,
+          "damage_taken_mult": 0.83
+        },
+        "hook": {
+          "id": "perfect_dodge_stack",
+          "params": {
+            "max_hp": 8,
+            "armor": 1,
+            "max": 10
+          }
+        }
+      },
+      "desc": "得人如鱼：每次触发「信心跨步（完美闪避）」后\n自动向周围抛出一张大范围聚怪渔网",
+      "unlock": {
+        "stage": "ch18_galilee",
+        "silver": 550,
+        "note": "成就 ach_37_peter_dodge（单局触发 3 次完美闪避）+550 银两"
+      }
+    },
+    {
+      "id": "paul",
+      "name": "保罗",
+      "scripture": "弗 6",
+      "hp": 136,
+      "speed": 72,
+      "weapon": "spirit_blade",
+      "perk": {
+        "damage_taken_mult": 0.9
+      },
+      "awakening": {
+        "name": "跑尽当跑的路",
+        "desc": "集齐任意 3 件军装宝物时：全武器冷却额外 -20%，每 15s 生成 1 层免伤盾",
+        "perk": {
+          "damage_taken_mult": 0.9
+        },
+        "hook": {
+          "id": "armor_set_cooldown",
+          "params": {
+            "cooldown": -0.2,
+            "shield_interval": 15
+          }
+        }
+      },
+      "desc": "那美好的仗：宝物槽上限 +1（共 5 槽）\n开局随机自带 1 件「神的全副军装」宝物",
+      "unlock": {
+        "stage": "ch20_philippi",
+        "silver": 650,
+        "note": "成就 ach_38_paul_armor（单局集齐 3 件全副军装）+650 银两"
+      }
+    },
+    {
+      "id": "john_patmos",
+      "name": "拔摩岛约翰",
+      "scripture": "启 1",
+      "hp": 128,
+      "speed": 72,
+      "weapon": "menorah",
+      "perk": {
+        "crit_chance": 0.1
+      },
+      "awakening": {
+        "name": "新耶路撒冷见异象者",
+        "desc": "开局可额外多选 1 张「约（Covenant）」（单局上限达 3 张）",
+        "perk": {},
+        "hook": {
+          "id": "extra_covenant",
+          "params": {
+            "covenants": 1
+          }
+        }
+      },
+      "desc": "七灵启示：「成全」所需祝圣后击杀门槛从 300 降至 180\n单局允许点亮 2 件成全",
+      "unlock": {
+        "stage": "ch21_seven_churches",
+        "silver": 800,
+        "note": "成就 ach_39_john_lamps（单局点亮全部 7 座金灯台）+800 银两"
+      }
     }
   ]
 }

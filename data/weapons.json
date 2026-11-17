@@ -1,5 +1,5 @@
 {
-  "_comment": "基础武器表。behavior 为行为原子：line_projectile / arc_melee / orbit / zone / homing。数值为 1 级基线，scaling 为每级相对基线的增幅（乘法），overrides 为指定等级覆盖。",
+  "_comment": "基础武器表（20 把，对应设计圣典 v2.0 第 4.1 节）。behavior 为行为原子：line_projectile / arc_melee / orbit / zone / homing。params 为 Lv.1 基线，scaling 为每级相对基线的乘法增幅（value*(1+s*(lv-1))），overrides 为指定等级覆盖（离散弹数/满级终值）。",
   "weapons": [
     {
       "id": "sling",
@@ -29,11 +29,15 @@
         "3": {
           "count": 2
         },
+        "4": {
+          "count": 2
+        },
         "5": {
-          "count": 3
+          "count": 3,
+          "cooldown": 0.62
         }
       },
-      "desc": "直线穿透石弹，命中造成【震慑】。"
+      "desc": "直线穿透石弹，命中造成【震慑】。Lv.3 双石、Lv.5 三石齐投。"
     },
     {
       "id": "staff",
@@ -57,7 +61,11 @@
         "range": 0.1,
         "knockback": 0.1
       },
-      "overrides": {},
+      "overrides": {
+        "5": {
+          "cooldown": 0.7
+        }
+      },
       "desc": "扇形横扫，命中造成【活水】并击退。"
     },
     {
@@ -85,11 +93,14 @@
         "3": {
           "count": 3
         },
+        "4": {
+          "count": 3
+        },
         "5": {
           "count": 4
         }
       },
-      "desc": "环绕火焰，持续命中造成【圣火灼烧】。"
+      "desc": "环绕火焰，持续命中造成【圣火灼烧】。Lv.3 三球、Lv.5 四球。"
     },
     {
       "id": "horn",
@@ -126,19 +137,25 @@
       "max_level": 5,
       "params": {
         "damage": 5,
+        "cooldown": 2,
         "radius": 34,
         "duration": 2.6,
-        "cooldown": 2,
         "tick": 0.4,
         "throw_dist": 95,
-        "count": 1
+        "count": 1,
+        "range": 200
       },
       "scaling": {
         "damage": 0.3,
         "radius": 0.1,
-        "duration": 0.08
+        "duration": 0.08,
+        "cooldown": -0.025
       },
-      "overrides": {},
+      "overrides": {
+        "5": {
+          "cooldown": 1.8
+        }
+      },
       "desc": "抛出香炉落点生成烟云，持续【圣火灼烧】。"
     },
     {
@@ -147,17 +164,17 @@
       "scripture": "撒上 16:23",
       "behavior": "homing",
       "status": "blind",
-      "color": "#F0D890",
+      "color": "#9FB8D9",
       "max_level": 5,
       "params": {
         "damage": 6,
-        "speed": 200,
+        "speed": 250,
         "cooldown": 1,
-        "range": 230,
+        "range": 260,
         "count": 1,
         "turn_rate": 4.5,
         "life": 2.2,
-        "size": 3
+        "size": 4
       },
       "scaling": {
         "damage": 0.28,
@@ -168,11 +185,441 @@
         "3": {
           "count": 2
         },
+        "4": {
+          "count": 2
+        },
         "5": {
           "count": 3
         }
       },
-      "desc": "追踪音波，命中造成【圣光致盲】。"
+      "desc": "追踪音刃盘旋索敌，命中造成【致盲】。Lv.3 双刃、Lv.5 三刃。"
+    },
+    {
+      "id": "olive_branch",
+      "name": "橄榄枝",
+      "scripture": "创 8:11",
+      "behavior": "orbit",
+      "status": "wet",
+      "color": "#7FA85B",
+      "max_level": 5,
+      "params": {
+        "damage": 5,
+        "radius": 36,
+        "angular_speed": 2,
+        "tick": 0.4,
+        "count": 3,
+        "size": 8
+      },
+      "scaling": {
+        "damage": 0.26,
+        "radius": 0.12
+      },
+      "overrides": {
+        "4": {
+          "count": 4
+        },
+        "5": {
+          "count": 5
+        }
+      },
+      "desc": "橄榄枝环绕，命中造成【活水】并微幅回血。Lv.4 四枝、Lv.5 五枝。"
+    },
+    {
+      "id": "jawbone",
+      "name": "驴腮骨",
+      "scripture": "士 15:15",
+      "behavior": "line_projectile",
+      "status": "tremor",
+      "color": "#D9CBB0",
+      "max_level": 5,
+      "params": {
+        "damage": 14,
+        "speed": 360,
+        "pierce": 4,
+        "cooldown": 1.15,
+        "range": 190,
+        "count": 1,
+        "spread_deg": 5,
+        "size": 6
+      },
+      "scaling": {
+        "damage": 0.34,
+        "cooldown": -0.05
+      },
+      "overrides": {
+        "4": {
+          "count": 2
+        },
+        "5": {
+          "count": 2,
+          "pierce": 6
+        }
+      },
+      "desc": "重型骨刃直线穿透四名敌人，造成【震慑】。Lv.4 双发、Lv.5 穿透 6。"
+    },
+    {
+      "id": "tambourine",
+      "name": "铃鼓",
+      "scripture": "出 15:20",
+      "behavior": "zone",
+      "status": "tremor",
+      "color": "#D98AA6",
+      "max_level": 5,
+      "params": {
+        "damage": 7,
+        "cooldown": 1.6,
+        "radius": 52,
+        "duration": 0.35,
+        "tick": 0.35,
+        "count": 1,
+        "range": 1
+      },
+      "scaling": {
+        "damage": 0.28,
+        "radius": 0.12,
+        "cooldown": -0.06
+      },
+      "overrides": {},
+      "desc": "以自身为中心的震荡脉冲，全向【震慑】并击退。"
+    },
+    {
+      "id": "sickle",
+      "name": "拾穗镰",
+      "scripture": "得 2:3",
+      "behavior": "arc_melee",
+      "status": "fear",
+      "color": "#C8B06A",
+      "max_level": 5,
+      "params": {
+        "damage": 9,
+        "cooldown": 0.85,
+        "range": 54,
+        "arc_deg": 160,
+        "knockback": -40,
+        "count": 1
+      },
+      "scaling": {
+        "damage": 0.3,
+        "cooldown": -0.04,
+        "range": 0.08
+      },
+      "overrides": {
+        "5": {
+          "count": 2,
+          "cooldown": 0.72
+        }
+      },
+      "desc": "大弧度收割并造成【战兢】，负击退把敌人往身前拖。Lv.5 双面挥砍。"
+    },
+    {
+      "id": "spirit_blade",
+      "name": "圣言利剑",
+      "scripture": "弗 6:17",
+      "behavior": "arc_melee",
+      "status": "blind",
+      "color": "#DCE9F5",
+      "max_level": 5,
+      "params": {
+        "damage": 13,
+        "cooldown": 0.95,
+        "range": 64,
+        "arc_deg": 45,
+        "knockback": 70,
+        "count": 2
+      },
+      "scaling": {
+        "damage": 0.32,
+        "cooldown": -0.06
+      },
+      "overrides": {
+        "4": {
+          "count": 4
+        },
+        "5": {
+          "count": 4
+        }
+      },
+      "desc": "前后双向剑气，命中造成【致盲】。Lv.4 十字四向。"
+    },
+    {
+      "id": "menorah",
+      "name": "金灯台",
+      "scripture": "启 1:12",
+      "behavior": "orbit",
+      "status": "blind",
+      "color": "#F2C14E",
+      "max_level": 5,
+      "params": {
+        "damage": 5,
+        "radius": 68,
+        "angular_speed": 1.8,
+        "tick": 0.3,
+        "count": 3,
+        "size": 8
+      },
+      "scaling": {
+        "damage": 0.25,
+        "radius": 0.05
+      },
+      "overrides": {
+        "2": {
+          "count": 4
+        },
+        "3": {
+          "count": 5
+        },
+        "4": {
+          "count": 6
+        },
+        "5": {
+          "count": 7
+        }
+      },
+      "desc": "金灯环绕灼照，命中【致盲】。逐级点亮，Lv.5 七盏金灯。"
+    },
+    {
+      "id": "bronze_serpent",
+      "name": "摩西铜蛇",
+      "scripture": "民 21:9",
+      "behavior": "zone",
+      "status": "burn",
+      "color": "#A6722F",
+      "max_level": 5,
+      "params": {
+        "damage": 6,
+        "cooldown": 2.4,
+        "radius": 44,
+        "duration": 3.5,
+        "tick": 0.4,
+        "count": 1,
+        "range": 160
+      },
+      "scaling": {
+        "damage": 0.3,
+        "duration": 0.1
+      },
+      "overrides": {
+        "4": {
+          "count": 2
+        },
+        "5": {
+          "count": 2
+        }
+      },
+      "desc": "插地图腾留下灼烧领域。Lv.4 双图腾，Lv.5 持续 4.9s。"
+    },
+    {
+      "id": "chariot",
+      "name": "火战车",
+      "scripture": "王下 2:11",
+      "behavior": "line_projectile",
+      "status": "burn",
+      "color": "#E2542A",
+      "max_level": 5,
+      "params": {
+        "damage": 16,
+        "speed": 260,
+        "pierce": 99,
+        "cooldown": 1.5,
+        "range": 320,
+        "count": 1,
+        "spread_deg": 0,
+        "size": 9
+      },
+      "scaling": {
+        "damage": 0.35,
+        "cooldown": -0.06
+      },
+      "overrides": {
+        "5": {
+          "count": 2
+        }
+      },
+      "desc": "烈焰战车横穿全屏，穿透一切并【圣火灼烧】。Lv.5 双车对冲。"
+    },
+    {
+      "id": "hammer",
+      "name": "筑城锤",
+      "scripture": "尼 4:17",
+      "behavior": "zone",
+      "status": "tremor",
+      "color": "#9A8F7A",
+      "max_level": 5,
+      "params": {
+        "damage": 18,
+        "cooldown": 1.8,
+        "radius": 38,
+        "duration": 1.2,
+        "tick": 0.4,
+        "count": 1,
+        "range": 150
+      },
+      "scaling": {
+        "damage": 0.32,
+        "radius": 0.1
+      },
+      "overrides": {
+        "3": {
+          "count": 2
+        },
+        "4": {
+          "count": 2
+        },
+        "5": {
+          "count": 3
+        }
+      },
+      "desc": "砸地落石震荡，造成【震慑】。Lv.3 双石、Lv.5 三石。"
+    },
+    {
+      "id": "scepter",
+      "name": "王后金杖",
+      "scripture": "斯 4:11",
+      "behavior": "homing",
+      "status": "fear",
+      "color": "#E5C46B",
+      "max_level": 5,
+      "params": {
+        "damage": 8,
+        "speed": 280,
+        "cooldown": 0.9,
+        "range": 240,
+        "count": 2,
+        "turn_rate": 6,
+        "life": 2,
+        "size": 4
+      },
+      "scaling": {
+        "damage": 0.28,
+        "cooldown": -0.05
+      },
+      "overrides": {
+        "3": {
+          "count": 3
+        },
+        "4": {
+          "count": 3
+        },
+        "5": {
+          "count": 4
+        }
+      },
+      "desc": "金光束追击，命中造成【战兢】。Lv.3 三束、Lv.5 四束。"
+    },
+    {
+      "id": "abel_blood",
+      "name": "亚伯羔羊血",
+      "scripture": "创 4:4",
+      "behavior": "zone",
+      "status": "burn",
+      "color": "#A83232",
+      "max_level": 5,
+      "params": {
+        "damage": 6,
+        "cooldown": 1.9,
+        "radius": 40,
+        "duration": 3,
+        "tick": 0.4,
+        "count": 1,
+        "range": 120
+      },
+      "scaling": {
+        "damage": 0.3,
+        "radius": 0.12
+      },
+      "overrides": {},
+      "desc": "献祭红环持续灼烧，环内击杀回血。"
+    },
+    {
+      "id": "voice",
+      "name": "旷野呼声",
+      "scripture": "太 3:3",
+      "behavior": "line_projectile",
+      "status": "wet",
+      "color": "#7FB3C9",
+      "max_level": 5,
+      "params": {
+        "damage": 10,
+        "speed": 290,
+        "pierce": 5,
+        "cooldown": 1.05,
+        "range": 300,
+        "count": 1,
+        "spread_deg": 0,
+        "size": 8
+      },
+      "scaling": {
+        "damage": 0.3,
+        "pierce": 0.4,
+        "size": 0.15
+      },
+      "overrides": {},
+      "desc": "宽幅声浪贯穿队列，造成【活水】。每级穿透 +2。"
+    },
+    {
+      "id": "fishing_net",
+      "name": "加利利渔网",
+      "scripture": "路 5:4",
+      "behavior": "zone",
+      "status": "wet",
+      "color": "#6E8FA8",
+      "max_level": 5,
+      "params": {
+        "damage": 7,
+        "cooldown": 2.1,
+        "radius": 46,
+        "duration": 2.4,
+        "tick": 0.4,
+        "count": 1,
+        "range": 190
+      },
+      "scaling": {
+        "damage": 0.28,
+        "radius": 0.12,
+        "cooldown": -0.06
+      },
+      "overrides": {
+        "5": {
+          "count": 2
+        }
+      },
+      "desc": "撒网拉扯减速，持续【活水】。Lv.5 双网。"
+    },
+    {
+      "id": "heaven_keys",
+      "name": "天国钥匙",
+      "scripture": "太 16:19",
+      "behavior": "homing",
+      "status": "blind",
+      "color": "#EBD98A",
+      "max_level": 5,
+      "params": {
+        "damage": 11,
+        "speed": 300,
+        "pierce": 2,
+        "cooldown": 1.2,
+        "range": 280,
+        "count": 2,
+        "turn_rate": 5,
+        "life": 2.4,
+        "size": 5
+      },
+      "scaling": {
+        "damage": 0.3,
+        "cooldown": -0.05
+      },
+      "overrides": {
+        "3": {
+          "count": 3
+        },
+        "4": {
+          "count": 3
+        },
+        "5": {
+          "count": 4
+        }
+      },
+      "desc": "追踪圣钥贯穿敌群，命中【致盲】。Lv.3 三钥、Lv.5 四钥。"
     }
   ]
 }

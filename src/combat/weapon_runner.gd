@@ -58,23 +58,54 @@ func tick(delta: float, ppos: Vector2, aim_dir: Vector2) -> void:
 
 	_tick_zones(delta)
 	_tick_pending(delta)
+	# 契约 v2：灼烧最大层数由武器层下发（默认为 1.0 表示未配置，保留引擎基准 5 层）
+	if enemies != null:
+		enemies.burn_cap = maxi(5, int(round(float(state.stats.get("burn_stack_max", 1.0)))))
 
 func _pick_target(ppos: Vector2, rng: float) -> int:
 	var n: int = enemies.query(ppos.x, ppos.y, rng)
 	var best: int = -1
 	var best_d: float = 1e18
+	var boss: int = -1
+	var boss_d: float = 1e18
 	for k in range(n):
 		var j: int = enemies.query_buf[k]
 		var dx: float = enemies.px[j] - ppos.x
 		var dy: float = enemies.py[j] - ppos.y
 		var d2: float = dx * dx + dy * dy
+		# 契约 v2：BOSS 是关底考卷，只要落在本次武器的射程内就优先锁定。
+		# 否则站位拉开后武器永远只打最近的杂兵，BOSS 一发不吃（2026-11 实测 90s 0 伤害）。
+		if enemies.is_boss(j):
+			if d2 < boss_d:
+				boss_d = d2
+				boss = j
+			continue
 		if d2 < best_d:
 			best_d = d2
 			best = j
-	return best
+	return boss if boss >= 0 else best
 
 func _damage_of(params: Dictionary) -> float:
 	return float(params.get("damage", 1.0)) * float(state.stats.get("damage_mult", 1.0))
+
+## 契约 v2 新增：效果持续倍率（领域 / 弹幕存活）。
+func _dur_mult() -> float:
+	return maxf(float(state.stats.get("duration", 1.0)), 0.1)
+
+## 契约 v2 新增：额外投射物（契约 / 角色 / 圣物都走 state meta）。
+## 约 · 阿尔法与俄梅戛：line_projectile 与 homing 弹幕寿命耗尽时折返玩家方向再穿透一次
+func _alpha_omega() -> bool:
+	return bool(state.get_meta("covenant_alpha_omega", false))
+
+func _extra_projectiles() -> int:
+	var n: int = int(state.stats.get("extra_projectile", 0))
+	if state.has_meta("extra_projectile"):
+		n += int(state.get_meta("extra_projectile"))
+	return maxi(n, 0)
+
+## 契约 v2 新增：仅近战加成（只作用于 arc_melee）。
+func _melee_bonus() -> float:
+	return 1.0 + maxf(float(state.stats.get("melee_only_bonus", 0.0)), 0.0)
 
 func _roll_crit() -> float:
 	var c: float = float(state.stats.get("crit_chance", 0.05))
@@ -88,7 +119,7 @@ func _roll_crit() -> float:
 func _fire(entry: Dictionary, beh: String, params: Dictionary, ppos: Vector2, aim_dir: Vector2) -> void:
 	var mod: String = String(state.entry_modifier(entry))
 	if bool(entry.get("ascended", false)):
-		params = _ascend_params(params)
+		params = _ascend_params(entry, params)
 	var status_name: String = state.entry_status(entry)
 	var status_code: int = shots.status_code(status_name)
 	var dot_mult: float = float(state.stats.get("dot_mult", 1.0))
@@ -111,7 +142,7 @@ func _fire(entry: Dictionary, beh: String, params: Dictionary, ppos: Vector2, ai
 					base_dir = Vector2(enemies.px[tgt] - ppos.x, enemies.py[tgt] - ppos.y).normalized()
 				else:
 					base_dir = Vector2.from_angle(rng.randf() * TAU)
-			var cnt: int = int(params.get("count", 1))
+			var cnt: int = int(params.get("count", 1)) + _extra_projectiles()
 			var spread: float = deg_to_rad(float(params.get("spread_deg", 6.0)))
 			var speed: float = float(params.get("speed", 300.0)) * float(state.stats.get("proj_speed_mult", 1.0))
 			var base_ang: float = base_dir.angle()
@@ -121,7 +152,7 @@ func _fire(entry: Dictionary, beh: String, params: Dictionary, ppos: Vector2, ai
 					off = (float(k) - float(cnt - 1) * 0.5) * spread
 				var d: Vector2 = Vector2.from_angle(base_ang + off)
 				shots.spawn(ppos.x, ppos.y, d.x, d.y, speed, _damage_of(params) * _roll_crit(), true, {
-					"life": 0.9,
+					"life": 0.9 * _dur_mult(),
 					"pierce": int(params.get("pierce", 0)),
 					"radius": float(params.get("size", 3.0)),
 					"size": float(params.get("size", 3.0)),
@@ -130,11 +161,12 @@ func _fire(entry: Dictionary, beh: String, params: Dictionary, ppos: Vector2, ai
 					"kb": 0.0,
 					"color": color_idx,
 					"splash_r": 34.0 * area if mod == "shockwave_on_hit" else 0.0,
-					"splash_dmg": _damage_of(params) * 0.45 if mod == "shockwave_on_hit" else 0.0
+					"splash_dmg": _damage_of(params) * 0.45 if mod == "shockwave_on_hit" else 0.0,
+					"return": _alpha_omega()
 				})
 
 		"homing":
-			var cnt2: int = int(params.get("count", 1))
+			var cnt2: int = int(params.get("count", 1)) + _extra_projectiles()
 			var tgt2: int = _pick_target(ppos, float(params.get("range", 220.0)))
 			var dir2: Vector2 = aim_dir if manual_aim else Vector2.RIGHT
 			if not manual_aim and tgt2 >= 0:
@@ -143,14 +175,15 @@ func _fire(entry: Dictionary, beh: String, params: Dictionary, ppos: Vector2, ai
 				var a2: float = dir2.angle() + rng.randf_range(-0.6, 0.6)
 				var d2: Vector2 = Vector2.from_angle(a2)
 				shots.spawn(ppos.x, ppos.y, d2.x, d2.y, float(params.get("speed", 200.0)) * float(state.stats.get("proj_speed_mult", 1.0)), _damage_of(params) * _roll_crit(), true, {
-					"life": float(params.get("life", 2.0)),
-					"pierce": 0,
+					"life": float(params.get("life", 2.0)) * _dur_mult(),
+					"pierce": int(params.get("pierce", 0)),
 					"radius": float(params.get("size", 3.0)),
 					"size": float(params.get("size", 3.0)),
 					"status": status_code,
 					"dps": 4.0 * dot_mult,
 					"homing": float(params.get("turn_rate", 4.0)),
-					"color": color_idx
+					"color": color_idx,
+					"return": _alpha_omega()
 				})
 			if mod == "echo_blade":
 				pending.append({ "t": 0.22, "entry": entry, "params": params.duplicate(), "ppos": ppos, "dir": dir2 })
@@ -170,15 +203,27 @@ func _fire(entry: Dictionary, beh: String, params: Dictionary, ppos: Vector2, ai
 			var swings: int = int(params.get("count", 1))
 			for s in range(swings):
 				var sw_ang: float = facing.angle() + (float(s) * TAU / float(maxi(swings, 1)))
-				_arc_hit(ppos, sw_ang, reach, half, _damage_of(params), status_name, 4.0 * dot_mult, kb)
+				_arc_hit(ppos, sw_ang, reach, half, _damage_of(params) * _melee_bonus(), status_name, 4.0 * dot_mult, kb)
 				fx.append({ "kind": "arc", "x": ppos.x, "y": ppos.y, "r": reach, "ang": sw_ang, "arc": half * 2.0, "life": 0.18, "color": state.entry_color(entry) })
 
 		"zone":
-			var tgt4: int = _pick_target(ppos, float(params.get("range", 200.0)))
+			# center:"self" 表示以玩家为圆心（铃鼓类）；range<=8 视为自心领域（旧数据兼容）。
+			# throw_dist 表示「朝目标方向只扔这么远」，缺省仍然落在目标脚下。
+			var zrange: float = float(params.get("range", 200.0))
+			var tgt4: int = _pick_target(ppos, zrange)
+			var throw_dist: float = float(params.get("throw_dist", 0.0))
 			var pos: Vector2 = ppos + Vector2(0, 40)
-			if tgt4 >= 0:
-				pos = Vector2(enemies.px[tgt4], enemies.py[tgt4])
-			var cnt3: int = int(params.get("count", 1))
+			if String(params.get("center", "")) == "self" or zrange <= 8.0:
+				pos = ppos
+			elif tgt4 >= 0:
+				var to_t: Vector2 = Vector2(enemies.px[tgt4] - ppos.x, enemies.py[tgt4] - ppos.y)
+				if throw_dist > 0.0:
+					to_t = to_t.limit_length(throw_dist)
+				pos = ppos + to_t
+			elif throw_dist > 0.0:
+				var fdir: Vector2 = aim_dir.normalized() if manual_aim else Vector2(0, 1)
+				pos = ppos + fdir * throw_dist
+			var cnt3: int = int(params.get("count", 1)) + _extra_projectiles()
 			for k in range(cnt3):
 				zones.append({
 					"x": pos.x + rng.randf_range(-16.0, 16.0) * float(k),
@@ -187,7 +232,7 @@ func _fire(entry: Dictionary, beh: String, params: Dictionary, ppos: Vector2, ai
 					"dmg": _damage_of(params),
 					"dps": 4.0 * dot_mult,
 					"status": status_name,
-					"life": float(params.get("duration", 2.5)),
+					"life": float(params.get("duration", 2.5)) * _dur_mult(),
 					"tick_t": 0.0,
 					"tick": float(params.get("tick", 0.4)),
 					"heal": 0.7 if mod == "holy_smoke" else 0.0,
@@ -206,7 +251,7 @@ func _arc_hit(ppos: Vector2, ang: float, reach: float, half: float, dmg_out: flo
 			if da <= half:
 				if status_name != "":
 					enemies.apply_status(i, status_name, dps)
-				if kb > 0.0:
+				if absf(kb) > 0.01:
 					enemies.knockback(i, dx, dy, kb)
 				enemies.damage(i, dmg_out)
 		idx -= 1
@@ -222,17 +267,17 @@ func _tick_orbit(entry: Dictionary, params: Dictionary, ppos: Vector2, delta: fl
 	timers[i] -= delta
 	if timers[i] > 0.0:
 		return
-	timers[i] = float(params.get("tick", 0.35)) * (0.85 if bool(entry.get("ascended", false)) else 1.0)
+	var ascended: bool = bool(entry.get("ascended", false))
+	timers[i] = float(params.get("tick", 0.35)) * (0.85 if ascended else 1.0)
+	# 成全：弹数 / 半径 / 伤害统一走 evolves_to.overrides，和弹幕武器同一套规则
+	if ascended:
+		params = _ascend_params(entry, params)
 	var mod: String = String(state.entry_modifier(entry))
-	var cnt: int = int(params.get("count", 2))
+	var cnt: int = int(params.get("count", 2)) + _extra_projectiles()
 	var radius: float = float(params.get("radius", 42.0)) * float(state.stats.get("area_mult", 1.0))
 	var size: float = float(params.get("size", 7.0))
 	var status_name: String = state.entry_status(entry)
 	var dmg_out: float = _damage_of(params) * _roll_crit()
-	if bool(entry.get("ascended", false)):
-		cnt += 1
-		radius *= 1.12
-		dmg_out *= 1.25
 	var dot_mult: float = float(state.stats.get("dot_mult", 1.0))
 	var kb_mult: float = float(state.stats.get("knockback_mult", 1.0))
 	for k in range(cnt):
@@ -246,6 +291,8 @@ func _tick_orbit(entry: Dictionary, params: Dictionary, ppos: Vector2, delta: fl
 
 func orbit_points(entry: Dictionary, ppos: Vector2) -> Array:
 	var params: Dictionary = state.resolved_params(entry)
+	if bool(entry.get("ascended", false)):
+		params = _ascend_params(entry, params)
 	var cnt: int = int(params.get("count", 2))
 	var radius: float = float(params.get("radius", 42.0)) * float(state.stats.get("area_mult", 1.0))
 	var pts: Array = []
@@ -272,17 +319,28 @@ func _tick_zones(delta: float) -> void:
 			enemies.damage_in_circle(float(z["x"]), float(z["y"]), float(z["r"]), float(z["dmg"]), String(z["status"]), float(z["dps"]), 0.0)
 		i -= 1
 
-## 成全后的永久改造：伤害、弹数、范围、节奏全部提升（不再只是一次性礼花）。
-func _ascend_params(params: Dictionary) -> Dictionary:
+## 成全后的永久改造：优先吃 data/fusions.json 的 evolves_to.overrides（等级→绝对覆写），
+## 数据没写的键再按旧倍率补一点，避免缺项时成全反而比祝圣更弱。
+func _ascend_params(entry: Dictionary, params: Dictionary) -> Dictionary:
 	var p: Dictionary = params.duplicate()
-	p["damage"] = float(p.get("damage", 1.0)) * 1.25
-	if p.has("count"):
+	var ov: Dictionary = {}
+	if state != null:
+		var def: Dictionary = state.weapon_def(entry)
+		if def.has("evolves_to") and def["evolves_to"] is Dictionary:
+			var ev: Dictionary = def["evolves_to"]
+			if ev.get("overrides", null) is Dictionary:
+				ov = ev["overrides"]
+	for key in ov.keys():
+		p[String(key)] = ov[key]
+	if not ov.has("damage"):
+		p["damage"] = float(p.get("damage", 1.0)) * 1.25
+	if not ov.has("count") and p.has("count"):
 		p["count"] = int(p["count"]) + 1
-	if p.has("radius"):
+	if not ov.has("radius") and p.has("radius"):
 		p["radius"] = float(p["radius"]) * 1.12
-	if p.has("range"):
+	if not ov.has("range") and p.has("range"):
 		p["range"] = float(p["range"]) * 1.12
-	if p.has("arc_deg"):
+	if not ov.has("arc_deg") and p.has("arc_deg"):
 		p["arc_deg"] = float(p["arc_deg"]) * 1.1
 	return p
 

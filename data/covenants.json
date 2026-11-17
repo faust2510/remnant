@@ -1,0 +1,285 @@
+{
+  "_comment": "约（Covenants）16 张，当局祝福卡。effects[].key 只取契约第 11 节允许的 15 个键；数值口径：百分比型为加法（0.25 = +25%），cooldown_mult 取正 = 冷却变长，status_on_hit 的 value 是状态名，extra_projectile 是整数。note 说明与圣典原规则的差距。",
+  "covenants": [
+    {
+      "id": "cov_rainbow",
+      "name": "彩虹之约",
+      "scripture": "创 9:13",
+      "rarity": 1,
+      "text": "带【活水】的武器击退敌人时 25% 概率（冷却 1.5s）在其脚下生成半径 36px、持续 3s 的治愈水圈（每秒回 1.5 HP 并造成水伤）",
+      "effects": [
+        {
+          "key": "lifesteal",
+          "value": 0.03
+        },
+        {
+          "key": "knockback_mult",
+          "value": 0.15
+        }
+      ],
+      "note": "治愈水圈按「吸血 + 击退」两项近似（引擎做事件触发水圈时可替换）"
+    },
+    {
+      "id": "cov_stars",
+      "name": "亚伯拉罕繁星之约",
+      "scripture": "创 15:5",
+      "rarity": 2,
+      "text": "地面上每存在 5 颗未拾取经验宝石，全武器暴击率 +1%、暴击伤害 +2%（上限 150 颗，即 +30% 暴击率 / +60% 爆伤）",
+      "effects": [
+        {
+          "key": "crit_chance",
+          "value": 0.1
+        },
+        {
+          "key": "crit_damage",
+          "value": 0.2
+        }
+      ],
+      "note": "上限 +30%/+60%，按一局中场约 1/3 存量折算为 +10%/+20%"
+    },
+    {
+      "id": "cov_ladder",
+      "name": "雅各天梯之约",
+      "scripture": "创 28:12",
+      "rarity": 1,
+      "text": "所有 zone 类持续区域每 1.5s 把周围 90px 敌人向中心拖拽 28px，并降下一道光柱伤害",
+      "effects": [
+        {
+          "key": "area_mult",
+          "value": 0.2
+        }
+      ],
+      "note": "聚怪拖拽按区域范围 +20% 近似"
+    },
+    {
+      "id": "cov_sinai",
+      "name": "西乃法版之约",
+      "scripture": "出 20",
+      "rarity": 2,
+      "text": "本局宝物槽上限 -1，但第 1 次祭坛祝圣直接升至 Lv.5，且祝圣武器伤害 +25%",
+      "effects": [
+        {
+          "key": "damage_mult",
+          "value": 0.25
+        }
+      ],
+      "note": "契约无「槽位」效应键，代价（宝物槽 -1）写在 text，由引擎按 id 特判"
+    },
+    {
+      "id": "cov_salt",
+      "name": "永远的盐约",
+      "scripture": "民 18:19",
+      "rarity": 2,
+      "text": "敌人身上的【圣火灼烧】不再随时间衰减；燃烧中的敌人死亡时爆出半径 40px 火爆并把层数传染给周围",
+      "effects": [
+        {
+          "key": "status_on_hit",
+          "value": "burn"
+        },
+        {
+          "key": "area_mult",
+          "value": 0.15
+        }
+      ],
+      "note": "status_on_hit 的 value 是状态名；无限持续/传火需引擎按 id 特判"
+    },
+    {
+      "id": "cov_rock_water",
+      "name": "磐石出水之约",
+      "scripture": "出 17:6",
+      "rarity": 1,
+      "text": "【震慑】敌人被击退期间每移动 10px 额外受 6 点碎石伤，死亡时 8% 概率爆出回血 10 HP 的水滴",
+      "effects": [
+        {
+          "key": "knockback_mult",
+          "value": 0.2
+        },
+        {
+          "key": "lifesteal",
+          "value": 0.02
+        }
+      ],
+      "note": "碎石伤/水滴按击退 +20%、吸血 +2% 近似"
+    },
+    {
+      "id": "cov_sun_stand",
+      "name": "日头停留之约",
+      "scripture": "书 10:12",
+      "rarity": 3,
+      "text": "触发完美闪避或升级时，全屏敌人静止冻结 2.2s，冻结期间敌人受到暴击伤害 +50%",
+      "effects": [
+        {
+          "key": "crit_damage",
+          "value": 0.5
+        }
+      ],
+      "note": "冻结为事件机制，需引擎按 id 特判；暴伤 +50% 为精确值"
+    },
+    {
+      "id": "cov_broken_jar",
+      "name": "破瓶露光之约",
+      "scripture": "士 7:20",
+      "rarity": 2,
+      "text": "每击碎 1 个可破坏物或拾取 1 枚火炭，全屏【致盲 + 战兢】3s，随后 6s 内全武器冷却 -35%",
+      "effects": [
+        {
+          "key": "status_on_hit",
+          "value": "blind"
+        },
+        {
+          "key": "cooldown_mult",
+          "value": -0.15
+        }
+      ],
+      "note": "事件型 -35%（6s 窗口）按常驻 -15% 折算"
+    },
+    {
+      "id": "cov_david_throne",
+      "name": "大卫宝座之约",
+      "scripture": "撒下 7:16",
+      "rarity": 3,
+      "text": "每少装备 1 把武器（4 槽基准），已装备武器范围/尺寸 +25%、最终伤害 +35%（单武器时 +75%/+105%）",
+      "effects": [
+        {
+          "key": "damage_mult",
+          "value": 0.35
+        },
+        {
+          "key": "area_mult",
+          "value": 0.25
+        }
+      ],
+      "note": "取「少 1 把」档位；真实形态是随槽位变化的动态加成，需引擎特判"
+    },
+    {
+      "id": "cov_living_water",
+      "name": "活水江河之约",
+      "scripture": "约 7:38",
+      "rarity": 2,
+      "text": "所有治疗效果满血也触发，且 100% 治疗量转化为半径 140px、伤害 = 治疗量 ×8 的神圣冲击波",
+      "effects": [
+        {
+          "key": "lifesteal",
+          "value": 0.05
+        },
+        {
+          "key": "area_mult",
+          "value": 0.15
+        }
+      ],
+      "note": "冲击波按吸血 +5% + 范围 +15% 近似"
+    },
+    {
+      "id": "cov_four_living",
+      "name": "四活物轮中之轮",
+      "scripture": "结 1:10",
+      "rarity": 2,
+      "text": "玩家上下左右 48px 常驻 4 个异象光轮，随移速加快旋转，每移动 1s 对触碰敌人造成 18 点切割伤",
+      "effects": [
+        {
+          "key": "extra_projectile",
+          "value": 1
+        },
+        {
+          "key": "move_speed",
+          "value": 0.1
+        }
+      ],
+      "note": "光轮按「额外 1 发环绕弹幕 + 移速 +10%」近似"
+    },
+    {
+      "id": "cov_new_heart",
+      "name": "肉心代石心之约",
+      "scripture": "结 36:26",
+      "rarity": 2,
+      "text": "最大生命 +40%；每次受伤立刻对全屏造成（实际掉血 ×35 + 护甲 ×10）真实反伤并推开近身怪",
+      "effects": [
+        {
+          "key": "max_hp",
+          "value": 0.4
+        },
+        {
+          "key": "armor",
+          "value": 2
+        }
+      ],
+      "note": "max_hp 取值 0.4 = +40%；反伤按护甲 +2 近似"
+    },
+    {
+      "id": "cov_all_things",
+      "name": "万物互相效力之约",
+      "scripture": "罗 8:28",
+      "rarity": 2,
+      "text": "站立不动暴击归零；移动中每 0.5s 叠 +5% 暴击率与 +6% 弹速（上限 +60% / +72%，停下 0.3s 清零）",
+      "effects": [
+        {
+          "key": "crit_chance",
+          "value": 0.15
+        },
+        {
+          "key": "projectile_speed",
+          "value": 0.2
+        },
+        {
+          "key": "move_speed",
+          "value": 0.05
+        }
+      ],
+      "note": "上限 +60%/+72%，按常驻移动的中位收益折算"
+    },
+    {
+      "id": "cov_seven_spirits",
+      "name": "宝座前七灵之约",
+      "scripture": "启 4:5",
+      "rarity": 3,
+      "text": "敌人每带 1 种异常状态（灼烧/震慑/致盲/活水/战兢），受到的所有伤害独立乘算 +20%（5 种齐 ×2.48）",
+      "effects": [
+        {
+          "key": "damage_mult",
+          "value": 0.3
+        },
+        {
+          "key": "status_on_hit",
+          "value": "tremor"
+        }
+      ],
+      "note": "按平均 2 种状态（+44%）取保守值 +30%"
+    },
+    {
+      "id": "cov_alpha_omega",
+      "name": "阿尔法与俄梅戛",
+      "scripture": "启 22:13",
+      "rarity": 3,
+      "text": "line_projectile 与 homing 武器冷却 +20%，但每发弹幕寿命耗尽或飞出屏幕时掉头朝玩家折返再穿透一次",
+      "effects": [
+        {
+          "key": "cooldown_mult",
+          "value": 0.2
+        },
+        {
+          "key": "extra_projectile",
+          "value": 1
+        }
+      ],
+      "note": "cooldown_mult 取正值 = 冷却变长（代价）；折返按额外 1 发近似"
+    },
+    {
+      "id": "cov_better_promise",
+      "name": "更美之约",
+      "scripture": "来 8:6",
+      "rarity": 3,
+      "text": "本局祝圣武器「成全」击杀门槛降低 40%（仅需新增 180 杀），每点亮 1 件成全全属性永久 +12%",
+      "effects": [
+        {
+          "key": "damage_mult",
+          "value": 0.15
+        },
+        {
+          "key": "xp_gain",
+          "value": 0.1
+        }
+      ],
+      "note": "成全门槛/全属性需引擎特判；此处给通用收益近似"
+    }
+  ]
+}

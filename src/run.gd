@@ -44,6 +44,36 @@ var hit_cd: float = 0.0
 var gems: Array = []
 var altars: Array = []
 var active_fx: Array = []
+# ---- 局内系统（第 2 波）----
+var stat_patch: RunStatPatch
+var mechanics: RunMechanics
+var rewards: RunRewards
+var covenants: RunCovenants
+var achievements: RunAchievements
+var vision_radius: float = 0.0
+var light_t: float = 0.0
+var magnet_t: float = 0.0
+var freeze_t: float = 0.0
+var mech_shield: bool = false
+var damage_taken_total: float = 0.0
+## 伤害来源统计（sim 调平衡用）：来源 → 累计原始伤害
+var dmg_by_src: Dictionary = {}
+var elite_kills_total: int = 0
+var armor_gained: int = 0
+var watch_count: int = 0
+var dashes_used: int = 0
+var ach_flags: Dictionary = {}
+var bonus_silver: int = 0
+var meta_silver_bonus: int = 0
+var codex_unlocked: bool = false
+var fast_forward_available: bool = false
+var endless_allowed: bool = false
+var endless_continued: bool = false
+var reroll_plus: bool = false
+var chest_double: bool = false
+var run_duration: float = 0.0
+var boss_ai: RefCounted = null
+var boss_ai_script: Script = null
 var elapsed: float = 0.0
 var spawn_acc: float = 0.0
 var elite_done: int = 0
@@ -124,7 +154,7 @@ func _ready() -> void:
 		elif a == "--save":
 			save_run = true
 		elif a.begins_with("--seal="):
-			seal_override = clampi(int(a.substr(7)), 1, 7)
+			seal_override = clampi(int(a.substr(7)), 1, 21)
 		elif a.begins_with("--stage="):
 			stage_id = a.substr(8)
 		elif a == "--no-meta":
@@ -141,20 +171,24 @@ func _ready() -> void:
 	rng.seed = 20261116 if seed_override == 0 else seed_override
 	stage = GameData.stages_by_id.get(stage_id, {})
 	if stage.is_empty():
+		# 阶段名写错时绝不静默回落：测试与玩家都该立刻看到（否则会拿以拉谷的数据冒充别章）
+		print("[run] WARN stage '%s' not found, fallback to %s" % [stage_id, DEFAULT_STAGE])
+		push_warning("stage not found: " + stage_id)
 		stage_id = DEFAULT_STAGE
 		stage = GameData.stages_by_id.get(DEFAULT_STAGE, {})
 	var mods: Dictionary = stage.get("mods", {})
 	stage_speed = float(mods.get("enemy_speed", 1.0))
 	stage_coin = float(mods.get("shillings", 1.0))
 	stage_cd = float(mods.get("cooldown", 1.0))
-	seal = seal_override if seal_override > 0 else clampi(Meta.selected_seal, 1, 7)
-	seal_hp = 1.0 + Meta.SEAL_HP * float(seal - 1)
-	seal_dmg = 1.0 + Meta.SEAL_DMG * float(seal - 1)
+	seal = seal_override if seal_override > 0 else clampi(Meta.effective_tier(), 1, 21)
+	# 1–7 印与旧公式逐位一致；8–21 阶走 store.json 的同斜率 API，数值连续（七印封印解锁后可用）
+	seal_hp = Meta.tier_enemy_hp(seal)
+	seal_dmg = Meta.tier_enemy_dmg(seal)
 	# 前 3 分钟渐入：高印考的是构筑成型后的抗压，不是 0:00 一发打不死小兵断掉滚雪球
 	seal_ramp = 1.0
-	seal_rate = 1.0 + Meta.SEAL_RATE * float(seal - 1)
+	seal_rate = Meta.tier_spawn_rate(seal)
 	state = GameState.new()
-	state.setup(character_id, {} if no_meta else Meta.bonus())
+	state.setup(character_id, {} if no_meta else Meta.bonus(), [] if no_meta else Meta.relics)
 	state.stage_cd = stage_cd
 	state.recompute()
 
@@ -162,6 +196,9 @@ func _ready() -> void:
 	var defs: Array = []
 	for k in GameData.enemies.keys():
 		defs.append(GameData.enemies[k])
+	# BOSS 定义自 v2 起独立在 data/bosses.json，同样注册为敌人类型，stage.boss 才能按 id 生成
+	for b in GameData.bosses:
+		defs.append(b)
 	enemies.setup(defs)
 
 	shots = ProjectileSim.new()
@@ -207,6 +244,21 @@ func _ready() -> void:
 	chooser.picked.connect(_on_picked)
 	chooser.reroll_requested.connect(_on_reroll)
 	ui2.add_child(chooser)
+
+	# ---- 局内系统接线：属性补丁 → 机关 / 奖励 / 约 / 成就 ----
+	run_duration = float(stage.get("duration", 780.0))
+	stat_patch = RunStatPatch.new()
+	stat_patch.setup(state)
+	mechanics = RunMechanics.new()
+	mechanics.setup(self)
+	rewards = RunRewards.new()
+	rewards.setup(self)
+	covenants = RunCovenants.new()
+	covenants.setup(self)
+	achievements = RunAchievements.new()
+	achievements.setup(self)
+	_apply_relics()
+	_sync_max_hp()
 
 func player_pos() -> Vector2:
 	return player
@@ -299,8 +351,30 @@ func step(delta: float) -> void:
 		if watcher_t <= 0.0:
 			enemies.speed_scale = 1.0
 
+	# 日头停留之约：完美闪避/升级冻结全场 2.2s
+	if freeze_t > 0.0:
+		freeze_t = maxf(freeze_t - delta, 0.0)
+		enemies.speed_scale = 0.0
+	elif watcher_t <= 0.0:
+		enemies.speed_scale = 1.0
+
 	seal_ramp = clampf(elapsed / 180.0, 0.25, 1.0)
 	enemies.hp_scale = (1.0 + pow(maxf(elapsed, 0.0) / 60.0, 0.85) * 0.175) * (1.0 + (seal_hp - 1.0) * seal_ramp)
+
+	# 局内系统：机关 / 奖励 / 约 / 属性补丁。放在武器结算之前，本帧拿到的 buff 立刻生效。
+	magnet_t = maxf(magnet_t - delta, 0.0)
+	if mechanics != null:
+		mechanics.tick(delta)
+	if rewards != null:
+		rewards.tick(delta)
+	if covenants != null:
+		covenants.tick(delta)
+	if stat_patch != null:
+		stat_patch.apply()
+	_sync_max_hp()
+	# 持续治疗（圣烟、铜蛇、船尾灯笼、更美之约等）
+	if float(state.stats.get("heal_per_sec", 0.0)) > 0.0 and player_hp > 0.0 and player_hp < player_max_hp:
+		player_hp = minf(player_hp + float(state.stats["heal_per_sec"]) * delta, player_max_hp)
 
 	_move_player(delta)
 	enemies.rebuild_grid()
@@ -311,15 +385,16 @@ func step(delta: float) -> void:
 		if player_hp < player_max_hp:
 			player_hp = minf(player_hp + weapons.heal_pending, player_max_hp)
 		weapons.heal_pending = 0.0
-	shots.update(delta, enemies)
+	shots.update(delta, enemies, Callable(), player)
 
 	var contact: float = enemies.update(delta, player, float(state.stats.get("dot_mult", 1.0)))
 	if contact > 0.0:
 		if dash_iframe > 0.0:
 			_trigger_watcher()
 		elif hit_cd <= 0.0:
-			_take_damage(minf(contact, 16.0) * seal_dmg)
-			# 无敌帧由 _take_damage 统一设置（0.65s），这里不再覆盖
+			# 圣典 13 章门禁：普通接触伤害上限 10，BOSS 在场放宽到 18；无敌帧统一 0.60s
+			var contact_cap: float = 18.0 if boss_index >= 0 else 10.0
+			_take_damage(minf(contact, contact_cap) * seal_dmg, true, "contact")
 	enemies.rebuild_grid()
 
 	_drain_enemy_shots()
@@ -328,7 +403,7 @@ func step(delta: float) -> void:
 		if dash_iframe > 0.0:
 			_trigger_watcher()
 		elif hit_cd <= 0.0:
-			_take_damage(minf(shot_dmg, 18.0) * seal_dmg)
+			_take_damage(minf(shot_dmg, 18.0) * seal_dmg, true, "shot")
 
 	_drain_fx(delta)
 	_consume_deaths()
@@ -338,8 +413,15 @@ func step(delta: float) -> void:
 	_recycle_far(delta)
 	_altars_and_events()
 	_recompute_boss()
-	if not over and elapsed >= float(stage.get("duration", 780)):
-		_finish(true)
+	_tick_boss_ai(delta)
+	if not over and elapsed >= run_duration:
+		# BOSS 一旦登场，计时胜利作废：必须把它打倒（否则「撑满时长」等于白拿通关）。
+		# 留 150 秒宽限，打不动就判负，避免模拟卡死在打不死的 BOSS 上。
+		if boss_spawned and boss_index >= 0:
+			if elapsed >= run_duration + 150.0:
+				_finish(false)
+		else:
+			_finish(true)
 
 func _move_player(delta: float) -> void:
 	var v := Vector2.ZERO
@@ -373,11 +455,33 @@ func _move_player(delta: float) -> void:
 				shake = maxf(shake, 1.6)
 
 	if autopilot:
-		if dash_cd <= 0.0 and _threat_count(52.0) >= 2:
-			dash_dir = v.normalized() if v.length() > 0.01 else Vector2.RIGHT
+		var want_dash: bool = dash_cd <= 0.0 and _threat_count(52.0) >= 2
+		var ddir: Vector2 = v.normalized() if v.length() > 0.01 else Vector2.RIGHT
+		if not want_dash and dash_cd <= 0.0:
+			# 躲弹闪避：有敌弹在 52px 内且正朝自己飞来时，往弹道侧面闪
+			for pi in range(shots.count):
+				if int(shots.friendly[pi]) != 0:
+					continue
+				var bdx: float = shots.px[pi] - player.x
+				var bdy: float = shots.py[pi] - player.y
+				var bd2: float = bdx * bdx + bdy * bdy
+				if bd2 > 2704.0:
+					continue
+				if shots.vx[pi] * bdx + shots.vy[pi] * bdy >= 0.0:
+					continue
+				var blen: float = maxf(sqrt(shots.vx[pi] * shots.vx[pi] + shots.vy[pi] * shots.vy[pi]), 1.0)
+				var perp := Vector2(-shots.vy[pi] / blen, shots.vx[pi] / blen)
+				if perp.dot(player - Vector2(shots.px[pi], shots.py[pi])) < 0.0:
+					perp = -perp
+				ddir = perp
+				want_dash = true
+				break
+		if want_dash:
+			dash_dir = ddir
 			dash_time = 0.18
 			dash_iframe = 0.15
 			dash_cd = 0.9
+			dashes_used += 1
 			sfx.play("dash", -8.0, 1.0, 0.2)
 	elif Input.is_action_just_pressed("dash") and dash_cd <= 0.0:
 		pass
@@ -387,6 +491,7 @@ func _move_player(delta: float) -> void:
 			dash_time = 0.18
 			dash_iframe = 0.15
 			dash_cd = 0.9
+			dashes_used += 1
 			sfx.play("dash", -6.0, 1.0, 0.2)
 		if Input.is_action_pressed("aim"):
 			aim_dir = (get_global_mouse_position() - player).normalized()
@@ -418,6 +523,43 @@ func _autopilot_dir() -> Vector2:
 		if player.distance_squared_to(gp0) < 57600.0:
 			gx.append(gp0.x)
 			gy.append(gp0.y)
+	# 机关危险点：即将落下的雷击/陨星/火柱圈，以及苦水这类常驻伤害池
+	var hzp: Array = []
+	if mechanics != null:
+		hzp = mechanics.hazards
+	var pool: Array = []
+	if mechanics != null:
+		for s in mechanics.spots:
+			var k: String = String(s.get("kind", ""))
+			if k == "bitter" or k == "water_altar" or k == "fire":
+				pool.append(s)
+	# 红海水墙：用墙的实际位置当阈值（合拢时 210→140，写死 150 会在合拢期被夹进伤害带）
+	var wall_x: float = 0.0
+	if mechanics != null and String(stage.get("mechanic_id", "")) == "sea_walls":
+		for s3 in mechanics.spots:
+			if String(s3.get("kind", "")) == "wall":
+				var ax: float = absf(float(s3["x"]))
+				if wall_x <= 0.0 or ax < wall_x:
+					wall_x = ax
+	# 可躲的「安全区」（鱼腹的蓖麻树荫等）：站在里面才不掉血
+	var shades: Array = []
+	if mechanics != null:
+		for s4 in mechanics.spots:
+			if String(s4.get("kind", "")) == "shade":
+				shades.append(s4)
+	# 敌弹预筛：只收 210px 内的敌弹，避免 8 个方向 × 1400 发全扫
+	var bx: PackedFloat32Array = PackedFloat32Array()
+	var by: PackedFloat32Array = PackedFloat32Array()
+	var bvx: PackedFloat32Array = PackedFloat32Array()
+	var bvy: PackedFloat32Array = PackedFloat32Array()
+	for pi in range(shots.count):
+		if int(shots.friendly[pi]) != 0:
+			continue
+		var bpx: float = shots.px[pi]
+		var bpy: float = shots.py[pi]
+		if absf(bpx - player.x) < 210.0 and absf(bpy - player.y) < 210.0:
+			bx.append(bpx); by.append(bpy)
+			bvx.append(shots.vx[pi]); bvy.append(shots.vy[pi])
 	for k in range(8):
 		var a: float = TAU * float(k) / 8.0
 		var p: Vector2 = player + Vector2.from_angle(a) * 70.0
@@ -431,17 +573,68 @@ func _autopilot_dir() -> Vector2:
 			var gd: float = Vector2(gx[gi], gy[gi]).distance_to(p)
 			if gd < 200.0:
 				d -= 0.9 / maxf(gd, 10.0)
+		# 躲机关：宁可绕远，也别站在要落下的圈里
+		for h in hzp:
+			var hp := Vector2(float(h["x"]), float(h["y"]))
+			var hr: float = float(h.get("r", 40.0)) + 20.0
+			var hd: float = hp.distance_to(p)
+			if hd < hr:
+				d += 60.0 * (1.0 - hd / hr)
+		for s2 in pool:
+			var sp := Vector2(float(s2["x"]), float(s2["y"]))
+			var sr: float = float(s2.get("r", 50.0)) + 12.0
+			var sd: float = sp.distance_to(p)
+			if sd < sr:
+				d += 24.0 * (1.0 - sd / sr)
+		# 躲弹：现在位置 + 0.25 秒后预测位置都算一遍（弹速 150–220，只看当下位置等于只躲已经过去的弹）
+		for bi in range(bx.size()):
+			var bfvx: float = bvx[bi]
+			var bfvy: float = bvy[bi]
+			for kk in range(2):
+				var lead: float = 0.0 if kk == 0 else 0.25
+				var px2: float = bx[bi] + bfvx * lead
+				var py2: float = by[bi] + bfvy * lead
+				var dbx: float = p.x - px2
+				var dby: float = p.y - py2
+				var bdist: float = sqrt(dbx * dbx + dby * dby)
+				# 判定圈 84 做平方加权：弹速快，半径太小时自动驾驶等于没躲
+				if bdist < 84.0 and (bfvx * dbx + bfvy * dby) > -20.0:
+					var wgt: float = 40.0 if kk == 0 else 26.0
+					d += wgt * (1.0 - bdist / 84.0) * (1.0 - bdist / 84.0)
+		# 红海水墙：擦墙每秒 10 点 DoT 并把人夹向中心，逼近墙面时用强权重推回
+		if wall_x > 0.0 and absf(p.x) > wall_x - 46.0:
+			d += (absf(p.x) - (wall_x - 46.0)) * 3.0
+		# 烈日/鱼腹：离安全区越远越该往回走（每秒 1 点无上限 DoT，靠走位规避）
+		for s5 in shades:
+			var sc := Vector2(float(s5["x"]), float(s5["y"]))
+			var srad: float = float(s5.get("r", 90.0))
+			var sdist: float = sc.distance_to(p)
+			if sdist > srad * 0.7:
+				d += (sdist - srad * 0.7) * 0.06
 		if best_d < 0.0 or d < best_d:
 			best_d = d
 			best = Vector2.from_angle(a)
 	return best
 
-func _take_damage(amount: float) -> void:
-	if god:
+func _take_damage(amount: float, respect_cd: bool = true, src: String = "hit") -> void:
+	if god or over:
 		return
-	var red: float = state.total_damage_reduction()
-	player_hp -= amount * (1.0 - red)
-	hit_cd = 0.65
+	# 统一无敌帧：机关/宝箱/齐射等所有离散伤害都在这里被 0.6 秒一次的上限收口
+	if respect_cd and hit_cd > 0.0:
+		return
+	dmg_by_src[src] = float(dmg_by_src.get(src, 0.0)) + amount
+	# 非拉铁非的免死盾（七灯台祝福）：抵挡一次伤害
+	if mech_shield:
+		mech_shield = false
+		hit_cd = 0.60
+		active_fx.append({ "kind": "nova", "x": player.x, "y": player.y, "r": 80.0, "life": 0.45, "color": Color("#BFD4FF") })
+		sfx.play("pickup", -6.0, 1.25, 0.08)
+		return
+	var mult: float = state.incoming_damage_mult()
+	var real: float = amount * mult
+	player_hp -= real
+	damage_taken_total += maxf(real, 0.0)
+	hit_cd = 0.60
 	active_fx.append({ "kind": "spark", "x": player.x, "y": player.y, "r": 6.0, "life": 0.3 })
 	shake = maxf(shake, 4.5)
 	hurt_flash = 1.0
@@ -456,6 +649,11 @@ func _take_damage(amount: float) -> void:
 			var l: float = maxf(sqrt(dx * dx + dy * dy), 1.0)
 			enemies.knockback(idx, dx / l, dy / l, push)
 		active_fx.append({ "kind": "nova", "x": player.x, "y": player.y, "r": 96.0, "life": 0.4, "color": Color("#8FC8E0") })
+	# 肉心代石心之约：受伤时反弹（掉血 ×35 + 护甲 ×10）
+	if bool(state.get_meta("covenant_reflect", false)):
+		var refl: float = real * 35.0 + float(state.stats.get("armor", 0.0)) * 10.0
+		enemies.damage_in_circle(player.x, player.y, 240.0, refl, "tremor", 0.0, 80.0)
+		active_fx.append({ "kind": "nova", "x": player.x, "y": player.y, "r": 240.0, "life": 0.35, "color": Color("#E0A0A0") })
 	sfx.play("hurt", -3.0, randf_range(0.94, 1.06), 0.12)
 	if player_hp <= 0.0:
 		player_hp = 0.0
@@ -466,6 +664,11 @@ func _trigger_watcher() -> void:
 		return
 	watcher_t = 1.5
 	perfect_flash = 1.2
+	watch_count += 1
+	if watch_count >= 5:
+		ach_flags["perfect_dodge_5"] = true
+	if bool(state.get_meta("covenant_sun_stand", false)):
+		freeze_t = 2.2
 	active_fx.append({ "kind": "nova", "x": player.x, "y": player.y, "r": 160.0, "life": 0.6, "color": Color("#BFD4FF") })
 
 ## 无头模拟用的自动选择器：按「先凑满武器 → 堆满级 → 补祝圣所需被动 → 有火炭就祝圣」的顺序贪心挑选。
@@ -474,7 +677,7 @@ func _sim_choose() -> void:
 		modal = false
 		chooser_mode = ""
 		return
-	if chooser_mode == "altar":
+	if chooser_mode == "altar" or chooser_mode == "covenant":
 		_on_picked(0)
 		return
 	var best_i: int = 0
@@ -533,6 +736,16 @@ func _sim_report() -> void:
 		pp.append("%s(Lv%d)" % [String(GameData.passives.get(p["id"], {}).get("name", p["id"])), int(p["level"])])
 	print("[sim] passives=", ", ".join(pp))
 	print("[sim] stage=%s seal=%d reward=%d shillings=%d saved=%s armor=%d" % [stage_id, seal, reward, Meta.shillings, str(not sim_mode or save_run), state.armor.size()])
+	var srcs: Array = []
+	for k in dmg_by_src.keys():
+		srcs.append("%s=%.0f" % [String(k), float(dmg_by_src[k])])
+	srcs.sort()
+	print("[sim] dmg_src %s total=%.0f" % [" ".join(PackedStringArray(srcs)), damage_taken_total])
+	print("[sim] systems silver_run=%d meta_silver=%d covenants=%d coals=%d" % [
+		int(rewards.silver_run) if rewards != null else 0,
+		int(rewards.meta_silver_bonus) if rewards != null else 0,
+		covenants.cards.size() if covenants != null else 0,
+		state.coals])
 	print("[sim] SIM_DONE")
 	get_tree().quit()
 
@@ -544,8 +757,29 @@ func _finish(victory: bool) -> void:
 	modal = false
 	chooser.close()
 	reward = int(round(float(Meta.reward_for(victory, state.kills, elapsed, seal)) * stage_coin))
-	if not sim_mode or save_run:
+	if rewards != null:
+		reward += int(round(float(rewards.silver_run) * stage_coin + float(rewards.meta_silver_bonus)))
+	var commit: bool = (not sim_mode or save_run) and not no_meta
+	# 毗努伊勒：全程不闪避（ach_28）
+	if dashes_used <= 0:
+		ach_flags["no_dodge"] = true
+	var got: Array = []
+	if achievements != null:
+		got = achievements.evaluate(victory, commit)
+	if sim_mode:
+		var names: Array = []
+		for g in got:
+			names.append(String(g["id"]))
+		print("[sim] achievements=", ", ".join(names))
+	if commit:
 		Meta.register_run(victory, state.kills, elapsed, seal)
+		# 局外银两（寡妇的油瓶 / 钱袋）：结算时一次性入账
+		if rewards != null and int(rewards.meta_silver_bonus) > 0:
+			Meta.shillings += int(rewards.meta_silver_bonus)
+		# 觉醒：三阶及以上通关点亮（圣典 3 章：觉醒是终局成长，不再另外消耗银两）
+		if victory and Meta.effective_tier() >= 3:
+			Meta.set_awakened(character_id)
+		Meta.save_save()
 	shake = maxf(shake, 6.0)
 	if victory:
 		sfx.play("fuse", 0.0, 0.75, 1.0)
@@ -564,11 +798,22 @@ func _drain_enemy_shots() -> void:
 		var o: int = k * 5
 		var vx: float = enemies.shot_queue[o + 2]
 		var vy: float = enemies.shot_queue[o + 3]
+		var friendly: bool = false
+		# 巴别变乱口音：弹幕偏转 35° 并转为友方（打敌人）
+		if mechanics != null:
+			var mod: Dictionary = mechanics.enemy_bullet_mod()
+			if bool(mod.get("active", false)):
+				var ang: float = float(mod.get("angle", 0.0))
+				var nx: float = vx * cos(ang) - vy * sin(ang)
+				var ny: float = vx * sin(ang) + vy * cos(ang)
+				vx = nx
+				vy = ny
+				friendly = bool(mod.get("friendly", false))
 		var sp: float = sqrt(vx * vx + vy * vy)
 		if sp < 1.0:
 			sp = 1.0
-		shots.spawn(enemies.shot_queue[o], enemies.shot_queue[o + 1], vx, vy, sp, enemies.shot_queue[o + 4], false, {
-			"life": 4.0, "radius": 2.5, "size": 3.0, "color": ProjectileSim.COL_ENEMY
+		shots.spawn(enemies.shot_queue[o], enemies.shot_queue[o + 1], vx, vy, sp, enemies.shot_queue[o + 4], friendly, {
+			"life": 4.0, "radius": 2.5, "size": 3.0, "color": ProjectileSim.COL_SOUND if friendly else ProjectileSim.COL_ENEMY
 		})
 		k += 1
 	enemies.shot_count = 0
@@ -601,19 +846,39 @@ func _consume_deaths() -> void:
 			active_fx.append({ "kind": "pop", "x": float(d["x"]), "y": float(d["y"]), "r": 5.0, "life": 0.22, "color": Color("#F2D9A0") })
 		if steal > 0.0 and not god and player_hp > 0.0:
 			player_hp = minf(player_hp + steal, player_max_hp)
-		gems.append({ "x": float(d["x"]), "y": float(d["y"]), "val": int(d["xp"]) })
+		var dpos := Vector2(float(d["x"]), float(d["y"]))
+		if mechanics != null:
+			mechanics.on_kill(dpos)
+		var xp: int = int(float(d["xp"]) * (mechanics.xp_mult_at(dpos) if mechanics != null else 1.0))
+		if rewards != null:
+			rewards.add_gem(dpos.x, dpos.y, xp)
+		else:
+			gems.append({ "x": dpos.x, "y": dpos.y, "val": xp })
 		if int(d["coal"]) > 0:
 			state.coals += int(d["coal"])
 		if bool(d["boss"]):
-			_finish(true)
+			if sim_mode:
+				print("[sim] boss_killed t=%.1f" % elapsed)
+			if endless_allowed and not endless_continued:
+				_start_endless()
+			else:
+				_finish(true)
 		elif bool(d["elite"]):
+			elite_kills_total += 1
 			_grant_armor()
+			if rewards != null:
+				if mechanics != null and mechanics.elite_chest_tier() == "gold":
+					rewards.spawn_chest("gold", dpos.x, dpos.y)
+				else:
+					rewards.on_elite_killed(dpos.x, dpos.y)
 	if not enemies.deaths.is_empty():
 		sfx.play("hit", -6.0, randf_range(0.9, 1.15), 0.045)
 	enemies.deaths.clear()
 
 func _pickup_gems(delta: float) -> void:
 	var pr: float = float(state.stats.get("pickup_radius", 30.0))
+	if magnet_t > 0.0:
+		pr *= 14.0
 	var i: int = gems.size() - 1
 	var gained: int = 0
 	while i >= 0:
@@ -675,6 +940,9 @@ func _spawner(delta: float) -> void:
 	# 七印的刷怪加成前 5 分钟渐入（开局不至于被淹没，后期才真正变密集）
 	var rate_seal: float = 1.0 + (seal_rate - 1.0) * clampf(elapsed / 300.0, 0.0, 1.0)
 	var rate: float = (float(budget.get("base", 58)) + float(budget.get("per_minute", 22)) * (elapsed / 60.0)) * rate_seal / 60.0
+	# 开局渐入：前 75 秒只放 45%→100%，避免「比玩家快的敌人」一上来就贴脸滴血
+	var ramp_in: float = lerpf(0.45, 1.0, clampf(elapsed / 75.0, 0.0, 1.0))
+	rate *= ramp_in
 	var max_alive: int = int(budget.get("max_alive", 420))
 	spawn_acc += rate * delta
 	while spawn_acc >= 1.0:
@@ -726,7 +994,8 @@ func _spawn_at_ring(ti: int, margin_min: float = 34.0, margin_max: float = 96.0)
 func _altars_and_events() -> void:
 	var elites: Array = stage.get("elites", [])
 	while elite_done < elites.size() and elapsed >= float(elites[elite_done].get("t", 1e9)):
-		var cnt: int = int(elites[elite_done].get("count", 1))
+		# 契约 9 节用 n；老数据是 count，两个都读
+		var cnt: int = int(elites[elite_done].get("n", elites[elite_done].get("count", 1)))
 		var ti: int = enemies.type_index_of(String(elites[elite_done].get("id", "")))
 		for c in range(cnt):
 			if ti >= 0:
@@ -738,8 +1007,26 @@ func _altars_and_events() -> void:
 		var bti: int = enemies.type_index_of(String(stage.get("boss", "goliath")))
 		if bti >= 0:
 			_spawn_at_ring(bti, 150.0, 175.0)
+			# BOSS 血量按「章号预算」定标，不再吃 time hp_scale：
+			# 否则第 24 章 40000 × 2.34 ≈ 9.4 万，90 秒窗口内根本打不完（实测 600~900 DPS）。
+			var bi: int = enemies.count - 1
+			if bi >= 0 and bi == enemies.boss_idx:
+				var chapter: float = float(stage.get("chapter", 13))
+				var target_hp: float = 9000.0 + 1250.0 * (chapter - 1.0)
+				enemies.max_hp[bi] = target_hp
+				enemies.hp[bi] = target_hp
+			_recompute_boss()
+			# 机关在 BOSS 登场时的结算：干涸溪床五石子削血、试探石饼加血……
+			if mechanics != null:
+				mechanics.on_boss_spawn()
+			_ensure_boss_ai()
 			shake = 9.0
 			sfx.play("boss", 0.0, 1.0, 1.0)
+			if sim_mode:
+				print("[sim] boss_spawn id=%s hp=%.0f t=%.0f" % [String(stage.get("boss", "")), float(enemies.max_hp[enemies.count - 1]), elapsed])
+		else:
+			if sim_mode:
+				print("[sim] boss_missing id=%s" % String(stage.get("boss", "")))
 
 	# 祭坛：3:00 / 6:00 / 9:00 各放一座
 	while altar_done < ALTAR_TIMES.size() and elapsed >= float(ALTAR_TIMES[altar_done]):
@@ -802,7 +1089,9 @@ func _recompute_boss() -> void:
 	for i in range(enemies.count):
 		if enemies.is_boss(i):
 			boss_index = i
-			return
+			break
+	if boss_index >= 0 and boss_ai == null:
+		_ensure_boss_ai()
 
 # ---------------------------------------------------------------- 面板
 
@@ -919,6 +1208,9 @@ func _grant_armor() -> void:
 	var pick: String = String(pool[rng.randi_range(0, pool.size() - 1)])
 	if not state.add_armor(pick):
 		return
+	armor_gained += 1
+	if armor_gained >= 3:
+		ach_flags["armor_treasure_3"] = true
 	var nm: String = String(GameData.passives.get(pick, {}).get("name", pick))
 	toast_text = "得军装 · " + nm
 	toast_t = 1.8
@@ -981,6 +1273,11 @@ func _on_picked(index: int) -> void:
 			chooser.close()
 	elif mode == "altar":
 		_apply_altar_choice(index)
+		modal = false
+		chooser.close()
+	elif mode == "covenant":
+		if covenants != null:
+			covenants.pick(index)
 		modal = false
 		chooser.close()
 
@@ -1052,6 +1349,12 @@ func _apply_level_choice(index: int) -> void:
 	# 领受即得安慰：每次升级回复 12% 生命上限
 	if not god and player_hp > 0.0:
 		player_hp = minf(player_hp + player_max_hp * float(state.stats.get("level_heal", 0.15)), player_max_hp)
+	# 升级时也给机关 / 约一个钩子
+	if mechanics != null:
+		mechanics.on_level_up()
+	# 日头停留之约：升级也冻结全场
+	if bool(state.get_meta("covenant_sun_stand", false)) and not over:
+		freeze_t = maxf(freeze_t, 2.2)
 
 func _apply_altar_choice(index: int) -> void:
 	if index < 0 or index >= current_options.size():
@@ -1065,3 +1368,127 @@ func _apply_altar_choice(index: int) -> void:
 	active_fx.append({ "kind": "nova", "x": player.x, "y": player.y, "r": 240.0, "life": 0.8, "color": Color("#E0B85A") })
 	shake = maxf(shake, 7.0)
 	sfx.play("fuse", -1.0, 1.0, 0.4)
+
+# ---------------------------------------------------------------- 圣物 / 无尽 / BOSS AI / 对外接口
+
+## 圣物：局内只读（Meta.relics），按 relics.json 的 effect 分发。前 6 件给实际效果，
+## 其余只做标记（银两 / 磁力 / 约 / 宝箱翻倍），保证不写回局外存档。
+func _apply_relics() -> void:
+	for rid in state.relics:
+		var eff: String = String(GameData.relic_def(String(rid)).get("effect", ""))
+		match eff:
+			"codex":
+				codex_unlocked = true
+			"dps_meter":
+				pass
+			"all_treasures":
+				_grant_armor()
+			"fast_forward":
+				fast_forward_available = true
+			"covenant_system":
+				pass
+			"jukebox":
+				pass
+			"silver_magnet":
+				if stat_patch != null:
+					stat_patch.add("relic_R07", "silver_mult", "mul", 1.4)
+					stat_patch.add("relic_R07", "speed", "mul", 1.2)
+					stat_patch.add("relic_R07", "proj_speed_mult", "mul", 1.2)
+			"endless":
+				endless_allowed = true
+			"banish", "reroll_plus":
+				reroll_plus = true
+				rerolls += 2
+			"seal_shop":
+				pass
+			"chest_double":
+				chest_double = true
+	if sim_mode:
+		print("[sim] relics=%s codex=%s fast_forward=%s endless=%s reroll+=%s chest_double=%s" % [
+			str(state.relics), str(codex_unlocked), str(fast_forward_available), str(endless_allowed), str(reroll_plus), str(chest_double)])
+
+## 生命上限同步：升级 / 约 / 圣物改 max_hp 时，玩家当前血量跟着涨（不白扣血）。
+func _sync_max_hp() -> void:
+	var nm: float = float(state.stats.get("max_hp", player_max_hp))
+	if nm > player_max_hp and player_hp > 0.0:
+		player_hp += nm - player_max_hp
+	player_max_hp = nm
+	player_hp = clampf(player_hp, 0.0, player_max_hp)
+
+## 给机关 / 奖励系统用的治疗入口（不会超过上限）。
+func heal_player(amount: float) -> void:
+	if amount <= 0.0 or over or player_hp <= 0.0:
+		return
+	# 活水之约：满血也触发治疗，并把治疗量转成 140px 冲击波（治疗量 ×8）
+	if bool(state.get_meta("covenant_heal_wave", false)) and player_hp >= player_max_hp:
+		enemies.damage_in_circle(player.x, player.y, 140.0, amount * 8.0, "wet", 2.0, 90.0)
+		active_fx.append({ "kind": "nova", "x": player.x, "y": player.y, "r": 140.0, "life": 0.4, "color": Color("#8FC8E0") })
+		return
+	player_hp = minf(player_hp + amount, player_max_hp)
+
+## 给机关 / 奖励系统用的伤害入口（走统一减伤与无敌帧）。
+func hurt_player(amount: float) -> void:
+	if amount <= 0.0 or over or god:
+		return
+	_take_damage(amount, true, "mech")
+
+## 持续伤害入口（水墙/苦水/烈日这类按 delta 累积的机关）：不吃无敌帧，本身就是连续量。
+func hurt_player_dot(amount: float) -> void:
+	if amount <= 0.0 or over or god:
+		return
+	_take_damage(amount, false, "dot")
+
+## 无尽模式（R08 / R10）：BOSS 倒下不结算，把本局延长到 30 分钟，波次继续加码。
+func _start_endless() -> void:
+	if endless_continued:
+		return
+	endless_continued = true
+	run_duration = maxf(run_duration, 1800.0)
+	boss_spawned = true
+	boss_ai = null
+	toast_text = "无尽 · 守望到黎明"
+	toast_t = 3.2
+	shake = maxf(shake, 8.0)
+	active_fx.append({ "kind": "nova", "x": player.x, "y": player.y, "r": 300.0, "life": 0.9, "color": Color("#F3E3A8") })
+	if sim_mode:
+		print("[sim] endless t=%.1f" % elapsed)
+
+## BOSS AI（战斗代理实现 src/sim/boss_ai.gd）：文件还没落地时静默跳过，不影响其余系统。
+func _ensure_boss_ai() -> void:
+	if boss_index < 0:
+		return
+	# EnemySim 在 spawn 时已经给 BOSS 挂了 BossAI 并每帧驱动（enemy_sim.gd 单驱动保护）。
+	# 优先接管那个实例，只给它补上 ProjectileSim，避免两个实例抢驱动。
+	if enemies != null and enemies.boss_ai != null:
+		boss_ai = enemies.boss_ai
+		if boss_ai.shots == null:
+			boss_ai.shots = shots
+		return
+	if boss_ai != null:
+		return
+	var path: String = "res://src/sim/boss_ai.gd"
+	if not ResourceLoader.exists(path):
+		return
+	if boss_ai_script == null:
+		boss_ai_script = load(path)
+	if boss_ai_script == null:
+		return
+	var inst: Variant = boss_ai_script.new()
+	if inst == null:
+		return
+	boss_ai = inst
+	if boss_ai.has_method("setup"):
+		var def: Dictionary = GameData.boss_def(String(stage.get("boss", "")))
+		boss_ai.setup(enemies, boss_index, def, shots, rng)
+
+func _tick_boss_ai(delta: float) -> void:
+	if boss_ai == null:
+		return
+	if boss_index < 0:
+		boss_ai = null
+		return
+	# 已由 EnemySim 内部驱动（enemies.boss_ai == boss_ai）时不再重复 tick
+	if enemies != null and enemies.boss_ai == boss_ai:
+		return
+	if boss_ai.has_method("tick"):
+		boss_ai.tick(delta, player)
