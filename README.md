@@ -4,6 +4,21 @@
 
 当前版本：**P5 祝圣补完** —— 标题选人 · 营地（舍客勒 / 六项永久强化 / 七印难度 / 试炼地图）· 4 位见证人 · 以拉谷 + 犹大旷野 · 6 件基础武器 · 6 条固定祝圣（**六种 modifier 全部生效**）· 成全永久改造 · 全副军装（精英掉落）· 双武合鸣 · 两个 BOSS · 程序化音效 · **可复现的无头模拟**。
 
+## 桌面启动（双击即玩）
+
+`dist/余民.app` 是一个 macOS 启动器：双击就会用 `/Applications/Godot.app` 打开本项目，`Info.plist` 里配了名字「余民 The Remnant」和自绘图标（金十字 + 火炭，`tools/` 之外由 PIL 生成）。
+
+```
+dist/余民.app/Contents/MacOS/run   ← 启动脚本（PROJ / GODOT 两个路径写死，搬家要改）
+dist/余民.app/Contents/Info.plist   ← 显示名、图标、版本
+dist/余民.app/Contents/Resources/icon.icns
+安装到桌面.command                  ← 双击把 dist/余民.app 拷到桌面（macOS 授权一次即可）
+```
+
+- **放到桌面**：双击项目根目录的 `安装到桌面.command`；系统第一次会问「终端想访问桌面」，允许即可。也可以直接把 `dist/余民.app` 拖到桌面。
+- **看日志**：启动器会把 Godot 的输出写到 `/tmp/remnant-launch.log`。打不开时先看它——最常见的原因是 `Godot.app` 被移动或项目目录改名，此时启动器会弹窗说明。
+- **加进 Dock**：先放到桌面并双击打开一次，再右键 Dock 上的图标 → 选项 → 在 Dock 中保留。
+- **换参数启动**：`open dist/余民.app --args --char=moses`（参数会原样传给 Godot）。
 ## 运行
 
 ```bash

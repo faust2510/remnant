@@ -1,0 +1,19 @@
+#!/bin/bash
+# 余民 The Remnant —— 桌面启动器（双击即玩）
+# 需要 /Applications/Godot.app；日志写到 /tmp/remnant-launch.log
+PROJ="/Users/qwe/Documents/文件大总管/10-项目/幸存者游戏"
+GODOT="/Applications/Godot.app/Contents/MacOS/Godot"
+LOG="/tmp/remnant-launch.log"
+if [ ! -x "$GODOT" ]; then
+	printf '找不到 Godot：%s\n' "$GODOT" > "$LOG"
+	osascript -e 'display alert "找不到 Godot" message "请确认 /Applications/Godot.app 存在。"' >/dev/null 2>&1
+	exit 1
+fi
+if [ ! -d "$PROJ" ]; then
+	printf '找不到项目目录：%s\n' "$PROJ" > "$LOG"
+	osascript -e 'display alert "找不到项目目录" message "幸存者游戏 目录被移动了，请修改启动器里的 PROJ 路径。"' >/dev/null 2>&1
+	exit 1
+fi
+cd "$PROJ" || exit 1
+printf '=== %s launch\n' "$(date '+%F %T')" > "$LOG"
+exec "$GODOT" --path "$PROJ" "$@" >> "$LOG" 2>&1
