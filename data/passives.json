@@ -1,0 +1,155 @@
+{
+  "_comment": "被动：圣灵的果子（加 5:22-23）+ 神的全副军装（弗 6:11-17）。stat 见 src/core/game_state.gd 的 apply_passive。",
+  "passives": [
+    {
+      "id": "love",
+      "name": "仁爱",
+      "scripture": "加 5:22",
+      "kind": "fruit",
+      "stat": "lifesteal",
+      "per_level": 0.004,
+      "max_level": 5,
+      "desc": "击杀回复生命（每级 0.4% 生命上限）"
+    },
+    {
+      "id": "joy",
+      "name": "喜乐",
+      "scripture": "加 5:22",
+      "kind": "fruit",
+      "stat": "xp_gain",
+      "per_level": 0.12,
+      "max_level": 5,
+      "desc": "经验获取提升"
+    },
+    {
+      "id": "peace",
+      "name": "和平",
+      "scripture": "加 5:22",
+      "kind": "fruit",
+      "stat": "damage_reduction",
+      "per_level": 0.06,
+      "max_level": 5,
+      "desc": "受到伤害降低"
+    },
+    {
+      "id": "patience",
+      "name": "忍耐",
+      "scripture": "加 5:22",
+      "kind": "fruit",
+      "stat": "armor",
+      "per_level": 4,
+      "max_level": 5,
+      "desc": "护甲与抗击退"
+    },
+    {
+      "id": "kindness",
+      "name": "恩慈",
+      "scripture": "加 5:22",
+      "kind": "fruit",
+      "stat": "pickup_radius",
+      "per_level": 0.2,
+      "max_level": 5,
+      "desc": "拾取半径提升"
+    },
+    {
+      "id": "goodness",
+      "name": "良善",
+      "scripture": "加 5:22",
+      "kind": "fruit",
+      "stat": "crit_chance",
+      "per_level": 0.05,
+      "max_level": 5,
+      "desc": "暴击率提升"
+    },
+    {
+      "id": "faithfulness",
+      "name": "信实",
+      "scripture": "加 5:22",
+      "kind": "fruit",
+      "stat": "dot_damage",
+      "per_level": 0.12,
+      "max_level": 5,
+      "desc": "持续伤害提升"
+    },
+    {
+      "id": "gentleness",
+      "name": "温柔",
+      "scripture": "加 5:23",
+      "kind": "fruit",
+      "stat": "move_speed",
+      "per_level": 0.05,
+      "max_level": 5,
+      "desc": "移动速度提升"
+    },
+    {
+      "id": "self_control",
+      "name": "节制",
+      "scripture": "加 5:23",
+      "kind": "fruit",
+      "stat": "cooldown",
+      "per_level": 0.06,
+      "max_level": 5,
+      "desc": "冷却缩减"
+    },
+    {
+      "id": "gospel_shoes",
+      "name": "平安福音鞋",
+      "scripture": "弗 6:15",
+      "kind": "armor",
+      "stat": "move_speed",
+      "per_level": 0.06,
+      "max_level": 5,
+      "desc": "移动速度与闪避距离提升"
+    },
+    {
+      "id": "spirit_sword",
+      "name": "圣灵宝剑",
+      "scripture": "弗 6:17",
+      "kind": "armor",
+      "stat": "damage_pct",
+      "per_level": 0.07,
+      "max_level": 5,
+      "desc": "全伤害提升"
+    },
+    {
+      "id": "breastplate",
+      "name": "公义护心镜",
+      "scripture": "弗 6:14",
+      "kind": "armor",
+      "stat": "max_hp",
+      "per_level": 12,
+      "max_level": 5,
+      "desc": "生命上限提升"
+    },
+    {
+      "id": "helmet",
+      "name": "救恩头盔",
+      "scripture": "弗 6:17",
+      "kind": "armor",
+      "stat": "damage_reduction",
+      "per_level": 0.05,
+      "max_level": 5,
+      "desc": "受到伤害进一步降低"
+    },
+    {
+      "id": "shield_of_faith",
+      "name": "信德藤牌",
+      "scripture": "弗 6:16",
+      "kind": "armor",
+      "stat": "armor",
+      "per_level": 7,
+      "max_level": 5,
+      "desc": "护甲大幅提升"
+    },
+    {
+      "id": "belt_of_truth",
+      "name": "真理束腰带",
+      "scripture": "弗 6:14",
+      "kind": "armor",
+      "stat": "cooldown",
+      "per_level": 0.05,
+      "max_level": 5,
+      "desc": "冷却缩减"
+    }
+  ]
+}

@@ -1,0 +1,255 @@
+{
+  "_comment": "试炼地图表。budget: 每分钟基础刷怪数；elite_at / boss_at 为秒。",
+  "stages": [
+    {
+      "id": "elah_valley",
+      "name": "以拉谷",
+      "scripture": "撒上 17",
+      "phase": "P1",
+      "duration": 780,
+      "boss_at": 690,
+      "budget": {
+        "base": 210,
+        "per_minute": 70,
+        "max_alive": 620
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "soldier",
+              "w": 70
+            },
+            {
+              "id": "raven",
+              "w": 30
+            }
+          ]
+        },
+        {
+          "t": 90,
+          "enemies": [
+            {
+              "id": "soldier",
+              "w": 55
+            },
+            {
+              "id": "raven",
+              "w": 25
+            },
+            {
+              "id": "archer",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "soldier",
+              "w": 40
+            },
+            {
+              "id": "raven",
+              "w": 20
+            },
+            {
+              "id": "archer",
+              "w": 20
+            },
+            {
+              "id": "beast",
+              "w": 20
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "soldier",
+              "w": 32
+            },
+            {
+              "id": "raven",
+              "w": 18
+            },
+            {
+              "id": "archer",
+              "w": 22
+            },
+            {
+              "id": "beast",
+              "w": 28
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 150,
+          "id": "six_finger_giant",
+          "count": 1
+        },
+        {
+          "t": 330,
+          "id": "six_finger_giant",
+          "count": 1
+        },
+        {
+          "t": 510,
+          "id": "six_finger_giant",
+          "count": 1
+        },
+        {
+          "t": 630,
+          "id": "six_finger_giant",
+          "count": 2
+        }
+      ],
+      "boss": "goliath",
+      "ground": {
+        "base": "#2A2419",
+        "speckle": "#3A3122",
+        "zone": "#3E382A"
+      },
+      "desc": "黄昏砂岩谷地：干涸河床的碎石让武器冷却 -10%。",
+      "unlock_wins": 0,
+      "mods": {
+        "cooldown": 0.9
+      }
+    },
+    {
+      "id": "judea_wilderness",
+      "name": "犹大旷野",
+      "scripture": "太 4",
+      "phase": "P3",
+      "duration": 750,
+      "boss_at": 660,
+      "budget": {
+        "base": 230,
+        "per_minute": 66,
+        "max_alive": 560
+      },
+      "mix": [
+        {
+          "t": 0,
+          "enemies": [
+            {
+              "id": "scorpion",
+              "w": 55
+            },
+            {
+              "id": "raven",
+              "w": 30
+            },
+            {
+              "id": "soldier",
+              "w": 15
+            }
+          ]
+        },
+        {
+          "t": 80,
+          "enemies": [
+            {
+              "id": "scorpion",
+              "w": 45
+            },
+            {
+              "id": "raven",
+              "w": 30
+            },
+            {
+              "id": "beast",
+              "w": 15
+            },
+            {
+              "id": "archer",
+              "w": 10
+            }
+          ]
+        },
+        {
+          "t": 240,
+          "enemies": [
+            {
+              "id": "scorpion",
+              "w": 34
+            },
+            {
+              "id": "raven",
+              "w": 26
+            },
+            {
+              "id": "beast",
+              "w": 26
+            },
+            {
+              "id": "archer",
+              "w": 14
+            }
+          ]
+        },
+        {
+          "t": 420,
+          "enemies": [
+            {
+              "id": "scorpion",
+              "w": 28
+            },
+            {
+              "id": "raven",
+              "w": 24
+            },
+            {
+              "id": "beast",
+              "w": 34
+            },
+            {
+              "id": "archer",
+              "w": 14
+            }
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "t": 120,
+          "id": "six_finger_giant",
+          "count": 1
+        },
+        {
+          "t": 300,
+          "id": "six_finger_giant",
+          "count": 2
+        },
+        {
+          "t": 480,
+          "id": "beast",
+          "count": 6
+        },
+        {
+          "t": 600,
+          "id": "six_finger_giant",
+          "count": 2
+        }
+      ],
+      "boss": "the_tempter",
+      "ground": {
+        "base": "#22241F",
+        "speckle": "#3B4436",
+        "zone": "#4C503C",
+        "rocks": true
+      },
+      "mods": {
+        "enemy_speed": 1.12,
+        "shillings": 1.25
+      },
+      "desc": "正午灼热的石灰岩荒原：敌人更快，但舍客勒 +25%。",
+      "unlock_wins": 1
+    }
+  ]
+}

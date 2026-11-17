@@ -1,0 +1,116 @@
+{
+  "_comment": "敌人表。behavior: chase / ranged / dive / charger / boss。speed 单位 px/s（玩家 72）。",
+  "enemies": [
+    {
+      "id": "soldier",
+      "name": "军兵",
+      "hp": 9,
+      "speed": 58,
+      "damage": 3,
+      "radius": 6,
+      "xp": 1,
+      "color": "#8A7F6D",
+      "behavior": "chase",
+      "tier": "normal"
+    },
+    {
+      "id": "archer",
+      "name": "弓手",
+      "hp": 8,
+      "speed": 52,
+      "damage": 4,
+      "radius": 6,
+      "xp": 2,
+      "color": "#9C6B4A",
+      "behavior": "ranged",
+      "tier": "normal",
+      "keep_dist": 120,
+      "shoot_cd": 2.6,
+      "shot_speed": 150,
+      "shot_damage": 6
+    },
+    {
+      "id": "raven",
+      "name": "乌鸦",
+      "hp": 6,
+      "speed": 100,
+      "damage": 3,
+      "radius": 5,
+      "xp": 2,
+      "color": "#3C3A46",
+      "behavior": "dive",
+      "tier": "fast"
+    },
+    {
+      "id": "beast",
+      "name": "野兽",
+      "hp": 24,
+      "speed": 66,
+      "damage": 6,
+      "radius": 7,
+      "xp": 4,
+      "color": "#6B5240",
+      "behavior": "charger",
+      "tier": "normal",
+      "charge_cd": 3.2,
+      "charge_speed": 210,
+      "charge_time": 0.55
+    },
+    {
+      "id": "six_finger_giant",
+      "name": "六指巨人",
+      "hp": 110,
+      "speed": 64,
+      "damage": 7,
+      "radius": 12,
+      "xp": 25,
+      "color": "#7A5A48",
+      "behavior": "chase",
+      "tier": "elite",
+      "elite": true,
+      "coal_drop": 1,
+      "slam_cd": 4
+    },
+    {
+      "id": "goliath",
+      "name": "歌利亚",
+      "hp": 7000,
+      "speed": 44,
+      "damage": 14,
+      "radius": 20,
+      "xp": 120,
+      "color": "#8E2F2F",
+      "behavior": "boss",
+      "tier": "boss",
+      "elite": true,
+      "phases": [
+        0.7,
+        0.35
+      ]
+    },
+    {
+      "id": "scorpion",
+      "name": "旷野毒蝎",
+      "hp": 12,
+      "speed": 86,
+      "damage": 3,
+      "radius": 5,
+      "xp": 2,
+      "color": "#B08A4A",
+      "behavior": "charger",
+      "desc": "激变高速，贴身才危险。"
+    },
+    {
+      "id": "the_tempter",
+      "name": "旷野的试探者",
+      "hp": 8200,
+      "speed": 52,
+      "damage": 16,
+      "radius": 22,
+      "xp": 140,
+      "color": "#5A3E6E",
+      "behavior": "boss",
+      "desc": "以引诱与恐吓围困，不以力胜。"
+    }
+  ]
+}

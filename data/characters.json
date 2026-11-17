@@ -1,0 +1,56 @@
+{
+  "_comment": "见证人表。perk 由 src/core/game_state.gd 解释。",
+  "characters": [
+    {
+      "id": "david",
+      "name": "大卫",
+      "scripture": "撒上 17",
+      "weapon": "sling",
+      "hp": 140,
+      "speed": 72,
+      "perk": {
+        "crit_chance": 0.15,
+        "aim_crit_mult": 2
+      },
+      "desc": "信心之石：暴击 +15%\n锁定时暴击伤害 x2"
+    },
+    {
+      "id": "moses",
+      "name": "摩西",
+      "scripture": "出 14",
+      "weapon": "staff",
+      "hp": 138,
+      "speed": 70,
+      "perk": {
+        "knockback_mult": 1.45,
+        "hit_push": 30
+      },
+      "desc": "分开红海：击退 +45%\n受击时推开周围敌人"
+    },
+    {
+      "id": "gideon",
+      "name": "基甸",
+      "scripture": "士 7",
+      "weapon": "torch",
+      "hp": 126,
+      "speed": 78,
+      "perk": {
+        "weapon_slots": 3,
+        "damage_per_empty_slot": 0.25
+      },
+      "desc": "三百精兵：武器槽锁 3\n每空 1 槽，全伤害 +25%"
+    },
+    {
+      "id": "joshua",
+      "name": "约书亚",
+      "scripture": "书 6",
+      "weapon": "horn",
+      "hp": 126,
+      "speed": 74,
+      "perk": {
+        "move_shockwave": 70
+      },
+      "desc": "绕城七日：每移动 80\n释放一次全向震荡波"
+    }
+  ]
+}

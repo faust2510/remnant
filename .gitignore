@@ -1,0 +1,7 @@
+.godot/
+.godot_home/
+*.log
+/tmp/
+.DS_Store
+build/
+export/

@@ -1,0 +1,178 @@
+{
+  "_comment": "基础武器表。behavior 为行为原子：line_projectile / arc_melee / orbit / zone / homing。数值为 1 级基线，scaling 为每级相对基线的增幅（乘法），overrides 为指定等级覆盖。",
+  "weapons": [
+    {
+      "id": "sling",
+      "name": "投石索",
+      "scripture": "撒上 17:40",
+      "behavior": "line_projectile",
+      "status": "tremor",
+      "color": "#C9A66B",
+      "max_level": 5,
+      "params": {
+        "damage": 9,
+        "speed": 330,
+        "pierce": 1,
+        "cooldown": 0.8,
+        "range": 210,
+        "count": 1,
+        "spread_deg": 7,
+        "size": 3
+      },
+      "scaling": {
+        "damage": 0.32,
+        "cooldown": -0.07,
+        "range": 0.05,
+        "count": 0
+      },
+      "overrides": {
+        "3": {
+          "count": 2
+        },
+        "5": {
+          "count": 3
+        }
+      },
+      "desc": "直线穿透石弹，命中造成【震慑】。"
+    },
+    {
+      "id": "staff",
+      "name": "牧杖",
+      "scripture": "出 14:16",
+      "behavior": "arc_melee",
+      "status": "wet",
+      "color": "#6FA8C4",
+      "max_level": 5,
+      "params": {
+        "damage": 10,
+        "cooldown": 0.9,
+        "range": 48,
+        "arc_deg": 110,
+        "knockback": 90,
+        "count": 1
+      },
+      "scaling": {
+        "damage": 0.3,
+        "cooldown": -0.06,
+        "range": 0.1,
+        "knockback": 0.1
+      },
+      "overrides": {},
+      "desc": "扇形横扫，命中造成【活水】并击退。"
+    },
+    {
+      "id": "torch",
+      "name": "火把",
+      "scripture": "士 7:16",
+      "behavior": "orbit",
+      "status": "burn",
+      "color": "#E0731A",
+      "max_level": 5,
+      "params": {
+        "damage": 6,
+        "radius": 42,
+        "angular_speed": 2.3,
+        "tick": 0.35,
+        "count": 2,
+        "size": 7
+      },
+      "scaling": {
+        "damage": 0.28,
+        "radius": 0.1,
+        "count": 0
+      },
+      "overrides": {
+        "3": {
+          "count": 3
+        },
+        "5": {
+          "count": 4
+        }
+      },
+      "desc": "环绕火焰，持续命中造成【圣火灼烧】。"
+    },
+    {
+      "id": "horn",
+      "name": "号角",
+      "scripture": "书 6:4",
+      "behavior": "arc_melee",
+      "status": "tremor",
+      "color": "#E0B85A",
+      "max_level": 5,
+      "params": {
+        "damage": 8,
+        "cooldown": 1.1,
+        "range": 82,
+        "arc_deg": 70,
+        "knockback": 160,
+        "count": 1
+      },
+      "scaling": {
+        "damage": 0.3,
+        "cooldown": -0.05,
+        "range": 0.08,
+        "knockback": 0.15
+      },
+      "overrides": {},
+      "desc": "锥形音波，强力击退并造成【震慑】。"
+    },
+    {
+      "id": "censer",
+      "name": "香炉",
+      "scripture": "利 16:12",
+      "behavior": "zone",
+      "status": "burn",
+      "color": "#B07CC6",
+      "max_level": 5,
+      "params": {
+        "damage": 5,
+        "radius": 34,
+        "duration": 2.6,
+        "cooldown": 2,
+        "tick": 0.4,
+        "throw_dist": 95,
+        "count": 1
+      },
+      "scaling": {
+        "damage": 0.3,
+        "radius": 0.1,
+        "duration": 0.08
+      },
+      "overrides": {},
+      "desc": "抛出香炉落点生成烟云，持续【圣火灼烧】。"
+    },
+    {
+      "id": "harp",
+      "name": "大卫的琴",
+      "scripture": "撒上 16:23",
+      "behavior": "homing",
+      "status": "blind",
+      "color": "#F0D890",
+      "max_level": 5,
+      "params": {
+        "damage": 6,
+        "speed": 200,
+        "cooldown": 1,
+        "range": 230,
+        "count": 1,
+        "turn_rate": 4.5,
+        "life": 2.2,
+        "size": 3
+      },
+      "scaling": {
+        "damage": 0.28,
+        "cooldown": -0.06,
+        "life": 0.06
+      },
+      "overrides": {
+        "3": {
+          "count": 2
+        },
+        "5": {
+          "count": 3
+        }
+      },
+      "desc": "追踪音波，命中造成【圣光致盲】。"
+    }
+  ]
+}
