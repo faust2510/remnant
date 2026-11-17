@@ -19,6 +19,8 @@ var stats: Dictionary = {}
 var meta_bonus: Dictionary = {}
 var stage_cd: float = 1.0         # 营地永久强化，由 Meta.bonus() 提供
 
+var armor: Array = []              # 全副军装：精英战利品，不占被动槽、不进升级池、不参与祝圣配方
+
 var level: int = 1
 var xp: float = 0.0
 var xp_need: float = XP_BASE
@@ -31,6 +33,7 @@ func setup(character_id: String, bonus: Dictionary = {}) -> void:
 	character = GameData.characters_by_id.get(character_id, {})
 	weapons = []
 	passives = []
+	armor = []
 	consumed_weapons = {}
 	level = 1
 	xp = 0.0
@@ -96,6 +99,22 @@ func add_passive(id: String) -> bool:
 	recompute()
 	slots_changed.emit()
 	return true
+
+## 全副军装只作为精英掉落，自动穿戴：不占被动槽，避免把祝圣必需的圣灵果子挤出 4 个槽位。
+func add_armor(id: String) -> bool:
+	for a in armor:
+		if String(a["id"]) == id:
+			return false
+	armor.append({ "id": id, "level": 1 })
+	recompute()
+	slots_changed.emit()
+	return true
+
+func has_armor(id: String) -> bool:
+	for a in armor:
+		if String(a["id"]) == id:
+			return true
+	return false
 
 func upgrade_weapon_at(index: int) -> bool:
 	if index < 0 or index >= weapons.size():
@@ -196,7 +215,7 @@ func available_fusions(ignore_coal: bool = false) -> Array:
 			out.append({ "fusion": f, "slot": ia, "slot_b": ib })
 	return out
 
-func apply_fusion(fusion: Dictionary, slot: int, slot_b: int = -1) -> void:
+func apply_fusion(fusion: Dictionary, slot: int, slot_b: int = -1, kills_now: int = 0) -> void:
 	if coals <= 0:
 		return
 	coals -= 1
@@ -216,7 +235,7 @@ func apply_fusion(fusion: Dictionary, slot: int, slot_b: int = -1) -> void:
 	var start_level := 1
 	if float(perf("fusion_start_level", 0.0)) > 0.0:
 		start_level = int(perf("fusion_start_level", 1.0))
-	weapons.append({ "id": fusion["id"], "kind": "fusion", "level": start_level, "ascended": false })
+	weapons.append({ "id": fusion["id"], "kind": "fusion", "level": start_level, "ascended": false, "born_kills": kills_now })
 	recompute()
 	slots_changed.emit()
 
@@ -234,7 +253,8 @@ func try_ascend(all_kills: int) -> Array:
 			continue
 		if int(w["level"]) < int(evo.get("level", 5)):
 			continue
-		if all_kills < int(evo.get("kills", 500)):
+		# 成全长按「武器成圣之后」累计的击杀算，而不是整局总击杀（否则中后期一到 5 级就立刻触发）
+		if all_kills - int(w.get("born_kills", 0)) < int(evo.get("kills", 500)):
 			continue
 		w["ascended"] = true
 		ascended_count += 1
@@ -264,23 +284,9 @@ func recompute() -> void:
 		"proj_speed_mult": 1.0
 	}
 	for p in passives:
-		var def: Dictionary = GameData.passives.get(p["id"], {})
-		if def.is_empty():
-			continue
-		var amount: float = float(def["per_level"]) * float(p["level"])
-		match String(def["stat"]):
-			"lifesteal": s["lifesteal"] += amount
-			"xp_gain": s["xp_gain"] += amount
-			"damage_reduction": s["damage_reduction"] += amount
-			"armor": s["armor"] += amount
-			"pickup_radius": s["pickup_radius"] *= (1.0 + amount)
-			"crit_chance": s["crit_chance"] += amount
-			"dot_damage": s["dot_mult"] += amount
-			"move_speed": s["speed"] *= (1.0 + amount)
-			"cooldown": s["cooldown_mult"] *= (1.0 - minf(amount, 0.6))
-			"damage_pct": s["damage_mult"] += amount
-			"max_hp": s["max_hp"] += amount
-			_: pass
+		_apply_passive_def(p, s)
+	for a in armor:
+		_apply_passive_def(a, s)
 
 	# 营地永久强化
 	s["damage_mult"] += float(meta_bonus.get("damage_mult", 0.0))
@@ -307,6 +313,26 @@ func recompute() -> void:
 	stats = s
 	stats_changed.emit()
 
+
+## 被动与军装共用的属性累加（果子与军装都是 {id, level}）
+func _apply_passive_def(p: Dictionary, s: Dictionary) -> void:
+	var def: Dictionary = GameData.passives.get(p["id"], {})
+	if def.is_empty():
+		return
+	var amount: float = float(def["per_level"]) * float(p["level"])
+	match String(def["stat"]):
+		"lifesteal": s["lifesteal"] += amount
+		"xp_gain": s["xp_gain"] += amount
+		"damage_reduction": s["damage_reduction"] += amount
+		"armor": s["armor"] += amount
+		"pickup_radius": s["pickup_radius"] *= (1.0 + amount)
+		"crit_chance": s["crit_chance"] += amount
+		"dot_damage": s["dot_mult"] += amount
+		"move_speed": s["speed"] *= (1.0 + amount)
+		"cooldown": s["cooldown_mult"] *= (1.0 - minf(amount, 0.6))
+		"damage_pct": s["damage_mult"] += amount
+		"max_hp": s["max_hp"] += amount
+		_: pass
 func total_damage_reduction() -> float:
 	var armor: float = float(stats.get("armor", 0.0))
 	var armor_red: float = armor / (armor + 50.0)

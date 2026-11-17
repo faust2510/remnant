@@ -36,6 +36,8 @@ var fear_t: PackedFloat32Array
 var timer: PackedFloat32Array
 var state: PackedInt32Array
 var touch_cd: PackedFloat32Array
+var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var sim_time: float = 0.0
 var hp_scale: float = 1.0
 var speed_scale: float = 1.0
 
@@ -106,7 +108,7 @@ func spawn(ti: int, x: float, y: float, phase: int = 0) -> int:
 	armor_shred[i] = 0.0
 	burn_stack[i] = 0; burn_t[i] = 0.0; burn_dps[i] = 0.0
 	tremor_t[i] = 0.0; blind_t[i] = 0.0; wet_t[i] = 0.0; fear_t[i] = 0.0
-	timer[i] = randf() * 1.5
+	timer[i] = rng.randf() * 1.5
 	state[i] = 0
 	touch_cd[i] = 0.0
 	return i
@@ -193,6 +195,7 @@ func query(x: float, y: float, radius: float) -> int:
 
 ## 每帧推进。返回本帧敌人对玩家造成的接触伤害。
 func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
+	sim_time += delta
 	var contact := 0.0
 	for i in range(count):
 		var t: Dictionary = types[typ[i]]
@@ -238,7 +241,7 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 					vx[i] = 0.0
 					vy[i] = 0.0
 			"dive":
-				var wob: float = sin(Time.get_ticks_msec() * 0.004 + float(i)) * 0.35
+				var wob: float = sin(sim_time * 4.0 + float(i)) * 0.35
 				vx[i] = (dx / dist - dy / dist * wob) * speed
 				vy[i] = (dy / dist + dx / dist * wob) * speed
 			"charger":
@@ -263,10 +266,10 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 					timer[i] = 2.4
 					var ring: int = 10
 					for k in range(ring):
-						var a: float = TAU * float(k) / float(ring) + randf() * 0.2
+						var a: float = TAU * float(k) / float(ring) + rng.randf() * 0.2
 						_emit_shot(px[i], py[i], cos(a), sin(a), 130.0, 9.0)
-					if randf() < 0.5:
-						_emit_summon(px[i] + randf_range(-40.0, 40.0), py[i] + randf_range(-40.0, 40.0), 2)
+					if rng.randf() < 0.5:
+						_emit_summon(px[i] + rng.randf_range(-40.0, 40.0), py[i] + rng.randf_range(-40.0, 40.0), 2)
 			_:
 				vx[i] = dx / dist * speed
 				vy[i] = dy / dist * speed

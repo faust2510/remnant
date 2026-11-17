@@ -17,6 +17,7 @@ var shot_end: bool = false
 var seal_hp: float = 1.0
 var seal_dmg: float = 1.0
 var seal_rate: float = 1.0
+var seal_ramp: float = 0.0
 var reward: int = 0
 var save_run: bool = false
 var state: GameState
@@ -50,6 +51,9 @@ var boss_spawned: bool = false
 var boss_index: int = -1
 var perfect_flash: float = 0.0
 var shake: float = 0.0
+var last_move_dir: Vector2 = Vector2.ZERO
+var toast_text: String = ""
+var toast_t: float = 0.0
 var hurt_flash: float = 0.0
 var level_flash: float = 0.0
 var sfx: Sfx
@@ -72,6 +76,7 @@ var shot_mode: bool = false
 var shot_path: String = "/tmp/remnant_shot.png"
 var shot_at: float = 6.0
 var sim_speed: int = 1
+var seed_override: int = 0
 var sim_log: Array = []
 var shot_frames: int = 0
 var shot_wait: int = 0
@@ -108,6 +113,8 @@ func _ready() -> void:
 			shot_path = a.substr(12)
 		elif a.begins_with("--sim-speed="):
 			sim_speed = int(a.substr(12))
+		elif a.begins_with("--seed="):
+			seed_override = int(a.substr(7))
 		elif a.begins_with("--shot-fast="):
 			shot_fast = int(a.substr(12))
 		elif a == "--shot-modal":
@@ -131,7 +138,7 @@ func _ready() -> void:
 	# --shot-fast 没配 --shot-at 时，把目标时间当成快进的终点（否则快进到 6 秒就拍照）
 	if shot_fast > 1 and shot_at <= 6.0:
 		shot_at = float(shot_fast)
-	rng.seed = 20261116
+	rng.seed = 20261116 if seed_override == 0 else seed_override
 	stage = GameData.stages_by_id.get(stage_id, {})
 	if stage.is_empty():
 		stage_id = DEFAULT_STAGE
@@ -143,6 +150,8 @@ func _ready() -> void:
 	seal = seal_override if seal_override > 0 else clampi(Meta.selected_seal, 1, 7)
 	seal_hp = 1.0 + Meta.SEAL_HP * float(seal - 1)
 	seal_dmg = 1.0 + Meta.SEAL_DMG * float(seal - 1)
+	# 前 3 分钟渐入：高印考的是构筑成型后的抗压，不是 0:00 一发打不死小兵断掉滚雪球
+	seal_ramp = 1.0
 	seal_rate = 1.0 + Meta.SEAL_RATE * float(seal - 1)
 	state = GameState.new()
 	state.setup(character_id, {} if no_meta else Meta.bonus())
@@ -160,6 +169,9 @@ func _ready() -> void:
 
 	weapons = WeaponRunner.new()
 	weapons.setup(state, enemies, shots)
+	# 无头模拟必须完全可复现：敌人与武器各自用主 rng 派生的种子
+	enemies.rng.seed = rng.randi()
+	weapons.rng.seed = rng.randi()
 
 	player = Vector2.ZERO
 	player_max_hp = float(state.stats.get("max_hp", 100.0))
@@ -274,6 +286,7 @@ func step(delta: float) -> void:
 	elapsed += delta
 	perfect_flash = maxf(perfect_flash - delta, 0.0)
 	hit_cd = maxf(hit_cd - delta, 0.0)
+	toast_t = maxf(toast_t - delta, 0.0)
 	shake = maxf(shake - delta * 26.0, 0.0)
 	hurt_flash = maxf(hurt_flash - delta * 3.2, 0.0)
 	level_flash = maxf(level_flash - delta * 2.4, 0.0)
@@ -286,12 +299,18 @@ func step(delta: float) -> void:
 		if watcher_t <= 0.0:
 			enemies.speed_scale = 1.0
 
-	enemies.hp_scale = (1.0 + pow(maxf(elapsed, 0.0) / 60.0, 0.85) * 0.16) * seal_hp
+	seal_ramp = clampf(elapsed / 180.0, 0.25, 1.0)
+	enemies.hp_scale = (1.0 + pow(maxf(elapsed, 0.0) / 60.0, 0.85) * 0.175) * (1.0 + (seal_hp - 1.0) * seal_ramp)
 
 	_move_player(delta)
 	enemies.rebuild_grid()
 
 	weapons.tick(delta, player, aim_dir)
+	if weapons.heal_pending > 0.0:
+		# 金香坛（圣烟）持续治疗：只在未满血时结算
+		if player_hp < player_max_hp:
+			player_hp = minf(player_hp + weapons.heal_pending, player_max_hp)
+		weapons.heal_pending = 0.0
 	shots.update(delta, enemies)
 
 	var contact: float = enemies.update(delta, player, float(state.stats.get("dot_mult", 1.0)))
@@ -299,8 +318,8 @@ func step(delta: float) -> void:
 		if dash_iframe > 0.0:
 			_trigger_watcher()
 		elif hit_cd <= 0.0:
-			_take_damage(minf(contact, 10.0) * seal_dmg)
-			hit_cd = 0.6
+			_take_damage(minf(contact, 16.0) * seal_dmg)
+			# 无敌帧由 _take_damage 统一设置（0.65s），这里不再覆盖
 	enemies.rebuild_grid()
 
 	_drain_enemy_shots()
@@ -309,8 +328,7 @@ func step(delta: float) -> void:
 		if dash_iframe > 0.0:
 			_trigger_watcher()
 		elif hit_cd <= 0.0:
-			_take_damage(minf(shot_dmg, 14.0) * seal_dmg)
-			hit_cd = 0.45
+			_take_damage(minf(shot_dmg, 18.0) * seal_dmg)
 
 	_drain_fx(delta)
 	_consume_deaths()
@@ -332,6 +350,8 @@ func _move_player(delta: float) -> void:
 		v.y = Input.get_axis("move_up", "move_down")
 	if v.length() > 1.0:
 		v = v.normalized()
+	if v.length() > 0.05:
+		last_move_dir = v.normalized()
 
 	var speed: float = float(state.stats.get("speed", 72.0))
 	var before: Vector2 = player
@@ -390,6 +410,14 @@ func _autopilot_dir() -> Vector2:
 		return (goal - player).normalized()
 	var best := Vector2.RIGHT
 	var best_d: float = -1.0
+	# 宝石坐标只扫一次（原来在 8 个方向里各扫一遍，场上几百颗宝石时是 O(8G)）
+	var gx: PackedFloat32Array = PackedFloat32Array()
+	var gy: PackedFloat32Array = PackedFloat32Array()
+	for g in gems:
+		var gp0 := Vector2(float(g["x"]), float(g["y"]))
+		if player.distance_squared_to(gp0) < 57600.0:
+			gx.append(gp0.x)
+			gy.append(gp0.y)
 	for k in range(8):
 		var a: float = TAU * float(k) / 8.0
 		var p: Vector2 = player + Vector2.from_angle(a) * 70.0
@@ -398,10 +426,9 @@ func _autopilot_dir() -> Vector2:
 		for q in range(n):
 			var i: int = enemies.query_buf[q]
 			d += 1.0 / maxf(Vector2(enemies.px[i], enemies.py[i]).distance_to(p), 4.0)
-		# 顺路捞经验：靠近宝石的方向有额外吸引力
-		for g in gems:
-			var gp := Vector2(float(g["x"]), float(g["y"]))
-			var gd: float = gp.distance_to(p)
+		# 顺路捞经验：靠近宝石的方向有额外吸引力（200px 内才计入）
+		for gi in range(gx.size()):
+			var gd: float = Vector2(gx[gi], gy[gi]).distance_to(p)
 			if gd < 200.0:
 				d -= 0.9 / maxf(gd, 10.0)
 		if best_d < 0.0 or d < best_d:
@@ -505,7 +532,7 @@ func _sim_report() -> void:
 	for p in state.passives:
 		pp.append("%s(Lv%d)" % [String(GameData.passives.get(p["id"], {}).get("name", p["id"])), int(p["level"])])
 	print("[sim] passives=", ", ".join(pp))
-	print("[sim] stage=%s seal=%d reward=%d shillings=%d saved=%s" % [stage_id, seal, reward, Meta.shillings, str(not sim_mode or save_run)])
+	print("[sim] stage=%s seal=%d reward=%d shillings=%d saved=%s armor=%d" % [stage_id, seal, reward, Meta.shillings, str(not sim_mode or save_run), state.armor.size()])
 	print("[sim] SIM_DONE")
 	get_tree().quit()
 
@@ -516,9 +543,9 @@ func _finish(victory: bool) -> void:
 	won = victory
 	modal = false
 	chooser.close()
-	reward = int(round(float(Meta.reward_for(victory, state.kills, elapsed)) * stage_coin))
+	reward = int(round(float(Meta.reward_for(victory, state.kills, elapsed, seal)) * stage_coin))
 	if not sim_mode or save_run:
-		Meta.register_run(victory, state.kills, elapsed)
+		Meta.register_run(victory, state.kills, elapsed, seal)
 	shake = maxf(shake, 6.0)
 	if victory:
 		sfx.play("fuse", 0.0, 0.75, 1.0)
@@ -579,6 +606,8 @@ func _consume_deaths() -> void:
 			state.coals += int(d["coal"])
 		if bool(d["boss"]):
 			_finish(true)
+		elif bool(d["elite"]):
+			_grant_armor()
 	if not enemies.deaths.is_empty():
 		sfx.play("hit", -6.0, randf_range(0.9, 1.15), 0.045)
 	enemies.deaths.clear()
@@ -610,6 +639,11 @@ func _check_ascend() -> void:
 	for n in newly:
 		var evo: Dictionary = n["evolve"]
 		weapons.trigger_nova(String(evo.get("brew", "")), player)
+		sfx.play("fuse", 0.0, 1.35, 0.4)
+		toast_text = "成全 · " + String(evo.get("name", String(evo.get("brew", ""))))
+		toast_t = 2.4
+		shake = maxf(shake, 5.0)
+		active_fx.append({ "kind": "nova", "x": player.x, "y": player.y, "r": 150.0, "life": 0.42, "color": Color("#F3E3A8") })
 
 # ---------------------------------------------------------------- 刷怪
 
@@ -628,7 +662,10 @@ func _recycle_far(delta: float) -> void:
 		var dx: float = e.px[i] - player.x
 		var dy: float = e.py[i] - player.y
 		if dx * dx + dy * dy > lim2:
+			# 70% 投放在移动方向的侧后方扇区（追击压迫），30% 全向随机（留一条走位走廊）
 			var a: float = rng.randf() * TAU
+			if last_move_dir != Vector2.ZERO and rng.randf() < 0.7:
+				a = last_move_dir.angle() + PI + rng.randf_range(-0.9, 0.9)
 			var d: float = 330.0 + rng.randf() * 110.0
 			e.px[i] = player.x + cos(a) * d
 			e.py[i] = player.y + sin(a) * d
@@ -716,7 +753,7 @@ func _altars_and_events() -> void:
 		_try_altar()
 
 func _auto_altar() -> void:
-	if state.available_fusions(true).is_empty():
+	if not _altar_useful():
 		return
 	for a in altars:
 		if bool(a.get("used", false)):
@@ -725,9 +762,27 @@ func _auto_altar() -> void:
 			_open_altar(a)
 			return
 
+## 祭坛值不值得跑：要么已经能祝圣，要么还能领到「配材之光」把差一块砖的武器补上。
+## （原来只判 available_fusions，导致模拟模式永远吃不到 _grant_partner 的赠送）
+func _altar_useful() -> bool:
+	if not state.available_fusions(true).is_empty():
+		return true
+	if state.passives.size() >= state.max_passive_slots():
+		return false
+	for w in state.weapons:
+		if String(w.get("kind", "base")) != "base":
+			continue
+		var fd: Dictionary = GameData.fusion_by_weapon.get(String(w["id"]), {})
+		if fd.is_empty():
+			continue
+		var pid: String = String(fd.get("passive", ""))
+		if GameData.passives.has(pid) and not state.has_passive(pid):
+			return true
+	return false
+
 ## 有火炭且场上有未用祭坛时，自动驾驶先走过去
 func _altar_target() -> Vector2:
-	if state.available_fusions(true).is_empty():
+	if not _altar_useful():
 		return Vector2.INF
 	for a in altars:
 		if not bool(a.get("used", false)):
@@ -784,6 +839,8 @@ func _level_options() -> Array:
 		if state.passives.size() >= state.max_passive_slots():
 			break
 		var pd: Dictionary = GameData.passives[pid]
+		if String(pd.get("kind", "")) == "armor":
+			continue
 		cand.append({ "kind": "new_passive", "id": pid, "name": String(pd.get("name", pid)), "tag": "新被动", "desc": String(pd.get("desc", "")), "color": Color("#B8C4A8") })
 	for j in range(state.passives.size()):
 		var ps: Dictionary = state.passives[j]
@@ -813,6 +870,25 @@ func _level_options() -> Array:
 			if k2 == "new_weapon" or k2 == "up_weapon":
 				out[out.size() - 1] = o
 				break
+	# 首升互补：第一次领受时只有一把单体线弹，强制给一张 AOE 形态的新武器
+	# （否则前 5 级连抽强化/被动，画面里永远只有一个方向的弹道，高印直接断档）
+	if state.level <= 2 and state.weapons.size() == 1:
+		var cur_beh: String = String(state.weapon_def(state.weapons[0]).get("behavior", ""))
+		var aoe: Array = []
+		for o2 in cand:
+			if String(o2.get("kind", "")) != "new_weapon":
+				continue
+			var beh: String = String(GameData.weapons.get(String(o2["id"]), {}).get("behavior", ""))
+			if beh != cur_beh and (beh == "orbit" or beh == "zone" or beh == "arc_melee"):
+				aoe.append(o2)
+		if not aoe.is_empty():
+			var has_aoe: bool = false
+			for o3 in out:
+				if String(o3.get("kind", "")) == "new_weapon" and aoe.has(o3):
+					has_aoe = true
+					break
+			if not has_aoe and not out.is_empty():
+				out[0] = aoe[rng.randi_range(0, aoe.size() - 1)]
 	# 祝圣的预备：差一级满级的武器 + 已有配材 → 该强化保底出现，避免差一块砖却抽不到的挫败
 	var pri: String = _fusion_ready_weapon()
 	if pri != "":
@@ -828,6 +904,26 @@ func _level_options() -> Array:
 					break
 	return out
 
+## 精英掉落：全副军装（不占被动槽、不参与祝圣配方），让击杀六指巨人这类精英有即时的爽感。
+func _grant_armor() -> void:
+	var pool: Array = []
+	for pid in GameData.passives.keys():
+		var pd: Dictionary = GameData.passives[pid]
+		if String(pd.get("kind", "")) != "armor":
+			continue
+		if state.has_armor(pid):
+			continue
+		pool.append(pid)
+	if pool.is_empty():
+		return
+	var pick: String = String(pool[rng.randi_range(0, pool.size() - 1)])
+	if not state.add_armor(pick):
+		return
+	var nm: String = String(GameData.passives.get(pick, {}).get("name", pick))
+	toast_text = "得军装 · " + nm
+	toast_t = 1.8
+	active_fx.append({ "kind": "nova", "x": player.x, "y": player.y, "r": 54.0, "life": 0.45, "color": Color("#D8C48A") })
+	sfx.play("level", -4.0, 0.9, 0.25)
 ## 差一级就能祝圣的武器（Lv4 且配材已到手），返回 id 或空串。
 func _fusion_ready_weapon() -> String:
 	for w in state.weapons:
@@ -918,6 +1014,9 @@ func _grant_partner() -> bool:
 		var pid: String = String(f.get("passive", ""))
 		if pid == "" or state.has_passive(pid) or not GameData.passives.has(pid):
 			continue
+		# 只补「快成型」的武器（Lv3+）：给 1 级武器配材等于提前浪费一个果子槽
+		if int(w["level"]) < 3:
+			continue
 		if int(w["level"]) > best_lv:
 			best_lv = int(w["level"])
 			best = i
@@ -962,7 +1061,7 @@ func _apply_altar_choice(index: int) -> void:
 	var fusion: Dictionary = GameData.fusion_by_id.get(fid, {})
 	if fusion.is_empty():
 		return
-	state.apply_fusion(fusion, int(o["slot"]), int(o["slot_b"]))
+	state.apply_fusion(fusion, int(o["slot"]), int(o["slot_b"]), state.kills)
 	active_fx.append({ "kind": "nova", "x": player.x, "y": player.y, "r": 240.0, "life": 0.8, "color": Color("#E0B85A") })
 	shake = maxf(shake, 7.0)
 	sfx.play("fuse", -1.0, 1.0, 0.4)

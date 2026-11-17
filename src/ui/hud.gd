@@ -51,7 +51,7 @@ func _draw() -> void:
 	draw_string(f, Vector2(560, 18), _fmt_time(run.elapsed), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#E8DCC0"))
 	draw_string(f, Vector2(6, 32), "击杀 %d" % st.kills, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.75, 0.72, 0.65))
 	if st.coals > 0:
-		draw_string(f, Vector2(80, 32), "火炭 %d   [E] 祭坛" % st.coals, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color("#E0731A"))
+		draw_string(f, Vector2(6, 46), "火炭 %d · [E] 祭坛" % st.coals, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color("#E0731A"))
 
 	# ---- 左下：HP 条
 	var hp_frac: float = clampf(run.player_hp / maxf(run.player_max_hp, 1.0), 0.0, 1.0)
@@ -79,6 +79,17 @@ func _draw() -> void:
 		px -= 18.0
 		draw_rect(Rect2(px, 322, 16, 12), Color(0.12, 0.12, 0.16, 0.85), true)
 		draw_string(f, Vector2(px + 1, 330), String(pdef.get("name", "?")).substr(0, 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color("#B8C4A8"))
+	# 全副军装：精英战利品，单独一行小金字，不占果子槽
+	var ax: float = 640.0 - 8.0
+	for i in range(st.armor.size() - 1, -1, -1):
+		var adef: Dictionary = GameData.passives.get(String(st.armor[i]["id"]), {})
+		ax -= 15.0
+		draw_rect(Rect2(ax, 338, 13, 10), Color(0.18, 0.16, 0.10, 0.85), true)
+		draw_string(f, Vector2(ax + 1, 345), String(adef.get("name", "?")).substr(0, 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 6, Color("#D8C48A"))
+	# 战利品浮字（得军装 / 得火炭）
+	if run.toast_t > 0.0:
+		var ta: float = clampf(run.toast_t / 0.8, 0.0, 1.0)
+		draw_string(f, Vector2(0, 268), run.toast_text, HORIZONTAL_ALIGNMENT_CENTER, 640, 10, Color(0.95, 0.87, 0.62, ta))
 
 	# ---- BOSS 血条
 	if run.boss_index >= 0 and run.boss_index < run.enemies.count:
@@ -86,12 +97,14 @@ func _draw() -> void:
 		var frac: float = clampf(e.hp[run.boss_index] / maxf(e.max_hp[run.boss_index], 1.0), 0.0, 1.0)
 		draw_rect(Rect2(160, 12, 320, 8), Color(0.08, 0.09, 0.12, 0.9), true)
 		draw_rect(Rect2(160, 12, 320.0 * frac, 8), Color("#8E2F2F"), true)
-		draw_string(f, Vector2(160, 34), "歌利亚", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color("#E8DCC0"))
+		var bid: String = String(e.type_ids[e.typ[run.boss_index]])
+		var bname: String = String(GameData.enemies.get(bid, {}).get("name", "首领"))
+		draw_string(f, Vector2(160, 34), bname, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color("#E8DCC0"))
 
 	# ---- 结算
 	if run.over:
 		draw_rect(Rect2(0, 0, 640, 360), Color(0.03, 0.04, 0.07, 0.86), true)
-		var head: String = "约柜得胜" if run.won else "倒在以拉谷"
+		var head: String = "约柜得胜" if run.won else ("倒在" + String(run.stage.get("name", "战场")))
 		draw_string(f, Vector2(0, 130), head, HORIZONTAL_ALIGNMENT_CENTER, 640, 20, Color("#E0B85A") if run.won else Color("#B0424A"))
 		draw_string(f, Vector2(0, 168), "存活 %s   击杀 %d   等级 %d" % [_fmt_time(run.elapsed), st.kills, st.level], HORIZONTAL_ALIGNMENT_CENTER, 640, 11, Color("#E8DCC0"))
 		var fb: int = 0

@@ -10,7 +10,7 @@
       "boss_at": 690,
       "budget": {
         "base": 210,
-        "per_minute": 70,
+        "per_minute": 76,
         "max_alive": 620
       },
       "mix": [
@@ -130,7 +130,7 @@
       "boss_at": 660,
       "budget": {
         "base": 230,
-        "per_minute": 66,
+        "per_minute": 70,
         "max_alive": 560
       },
       "mix": [

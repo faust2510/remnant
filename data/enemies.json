@@ -74,7 +74,7 @@
     {
       "id": "goliath",
       "name": "歌利亚",
-      "hp": 7000,
+      "hp": 9500,
       "speed": 44,
       "damage": 14,
       "radius": 20,
@@ -103,7 +103,7 @@
     {
       "id": "the_tempter",
       "name": "旷野的试探者",
-      "hp": 8200,
+      "hp": 10500,
       "speed": 52,
       "damage": 16,
       "radius": 22,

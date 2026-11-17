@@ -131,20 +131,23 @@ func bonus() -> Dictionary:
 
 # ---------------------------------------------------------------- 结算
 
-func reward_for(victory: bool, kills: int, seconds: float) -> int:
+## seal <= 0 时用存档里选中的印；命令行 --seal=N 跑局时必须把真实印传进来，否则结算系数与实际难度不符。
+func reward_for(victory: bool, kills: int, seconds: float, seal: int = -1) -> int:
 	var base: int = int(seconds / 8.0) + int(kills / 3.0) + (120 if victory else 0)
-	return int(float(base) * seal_mult())
+	return int(float(base) * seal_mult(seal))
 
-func seal_mult() -> float:
-	return 1.0 + 0.3 * float(selected_seal - 1)
+func seal_mult(seal: int = -1) -> float:
+	var s: int = selected_seal if seal <= 0 else seal
+	return 1.0 + 0.3 * float(clampi(s, 1, 7) - 1)
 
-func register_run(victory: bool, kills: int, seconds: float) -> int:
-	var gain: int = reward_for(victory, kills, seconds)
+func register_run(victory: bool, kills: int, seconds: float, seal: int = -1) -> int:
+	var gain: int = reward_for(victory, kills, seconds, seal)
 	shillings += gain
 	runs += 1
 	if victory:
 		wins += 1
-		seals = clampi(maxi(seals, selected_seal + 1), 1, 7)
+		var s: int = selected_seal if seal <= 0 else seal
+		seals = clampi(maxi(seals, s + 1), 1, 7)
 	best_kills = maxi(best_kills, kills)
 	best_time = maxf(best_time, seconds)
 	lifetime_kills += kills
