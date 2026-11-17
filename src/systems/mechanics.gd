@@ -946,7 +946,8 @@ func _spot_color(k: String) -> String:
 ## 给 HUD 的一行机关提示
 func hint() -> String:
 	match id:
-		"dry_creek": return "干涸溪床 · 站上降温  CD -10% ｜ 石 %d/5" % int(counters.get("stones", 0))
+		# 「CD -10%」里的 % 必须写成 %%：这行后面用 % 运算符填石数，裸 % 会被当成格式符
+		"dry_creek": return "干涸溪床 · 站上降温  CD -10%% ｜ 石 %d/5" % int(counters.get("stones", 0))
 		"lightning_zones": return "十诫雷击 · 圈落前离开"
 		"drought_fire": return "旱灾 · 回血减半；天火祭坛注水反转"
 		"altar_charge": return "亚伯拉罕古坛 · 圈内每 40 杀召金羊"

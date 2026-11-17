@@ -31,6 +31,9 @@ var tremor_t: PackedFloat32Array
 var blind_t: PackedFloat32Array
 var wet_t: PackedFloat32Array
 var fear_t: PackedFloat32Array
+## 区域减速：剩余秒数与速度倍率（活水 tidal_push 等持续刷新，1.0 = 不减速）
+var slow_t: PackedFloat32Array
+var slow_mul: PackedFloat32Array
 
 # 行为计时与本帧输出
 var timer: PackedFloat32Array
@@ -39,7 +42,10 @@ var touch_cd: PackedFloat32Array
 ## 俯冲锁定方向（dive 行为专用：起手时锁定角度，冲刺阶段不再追人）
 var dive_a: PackedFloat32Array
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+## 本局累计模拟时间（秒）。任何计时都读它，禁止 Time.get_ticks_msec()——否则同种子不同机器出不同结果。
 var sim_time: float = 0.0
+## 本帧最强接触伤害是否来自精英 / BOSS（run 侧据此放宽单次上限）。
+var contact_elite: bool = false
 var hp_scale: float = 1.0
 var speed_scale: float = 1.0
 
@@ -109,6 +115,7 @@ func setup(type_defs: Array) -> void:
 	tremor_t.resize(CAPACITY); blind_t.resize(CAPACITY); wet_t.resize(CAPACITY); fear_t.resize(CAPACITY)
 	timer.resize(CAPACITY); state.resize(CAPACITY); touch_cd.resize(CAPACITY); dive_a.resize(CAPACITY)
 	totem_t.resize(CAPACITY); affix_t.resize(CAPACITY); haste_t.resize(CAPACITY)
+	slow_t.resize(CAPACITY); slow_mul.resize(CAPACITY)
 	affix_flags.resize(types.size())
 	for k in range(types.size()):
 		affix_flags[k] = _decode_affix(String(types[k].get("elite_affix", "")))
@@ -118,6 +125,9 @@ func setup(type_defs: Array) -> void:
 	totem_count = 0
 	burn_cap = 5
 	boss_dmg_taken = 0.0
+	# 确定性：时钟与重击标记随本局重置，同一 seed + 同一命令逐位一致
+	sim_time = 0.0
+	contact_elite = false
 	affix_enabled = OS.get_environment("REMNANT_NO_AFFIX") != "1"
 	grid = SpatialGrid.new()
 	grid.setup(CAPACITY, 32.0)
@@ -141,6 +151,8 @@ func clear() -> void:
 	boss_idx = -1
 	totem_count = 0
 	burn_cap = 5
+	sim_time = 0.0
+	contact_elite = false
 
 func type_index_of(id: String) -> int:
 	return type_ids.find(id)
@@ -168,6 +180,8 @@ func spawn(ti: int, x: float, y: float, phase: int = 0) -> int:
 	dive_a[i] = 0.0
 	totem_t[i] = 0.0
 	haste_t[i] = 0.0
+	slow_t[i] = 0.0
+	slow_mul[i] = 1.0
 	affix_t[i] = rng.randf() * 1.5
 	# BOSS 自带三阶段技能控制器：挂在模拟层内，run 侧无需接线
 	if String(t.get("behavior", "")) == "boss":
@@ -188,6 +202,7 @@ func _swap_remove(i: int) -> void:
 		tremor_t[i] = tremor_t[last]; blind_t[i] = blind_t[last]; wet_t[i] = wet_t[last]; fear_t[i] = fear_t[last]
 		timer[i] = timer[last]; state[i] = state[last]; touch_cd[i] = touch_cd[last]; dive_a[i] = dive_a[last]
 		totem_t[i] = totem_t[last]; haste_t[i] = haste_t[last]; affix_t[i] = affix_t[last]
+		slow_t[i] = slow_t[last]; slow_mul[i] = slow_mul[last]
 	# BOSS 索引迁移：被删的正好是 BOSS 就释放控制器，否则把控制器的 idx 跟到新槽位
 	if boss_idx >= 0:
 		if i == boss_idx:
@@ -281,6 +296,18 @@ func apply_status(i: int, status: String, dps: float) -> void:
 			fear_t[i] = maxf(fear_t[i], 2.0)
 		_: pass
 
+## 区域减速（活水等）：中心 (cx,cy) 半径 r 内敌人限速到 mult，持续 dur 秒。
+## 只写状态数组、不消耗 rng，因此不改变既有种子的随机流。
+func slow_area(cx: float, cy: float, r: float, mult: float, dur: float) -> void:
+	if mult >= 1.0 or mult <= 0.0 or dur <= 0.0:
+		return
+	var ids: PackedInt32Array = indices_in_circle(cx, cy, r)
+	for i in ids:
+		if i < 0 or i >= count:
+			continue
+		slow_mul[i] = mult if slow_t[i] <= 0.0 else minf(slow_mul[i], mult)
+		slow_t[i] = maxf(slow_t[i], dur)
+
 func knockback(i: int, dir_x: float, dir_y: float, force: float) -> void:
 	if i < 0 or i >= count:
 		return
@@ -301,7 +328,12 @@ func query(x: float, y: float, radius: float) -> int:
 func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 	sim_time += delta
 	var contact := 0.0
-	contact = maxf(contact, _tick_hazards(delta, ppos))
+	contact_elite = false
+	var hz_dmg: float = _tick_hazards(delta, ppos)
+	if hz_dmg > 0.0:
+		# 场地危害只由 BOSS / 精英技能落下，按重击来源处理
+		contact = maxf(contact, hz_dmg)
+		contact_elite = true
 	var i: int = 0
 	while i < count:
 		var t: Dictionary = types[typ[i]]
@@ -321,6 +353,7 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 		if wet_t[i] > 0.0: wet_t[i] -= delta
 		if fear_t[i] > 0.0: fear_t[i] -= delta
 		if haste_t[i] > 0.0: haste_t[i] -= delta
+		if slow_t[i] > 0.0: slow_t[i] -= delta
 
 		# ---- 图腾：站桩、不造成接触伤害，寿命结束静默消失
 		if totem_t[i] > 0.0:
@@ -344,6 +377,7 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 			_tick_affix(i, fl, delta, ppos, dx, dy, dist)
 
 		var slow: float = 0.7 if tremor_t[i] > 0.0 else 1.0
+		if slow_t[i] > 0.0: slow = minf(slow, slow_mul[i])
 		var haste: float = 1.25 if haste_t[i] > 0.0 else 1.0
 		var speed: float = spd[i] * slow * haste
 
@@ -445,7 +479,11 @@ func update(delta: float, ppos: Vector2, dot_mult: float) -> float:
 		var rr: float = rad[i] + 7.0
 		if dist < rr and touch_cd[i] <= 0.0:
 			# 只吃「最强的那一下」，不做多体叠加，否则被围住就是秒杀
-			contact = maxf(contact, dmg[i] * haste)
+			var hit_dmg: float = dmg[i] * haste
+			if hit_dmg > contact:
+				contact = hit_dmg
+				# 契约 3.1：只有精英 / BOSS 的接触才允许放宽到 18.0
+				contact_elite = is_elite(i) or is_boss(i)
 			touch_cd[i] = 0.8
 		i += 1
 

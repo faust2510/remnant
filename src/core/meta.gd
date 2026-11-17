@@ -374,7 +374,9 @@ func tier_spawn_rate(t: int = -1) -> float:
 
 # ---------------------------------------------------------------- 结算
 
-## seal <= 0 时用当前灾变阶；命令行 --seal=N 跑局时必须把真实印传进来，否则结算系数与实际难度不符。
+## 结算银两公式。seal <= 0 才回落到 save 里的当前灾变阶（effective_tier）。
+## 契约 F：命令行 --seal=N 跑局时调用方（run.gd）必须显式传本局印，不能读存档阶，
+##       否则结算系数与这一局的实际难度对不上。
 func reward_for(victory: bool, kills: int, seconds: float, seal: int = -1) -> int:
 	var base: int = int(seconds / 8.0) + int(kills / 3.0) + (120 if victory else 0)
 	return int(float(base) * seal_mult(seal))
@@ -390,6 +392,8 @@ func seal_mult(seal: int = -1) -> float:
 	var ease: float = p * p * (3.0 - 2.0 * p)
 	return seal_top + (SEAL_MULT_TOP - seal_top) * ease
 
+## 结算并写档。seal 语义与 reward_for 完全一致：<= 0 才读存档阶，
+## --seal=N 跑局时必须由调用方显式传本局印（契约 F），觉醒判定也只看这个 seal。
 func register_run(victory: bool, kills: int, seconds: float, seal: int = -1) -> int:
 	var gain: int = reward_for(victory, kills, seconds, seal)
 	shillings += gain

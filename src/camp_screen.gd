@@ -1,31 +1,33 @@
 extends Control
-## 营地：两页签（强化 / 会幕）+ 常驻试炼行与出发行。
-## 试炼覆盖 stages.json 全部 24 章（按 Meta.wins 与 unlock_wins 解锁），
-## ←→ 在 24 章间移动，Enter 出发；Tab 切页；V 打开图鉴；右栏固定灾变阶面板。
+## 营地：左侧 6 张强化 / 会幕卡片（图标框 + 名称 + 价格 + 等级星标），
+## 右上七印金点（←→ 调整、可直接点击）+ 当前加成摘要，右下试炼地图卡，
+## 底部固定「出发」按钮。↑↓ 选卡，Enter 购买 / 出发，Tab 切页，V 图鉴，Esc 返回。
 
-const ROW_X := 28.0
-const ROW_W := 344.0
-const ROW_H := 25.0
-const ROW_STEP := 27.0
-const ROW_Y0 := 80.0
-const STAGE_Y := 244.0
-const STAGE_H := 30.0
-const ENTER_Y := 278.0
-const ENTER_H := 26.0
-const PANEL_X := 384.0
-const PANEL_W := 228.0
-const TIER_Y := 54.0
-const TIER_H := 100.0
-const DETAIL_Y := 160.0
-const DETAIL_H := 140.0
+const CARD_X := 24.0
+const CARD_W := 308.0
+const CARD_H := 34.0
+const CARD_STEP := 37.0
+const CARD_Y0 := 76.0
+const DEPART_Y := 302.0
+const DEPART_H := 38.0
+const PANEL_X := 340.0
+const PANEL_W := 276.0
+const SEAL_Y := 76.0
+const SEAL_H := 102.0
+const STAGE_Y := 184.0
+const STAGE_H := 111.0
 const PAGE_NAMES := ["强化", "会幕", "图鉴"]
 const STAGE_ROW := 6
 const ENTER_ROW := 7
+const SEAL_MAX := 7
+const EMBER_COUNT := 18
 
 var sel: int = 0
 var page: int = 0
 var hover: int = -1
 var tab_hover: int = -1
+var seal_hover: int = 0
+var stage_arrow_hover: int = -1
 var stage_cursor: int = 0
 var t: float = 0.0
 var sfx: Sfx
@@ -192,6 +194,63 @@ func _witness_name() -> String:
 	var c: Dictionary = GameData.characters_by_id.get(cid, {})
 	return String(c.get("name", cid))
 
+func _silver_mult() -> float:
+	var cur: int = Meta.effective_tier()
+	var tr: Dictionary = Meta.tier_row(cur)
+	return float(tr.get("silver_mult", Meta.seal_mult(cur)))
+
+func _difficulty_stars(s: Dictionary) -> int:
+	var budget: Dictionary = s.get("budget", {})
+	var score: float = float(budget.get("base", 0)) + float(budget.get("per_minute", 0)) * 5.0
+	var ratio: float = clampf((score - 450.0) / 290.0, 0.0, 1.0)
+	return clampi(1 + int(round(ratio * 4.0)), 1, 5)
+
+func _upgrade_card(i: int) -> Dictionary:
+	if page != 0 or i < 0 or i >= Meta.UPGRADES.size():
+		return {}
+	var u: Dictionary = Meta.UPGRADES[i]
+	var id: String = String(u.get("id", ""))
+	var lv: int = Meta.level_of(id)
+	var mx: int = int(u.get("max", 5))
+	var cost: int = 0
+	var state: String = "ok"
+	if lv >= mx:
+		state = "max"
+	else:
+		cost = Meta.upgrade_cost(id)
+	return {
+		"id": id, "name": String(u.get("name", "")), "desc": String(u.get("desc", "")),
+		"level": lv, "max": mx, "cost": cost, "state": state, "glyph": id
+	}
+
+func _building_card(i: int) -> Dictionary:
+	if page != 1:
+		return {}
+	var b: Dictionary = _building_at(i)
+	if b.is_empty():
+		return {}
+	var st: Dictionary = _building_status(b)
+	var ups: Array = _all_upgrades(b)
+	var state: String = "ok"
+	if bool(st["pending"]):
+		state = "pending"
+	elif not bool(st["unlock_ok"]):
+		state = "locked"
+	elif bool(st["maxed"]):
+		state = "max"
+	var glyph: String = String(b.get("id", ""))
+	if not ups.is_empty():
+		glyph = String(ups[0].get("id", glyph))
+	return {
+		"id": String(b.get("id", "")), "name": String(b.get("name", "")),
+		"desc": String(b.get("desc", "")), "level": int(st["level"]),
+		"max": maxi(ups.size(), 1), "cost": int(st["cost"]), "state": state, "glyph": glyph,
+		"unlocks": String(b.get("unlocks", ""))
+	}
+
+func _card_view(i: int) -> Dictionary:
+	return _upgrade_card(i) if page == 0 else _building_card(i)
+
 # ---------------------------------------------------------------- 操作
 
 func _enter() -> void:
@@ -245,6 +304,19 @@ func _adjust_tier(dir: int) -> void:
 	sfx.play("pickup", -10.0, 1.1)
 	_notify("灾变阶 · %s" % Meta.tier_name())
 
+func _set_tier(n: int) -> void:
+	var hi: int = Meta.max_tier_allowed()
+	if n > hi:
+		sfx.play("hit", -14.0, 0.8)
+		_notify("第 %d 阶以上需圣物「七印书卷」（通关第 7 印解锁）" % (hi + 1))
+		return
+	if n == Meta.effective_tier():
+		return
+	Meta.set_tier(n)
+	Meta.save_save()
+	sfx.play("pickup", -10.0, 1.1)
+	_notify("灾变阶 · %s" % Meta.tier_name())
+
 func _buy_upgrade() -> void:
 	var u: Dictionary = _upgrade_at(sel)
 	if u.is_empty():
@@ -294,11 +366,7 @@ func _buy_building() -> void:
 		_notify("舍客勒不足：还需 %d" % maxi(cost - Meta.shillings, 0))
 
 func _activate(i: int) -> void:
-	if i == STAGE_ROW:
-		# 试炼行 Enter 直接出发；锁定章节由 _enter 提示并拦下
-		_enter()
-		return
-	if i == ENTER_ROW:
+	if i == STAGE_ROW or i == ENTER_ROW:
 		_enter()
 		return
 	if page == 1:
@@ -317,21 +385,50 @@ func _open_codex() -> void:
 
 # ---------------------------------------------------------------- 布局
 
-func _row_rect(i: int) -> Rect2:
-	return Rect2(ROW_X, ROW_Y0 + float(i) * ROW_STEP, ROW_W, ROW_H)
+func _card_rect(i: int) -> Rect2:
+	return Rect2(CARD_X, CARD_Y0 + float(i) * CARD_STEP, CARD_W, CARD_H)
 
-func _stage_rect() -> Rect2:
-	return Rect2(ROW_X, STAGE_Y, ROW_W, STAGE_H)
+func _depart_rect() -> Rect2:
+	return Rect2(CARD_X, DEPART_Y, CARD_W, DEPART_H)
 
-func _enter_rect() -> Rect2:
-	return Rect2(ROW_X, ENTER_Y, ROW_W, ENTER_H)
+func _stage_card_rect() -> Rect2:
+	return Rect2(PANEL_X, STAGE_Y, PANEL_W, STAGE_H)
+
+func _seal_rect() -> Rect2:
+	return Rect2(PANEL_X, SEAL_Y, PANEL_W, SEAL_H)
 
 func _tab_rect(i: int) -> Rect2:
-	return Rect2(28.0 + float(i) * 92.0, 52.0, 88.0, 22.0)
+	return Rect2(24.0 + float(i) * 94.0, 50.0, 88.0, 22.0)
 
-func _stage_arrow_rect(which: int) -> Rect2:
-	var r: Rect2 = _stage_rect()
-	return Rect2(r.position.x + r.size.x - (60.0 if which == 0 else 32.0), r.position.y + 4.0, 24.0, 22.0)
+func _seal_dot_pos(n: int) -> Vector2:
+	return Vector2(PANEL_X + 34.0 + float(n - 1) * 32.0, SEAL_Y + 34.0)
+
+## 左右箭头：手绘 V 形（宋体里的 ‹ › 会渲染成「( )」，实机像乱码）
+func _chevron(ar: Rect2, side: int, col: Color) -> void:
+	var cx: float = ar.position.x + ar.size.x * 0.5
+	var cy: float = ar.position.y + ar.size.y * 0.5
+	var w: float = ar.size.x * 0.22
+	var h: float = ar.size.y * 0.24
+	var sgn: float = 1.0 if side == 0 else -1.0   # side 0 = 左箭头，顶点必须朝左
+	draw_line(Vector2(cx + sgn * w * 0.5, cy - h), Vector2(cx - sgn * w * 0.5, cy), col, 2.0)
+	draw_line(Vector2(cx - sgn * w * 0.5, cy), Vector2(cx + sgn * w * 0.5, cy + h), col, 2.0)
+
+func _seal_arrow_rect(side: int) -> Rect2:
+	return Rect2(PANEL_X + (2.0 if side == 0 else PANEL_W - 30.0), SEAL_Y + 26.0, 18.0, 20.0)
+
+func _stage_arrow_rect(side: int) -> Rect2:
+	var r: Rect2 = _stage_card_rect()
+	return Rect2(r.position.x + r.size.x - (56.0 if side == 0 else 30.0), r.position.y + 6.0, 22.0, 20.0)
+
+func _pointer_row(m: Vector2) -> int:
+	for i in range(6):
+		if _card_rect(i).has_point(m):
+			return i
+	if _stage_card_rect().has_point(m):
+		return STAGE_ROW
+	if _depart_rect().has_point(m):
+		return ENTER_ROW
+	return -1
 
 # ---------------------------------------------------------------- 输入
 
@@ -370,24 +467,26 @@ func _input(e: InputEvent) -> void:
 func _gui_input(e: InputEvent) -> void:
 	if e is InputEventMouseMotion:
 		var m: Vector2 = e.position
-		hover = -1
-		tab_hover = -1
-		for i in range(3):
-			if _tab_rect(i).has_point(m):
-				tab_hover = i
-		for i in range(_rows()):
-			var rr: Rect2 = _stage_rect() if i == STAGE_ROW else (_enter_rect() if i == ENTER_ROW else _row_rect(i))
-			if rr.has_point(m):
-				hover = i
-				sel = i
+		var row: int = _pointer_row(m)
+		if row >= 0:
+			hover = row
+			sel = row
 	elif e is InputEventMouseButton and e.pressed:
 		var m2: Vector2 = e.position
-		if e.button_index == MOUSE_BUTTON_WHEEL_UP and _stage_rect().has_point(m2):
-			_cycle_stage(-1)
-			return
-		if e.button_index == MOUSE_BUTTON_WHEEL_DOWN and _stage_rect().has_point(m2):
-			_cycle_stage(1)
-			return
+		if e.button_index == MOUSE_BUTTON_WHEEL_UP:
+			if _seal_rect().has_point(m2):
+				_adjust_tier(-1)
+				return
+			if _stage_card_rect().has_point(m2):
+				_cycle_stage(-1)
+				return
+		if e.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			if _seal_rect().has_point(m2):
+				_adjust_tier(1)
+				return
+			if _stage_card_rect().has_point(m2):
+				_cycle_stage(1)
+				return
 		if e.button_index != MOUSE_BUTTON_LEFT:
 			return
 		for i in range(3):
@@ -398,17 +497,26 @@ func _gui_input(e: InputEvent) -> void:
 					page = i
 					sfx.play("pickup", -12.0)
 				return
-		if _stage_rect().has_point(m2):
-			if _stage_arrow_rect(0).has_point(m2):
-				_cycle_stage(-1)
-			elif _stage_arrow_rect(1).has_point(m2):
-				_cycle_stage(1)
-			else:
-				sel = STAGE_ROW
+		for n in range(1, 8):
+			if _seal_dot_pos(n).distance_to(m2) <= 11.0:
+				_set_tier(n)
+				return
+		for side in range(2):
+			if _seal_arrow_rect(side).has_point(m2):
+				_adjust_tier(-1 if side == 0 else 1)
+				return
+			if _stage_arrow_rect(side).has_point(m2):
+				_cycle_stage(-1 if side == 0 else 1)
+				return
+		if _stage_card_rect().has_point(m2):
+			sel = STAGE_ROW
 			return
-		for i in range(_rows()):
-			var rr: Rect2 = _enter_rect() if i == ENTER_ROW else (_row_rect(i) if i != STAGE_ROW else _stage_rect())
-			if rr.has_point(m2):
+		if _depart_rect().has_point(m2):
+			sel = ENTER_ROW
+			_enter()
+			return
+		for i in range(6):
+			if _card_rect(i).has_point(m2):
 				sel = i
 				_activate(i)
 				return
@@ -417,6 +525,23 @@ func _process(d: float) -> void:
 	t += d
 	flash = maxf(0.0, flash - d * 2.5)
 	notice_t = maxf(0.0, notice_t - d)
+	var m: Vector2 = get_local_mouse_position()
+	hover = _pointer_row(m)
+	tab_hover = -1
+	for i in range(3):
+		if _tab_rect(i).has_point(m):
+			tab_hover = i
+	seal_hover = 0
+	var sd: float = 999.0
+	for n in range(1, 8):
+		var d2: float = _seal_dot_pos(n).distance_to(m)
+		if d2 < sd and d2 <= 12.0:
+			sd = d2
+			seal_hover = n
+	stage_arrow_hover = -1
+	for side in range(2):
+		if _stage_arrow_rect(side).has_point(m):
+			stage_arrow_hover = side
 	queue_redraw()
 	if shot_camp:
 		shot_frames += 1
@@ -431,295 +556,276 @@ func _process(d: float) -> void:
 
 func _draw() -> void:
 	var font: Font = GameFont.get_font()
-	draw_rect(Rect2(0, 0, 640, 360), Color(0.055, 0.06, 0.08), true)
-	for i in range(6):
-		draw_rect(Rect2(0, float(i) * 60.0, 640, 30.0), Color(1, 1, 1, 0.012), true)
+	_draw_background()
 	if flash > 0.0:
 		draw_rect(Rect2(0, 0, 640, 360), Color(1.0, 0.85, 0.4, 0.10 * flash), true)
 	_draw_header(font)
 	_draw_tabs(font)
-	_draw_rows(font)
-	_draw_stage(font)
-	_draw_enter(font)
-	_draw_tier_panel(font)
-	_draw_detail(font)
+	_draw_cards(font)
+	_draw_seals(font)
+	_draw_stage_card(font)
+	_draw_depart(font)
 	_draw_career(font)
 	if notice_t > 0.0:
-		draw_string(font, Vector2(28, 336), notice, HORIZONTAL_ALIGNMENT_LEFT, 560, 10, Color(0.95, 0.82, 0.55, clampf(notice_t, 0.0, 1.0)))
-	draw_string(font, Vector2(28, 350), "↑↓ 选择 · Enter 购买 / 出发 · ←→ 灾变阶或试炼 · Tab 切页 · V 图鉴 · Esc 返回", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.44, 0.46, 0.44))
+		UITheme.text(self, Vector2(24, 352), notice, 10, Color(0.95, 0.82, 0.55, clampf(notice_t, 0.0, 1.0)), 1, 592.0)
+
+func _draw_background() -> void:
+	draw_rect(Rect2(0, 0, 640, 360), UITheme.INK_DEEP, true)
+	for row in range(4):
+		var y: float = float(row) * 90.0
+		var lift: float = 0.006 if row % 2 == 0 else 0.0
+		draw_rect(Rect2(0, y, 640, 90), Color(0.052 + lift, 0.062 + lift, 0.090 + lift, 1.0), true)
+		draw_rect(Rect2(0, y, 640, 1), Color(0, 0, 0, 0.35), true)
+		for k in range(3):
+			var jx: float = fposmod(_hash01(row * 23 + k) * 640.0 + float(k) * 226.0, 640.0)
+			draw_rect(Rect2(jx, y, 1, 90), Color(0, 0, 0, 0.20), true)
+	draw_circle(Vector2(168, 322), 150.0, Color(0.95, 0.62, 0.24, 0.035))
+	draw_circle(Vector2(320, 30), 190.0, Color(0.90, 0.70, 0.34, 0.030))
+	_draw_embers()
+	for i in range(7):
+		draw_rect(Rect2(float(i) * 3.0, float(i) * 2.0, 640.0 - float(i) * 6.0, 360.0 - float(i) * 4.0), Color(0, 0, 0, 0.03), false, 2.0)
+
+func _draw_embers() -> void:
+	for i in range(EMBER_COUNT):
+		var sx: float = _hash01(i * 3 + 2)
+		var spd: float = 7.0 + _hash01(i * 5 + 1) * 15.0
+		var y: float = fposmod(360.0 - t * spd - _hash01(i * 7 + 4) * 360.0, 396.0)
+		var x: float = sx * 640.0 + sin(t * 0.45 + float(i) * 1.9) * (5.0 + _hash01(i * 11) * 9.0)
+		var a: float = (0.08 + 0.18 * _hash01(i * 13 + 5)) * clampf(y / 396.0, 0.22, 1.0)
+		draw_circle(Vector2(x, y), 0.9 + _hash01(i * 17) * 1.2, Color(0.95, 0.72, 0.38, a))
 
 func _draw_header(font: Font) -> void:
-	draw_string(font, Vector2(28, 34), "营  地", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.94, 0.90, 0.78))
+	UITheme.text(self, Vector2(25, 35), "营  地", 22, Color(0, 0, 0, 0.55), 0, -1.0)
+	UITheme.text(self, Vector2(24, 34), "营  地", 22, UITheme.PARCH, 0, -1.0)
 	var st: Dictionary = _stage_def_at(stage_cursor)
-	draw_string(font, Vector2(120, 34), "旷野整备 · 第 %d 章 %s" % [int(st.get("chapter", 0)), String(st.get("name", "—"))], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.55, 0.56, 0.52))
-	draw_string(font, Vector2(400, 32), "舍客勒  %d" % Meta.shillings, HORIZONTAL_ALIGNMENT_RIGHT, 212, 14, Color(0.95, 0.80, 0.35))
-	draw_line(Vector2(28, 44), Vector2(612, 44), Color(0.28, 0.28, 0.26), 1.0)
+	UITheme.text(self, Vector2(106, 30), "旷野整备 · %s · 第 %d 章 %s" % [_witness_name(), int(st.get("chapter", 0)), UIText.clip(String(st.get("name", "—")), 8)], 10, Color(0.56, 0.57, 0.53), 0, 330.0)
+	draw_circle(Vector2(466, 29), 6.0, Color(0.86, 0.70, 0.32))
+	draw_circle(Vector2(464.5, 27.5), 2.4, Color(0.98, 0.92, 0.72, 0.85))
+	UITheme.text(self, Vector2(478, 34), "舍客勒  %d" % Meta.shillings, 14, Color(0.95, 0.80, 0.35), 2, 138.0)
+	UITheme.divider(self, 24.0, 616.0, 46.0, 0.9)
 
 func _draw_tabs(font: Font) -> void:
 	for i in range(3):
 		var r: Rect2 = _tab_rect(i)
-		var on: bool = (i == page) or (i == 2 and false)
+		var on: bool = i == page
 		var hv: bool = i == tab_hover
-		draw_rect(r, Color(0.15, 0.16, 0.19) if on else (Color(0.11, 0.12, 0.14) if hv else Color(0.085, 0.09, 0.105)), true)
-		draw_rect(r, Color(0.95, 0.80, 0.38) if on else Color(0.24, 0.25, 0.27), false, 1.0)
-		draw_string(font, Vector2(r.position.x, r.position.y + 15), PAGE_NAMES[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 11, Color(0.96, 0.92, 0.80) if on else Color(0.60, 0.61, 0.60))
-	draw_string(font, Vector2(336, 67), "Tab 切页 · V 图鉴", HORIZONTAL_ALIGNMENT_RIGHT, 276, 9, Color(0.46, 0.48, 0.46))
-
-func _draw_rows(font: Font) -> void:
-	if page == 1:
-		_draw_building_rows(font)
-	else:
-		_draw_upgrade_rows(font)
-
-func _draw_upgrade_rows(font: Font) -> void:
-	for i in range(Meta.UPGRADES.size()):
-		var u: Dictionary = Meta.UPGRADES[i]
-		var id: String = String(u.get("id", ""))
-		var lv: int = Meta.level_of(id)
-		var mx: int = int(u.get("max", 5))
-		var r: Rect2 = _row_rect(i)
-		var on: bool = i == sel
-		draw_rect(r, Color(0.12, 0.13, 0.16) if on else Color(0.085, 0.09, 0.11), true)
+		var base := Color(0.085, 0.090, 0.105)
 		if on:
-			draw_rect(Rect2(r.position.x, r.position.y, 3, r.size.y), Color(0.95, 0.80, 0.38), true)
-		var name_c: Color = Color(0.96, 0.92, 0.80) if lv < mx else Color(0.62, 0.62, 0.58)
-		draw_string(font, Vector2(r.position.x + 11, r.position.y + 15), String(u.get("name", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, name_c)
-		draw_string(font, Vector2(r.position.x + 11, r.position.y + 24), String(u.get("desc", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.52, 0.54, 0.56))
-		for k in range(mx):
-			var cx: float = r.position.x + 204.0 + float(k) * 10.0
-			var cy: float = r.position.y + 12.5
-			if k < lv:
-				draw_circle(Vector2(cx, cy), 3.2, Color(0.95, 0.80, 0.38))
-			else:
-				draw_arc(Vector2(cx, cy), 3.0, 0.0, TAU, 10, Color(0.34, 0.35, 0.36), 1.0, true)
-		var cost_txt: String
-		var cost_c: Color
-		if lv >= mx:
-			cost_txt = "已满"
-			cost_c = Color(0.55, 0.58, 0.52)
-		else:
-			var cost: int = Meta.upgrade_cost(id)
-			cost_txt = "%d" % cost
-			cost_c = Color(0.95, 0.80, 0.35) if Meta.shillings >= cost else Color(0.62, 0.34, 0.32)
-		draw_string(font, Vector2(r.position.x + r.size.x - 92, r.position.y + 17), cost_txt, HORIZONTAL_ALIGNMENT_RIGHT, 82, 13, cost_c)
+			base = Color(0.15, 0.16, 0.19)
+		elif hv:
+			base = Color(0.11, 0.12, 0.14)
+		draw_rect(r, base, true)
+		draw_rect(r, UITheme.GOLD_BRIGHT if on else (UITheme.GOLD if hv else Color(0.24, 0.25, 0.27)), false, 1.0)
+		UITheme.text(self, Vector2(r.position.x, r.position.y + 15.0), PAGE_NAMES[i], 11, Color(0.96, 0.92, 0.80) if on else Color(0.60, 0.61, 0.60), 1, r.size.x)
+	UITheme.text(self, Vector2(300, 66), "↑↓ 选择 · Enter 购买 · Tab 切页 · V 图鉴 · Esc 返回", 10, Color(0.46, 0.48, 0.46), 2, 316.0)
 
-func _draw_building_rows(font: Font) -> void:
-	var bs: Array = _buildings()
-	if bs.is_empty():
-		draw_string(font, Vector2(ROW_X + 8, ROW_Y0 + 24), "会幕数据缺失（data/store.json 未加载）", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.62, 0.5, 0.4))
+func _draw_cards(font: Font) -> void:
+	for i in range(6):
+		_draw_card(i, font)
+
+func _draw_card(i: int, font: Font) -> void:
+	var v: Dictionary = _card_view(i)
+	var r: Rect2 = _card_rect(i)
+	if v.is_empty():
+		draw_rect(r, Color(0.05, 0.055, 0.075, 0.6), true)
+		draw_rect(r, Color(0.22, 0.22, 0.20, 0.35), false, 1.0)
 		return
-	for i in range(mini(6, bs.size())):
-		var b: Dictionary = bs[i]
-		var s: Dictionary = _building_status(b)
-		var r: Rect2 = _row_rect(i)
-		var on: bool = i == sel
-		draw_rect(r, Color(0.12, 0.13, 0.16) if on else Color(0.085, 0.09, 0.11), true)
-		if on:
-			draw_rect(Rect2(r.position.x, r.position.y, 3, r.size.y), Color(0.95, 0.80, 0.38), true)
-		var ok: bool = bool(s["ok"])
-		draw_string(font, Vector2(r.position.x + 11, r.position.y + 15), String(b.get("name", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.96, 0.92, 0.80) if ok else Color(0.70, 0.68, 0.62))
-		draw_string(font, Vector2(r.position.x + 11, r.position.y + 24), UIText.clip(String(b.get("desc", "")), 40), HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.52, 0.54, 0.56))
-		var right: String
-		var rc: Color
-		if bool(s["pending"]):
-			right = "待实装"
-			rc = Color(0.66, 0.56, 0.42)
-		elif not bool(s["unlock_ok"]):
-			right = "未开放"
-			rc = Color(0.72, 0.48, 0.40)
-		elif bool(s["maxed"]):
-			right = "满级 Lv%d" % int(s["level"])
-			rc = Color(0.55, 0.58, 0.52)
-		else:
-			right = "Lv %d · %d" % [int(s["level"]), int(s["cost"])]
-			rc = Color(0.95, 0.80, 0.35) if Meta.shillings >= int(s["cost"]) else Color(0.62, 0.34, 0.32)
-		draw_string(font, Vector2(r.position.x + r.size.x - 118, r.position.y + 17), right, HORIZONTAL_ALIGNMENT_RIGHT, 108, 11, rc)
-		draw_string(font, Vector2(r.position.x + r.size.x - 118, r.position.y + 24), UIText.clip(String(b.get("unlocks", "")), 12), HORIZONTAL_ALIGNMENT_RIGHT, 108, 7, Color(0.42, 0.44, 0.42))
-
-func _draw_stage(font: Font) -> void:
-	var r: Rect2 = _stage_rect()
-	var on: bool = sel == STAGE_ROW
-	var s: Dictionary = _stage_def_at(stage_cursor)
-	var unlocked: bool = _stage_unlocked(stage_cursor)
-	draw_rect(r, Color(0.13, 0.14, 0.18) if on else Color(0.09, 0.10, 0.13), true)
+	var state: String = String(v["state"])
+	var lit: bool = state != "pending" and state != "locked"
+	var on: bool = sel == i
+	var hv: bool = hover == i and not on
+	var bg := Color(0.072, 0.082, 0.108, 0.96)
+	if hv:
+		bg = bg.lightened(0.06)
 	if on:
-		draw_rect(Rect2(r.position.x, r.position.y, 3, r.size.y), Color(0.72, 0.78, 0.95), true)
-	var line1: String = "第 %d 章 · %s · %s" % [int(s.get("chapter", 0)), String(s.get("name", "—")), String(s.get("scripture", ""))]
-	draw_string(font, Vector2(r.position.x + 12, r.position.y + 14), line1, HORIZONTAL_ALIGNMENT_LEFT, 250, 12, Color(0.86, 0.90, 0.98) if unlocked else Color(0.86, 0.66, 0.58))
-	var line2: String
-	var line2_c: Color
-	if unlocked:
-		line2 = _stage_reward_text(String(s.get("id", "")))
-		line2_c = Color(0.74, 0.66, 0.44)
-	else:
-		line2 = "未解锁 · 需得胜 %d 次（当前 %d）" % [int(s.get("unlock_wins", 0)), Meta.wins]
-		line2_c = Color(0.80, 0.48, 0.40)
-	draw_string(font, Vector2(r.position.x + 12, r.position.y + 26), UIText.clip(line2, 44), HORIZONTAL_ALIGNMENT_LEFT, 270, 8, line2_c)
-	draw_string(font, Vector2(r.position.x + r.size.x - 96, r.position.y + 15), "%d / %d" % [stage_cursor + 1, GameData.stages.size()], HORIZONTAL_ALIGNMENT_RIGHT, 34, 8, Color(0.56, 0.60, 0.66))
-	for w in range(2):
-		var ar: Rect2 = _stage_arrow_rect(w)
-		draw_rect(ar, Color(0.10, 0.11, 0.14), true)
-		draw_rect(ar, Color(0.30, 0.33, 0.38), false, 1.0)
-		draw_string(font, Vector2(ar.position.x, ar.position.y + 16), "‹" if w == 0 else "›", HORIZONTAL_ALIGNMENT_CENTER, ar.size.x, 14, Color(0.72, 0.78, 0.92))
+		bg = bg.lerp(UITheme.INK_SOFT, 0.55)
+	draw_rect(r, bg, true)
+	draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 1.0), Color(1, 1, 1, 0.035), true)
+	var border := Color(0.22, 0.24, 0.27, 0.9)
+	if on:
+		border = UITheme.GOLD_BRIGHT
+	elif hv:
+		border = UITheme.GOLD
+	draw_rect(r, border, false, 2.0 if on else 1.0)
+	if on:
+		draw_rect(Rect2(r.position.x, r.position.y + 2.0, 3.0, r.size.y - 4.0), UITheme.GOLD_BRIGHT, true)
+	var ir := Rect2(r.position.x + 6.0, r.position.y + 1.0, 32.0, 32.0)
+	UITheme.icon_frame(self, ir, null, Rect2(), 0.9 if on else 0.0)
+	_draw_glyph(String(v["glyph"]), ir.position.x + 16.0, ir.position.y + 16.0, Color(0.94, 0.84, 0.58) if lit else Color(0.60, 0.57, 0.50))
+	UITheme.text(self, Vector2(r.position.x + 44.0, r.position.y + 14.0), UIText.clip(String(v["name"]), 6), 11, UITheme.PARCH if lit else Color(0.66, 0.64, 0.58), 0, 152.0)
+	var note: String = ""
+	var note_c := Color(0.95, 0.80, 0.35)
+	var cost: int = int(v["cost"])
+	match state:
+		"max":
+			note = "已满级"
+			note_c = Color(0.56, 0.58, 0.54)
+		"pending":
+			note = "待实装"
+			note_c = Color(0.68, 0.58, 0.44)
+		"locked":
+			note = "未开放"
+			note_c = Color(0.78, 0.50, 0.42)
+		_:
+			note = "%d" % cost
+			if Meta.shillings < cost:
+				note_c = Color(0.70, 0.40, 0.36)
+	UITheme.text(self, Vector2(r.position.x + r.size.x - 70.0, r.position.y + 14.0), note, 10, note_c, 2, 58.0)
+	if state == "ok":
+		var coin := Color(0.78, 0.66, 0.36) if Meta.shillings >= cost else Color(0.52, 0.34, 0.30)
+		draw_circle(Vector2(r.position.x + r.size.x - 76.0, r.position.y + 10.0), 3.0, coin)
+		draw_circle(Vector2(r.position.x + r.size.x - 77.2, r.position.y + 8.8), 1.1, Color(0.96, 0.90, 0.72, 0.8))
+	var desc_text: String = String(v["desc"])
+	if state == "locked":
+		desc_text = String(v.get("unlocks", "")) + " · " + desc_text
+	UITheme.text(self, Vector2(r.position.x + 44.0, r.position.y + 28.0), UIText.clip(desc_text, 15), 10, Color(0.58, 0.60, 0.56) if lit else Color(0.46, 0.47, 0.46), 0, 158.0)
+	_draw_level_stars(r.position.x + r.size.x - 12.0, r.position.y + 27.0, int(v["level"]), int(v["max"]), lit)
 
-func _draw_enter(font: Font) -> void:
-	var r: Rect2 = _enter_rect()
-	var on: bool = sel == ENTER_ROW
-	var unlocked: bool = _stage_unlocked(stage_cursor)
-	if unlocked:
-		draw_rect(r, Color(0.15, 0.21, 0.16) if on else Color(0.09, 0.12, 0.10), true)
-		if on:
-			draw_rect(r, Color(0.55, 0.78, 0.52), false, 1.0)
-	else:
-		draw_rect(r, Color(0.16, 0.12, 0.12) if on else Color(0.10, 0.09, 0.09), true)
-		if on:
-			draw_rect(r, Color(0.62, 0.44, 0.40), false, 1.0)
-	var txt: String
-	var col: Color
-	if unlocked:
-		txt = "出发 →  第 %d 章 %s   ·   %s" % [int(_stage_def_at(stage_cursor).get("chapter", 0)), String(_stage_def_at(stage_cursor).get("name", "")), _witness_name()]
-		col = Color(0.86, 0.96, 0.82)
-	else:
-		txt = "未解锁 · 需得胜 %d 次" % int(_stage_def_at(stage_cursor).get("unlock_wins", 0))
-		col = Color(0.86, 0.66, 0.58)
-	draw_string(font, Vector2(r.position.x, r.position.y + 17), txt, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 12, col)
+func _draw_level_stars(right_x: float, y: float, level: int, max_level: int, lit: bool) -> void:
+	var n: int = clampi(max_level, 1, 8)
+	for k in range(n):
+		var cx: float = right_x - float(n - 1 - k) * 9.0 - 2.0
+		var col := UITheme.GOLD_BRIGHT if k < level else Color(0.30, 0.31, 0.30, 0.9)
+		if not lit and k < level:
+			col = Color(0.62, 0.55, 0.38)
+		UITheme.star(self, Vector2(cx, y), 3.4, col)
 
-func _draw_tier_panel(font: Font) -> void:
-	var x: float = PANEL_X
-	var y: float = TIER_Y
-	draw_rect(Rect2(x, y, PANEL_W, TIER_H), Color(0.085, 0.09, 0.11), true)
-	draw_rect(Rect2(x, y, PANEL_W, TIER_H), Color(0.26, 0.27, 0.28), false, 1.0)
-	var hi: int = Meta.max_tier_allowed()
-	var cur: int = Meta.effective_tier()
-	draw_string(font, Vector2(x + 12, y + 19), "灾 变 阶", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.90, 0.86, 0.74))
-	draw_string(font, Vector2(x + 130, y + 19), "最高 %d 阶" % hi, HORIZONTAL_ALIGNMENT_RIGHT, 86, 8, Color(0.50, 0.52, 0.50))
-	draw_string(font, Vector2(x + 12, y + 36), Meta.tier_name(cur), HORIZONTAL_ALIGNMENT_LEFT, 200, 10, Color(0.92, 0.82, 0.60))
-	for i in range(21):
-		var n: int = i + 1
-		var cx: float = x + 14.0 + float(i) * 9.4
-		var avail: bool = n <= hi
-		var active: bool = n == cur
-		var c: Color = Color(0.95, 0.80, 0.38) if active else (Color(0.62, 0.64, 0.58) if avail else Color(0.30, 0.24, 0.24))
-		draw_line(Vector2(cx, y + 48), Vector2(cx, y + 60), c, 2.0 if active else 1.0)
-		if active:
-			draw_circle(Vector2(cx, y + 44), 2.4, c)
-	var tr: Dictionary = Meta.tier_row(cur)
-	draw_string(font, Vector2(x + 12, y + 74), "敌 HP +%d%%   伤害 +%d%%   刷怪 +%d%%" % [int((Meta.tier_enemy_hp(cur) - 1.0) * 100.0), int((Meta.tier_enemy_dmg(cur) - 1.0) * 100.0), int((Meta.tier_spawn_rate(cur) - 1.0) * 100.0)], HORIZONTAL_ALIGNMENT_LEFT, 210, 8, Color(0.78, 0.60, 0.58))
-	draw_string(font, Vector2(x + 12, y + 86), "舍客勒 ×%.2f   ·   七印 %d" % [float(tr.get("silver_mult", Meta.seal_mult(cur))), Meta.seals], HORIZONTAL_ALIGNMENT_LEFT, 210, 8, Color(0.72, 0.86, 0.66))
-	draw_string(font, Vector2(x + 12, y + 98), "← → 调整 · 通关解锁下一印", HORIZONTAL_ALIGNMENT_LEFT, 210, 8, Color(0.46, 0.47, 0.45))
-
-func _draw_detail(font: Font) -> void:
-	var x: float = PANEL_X
-	var y: float = DETAIL_Y
-	draw_rect(Rect2(x, y, PANEL_W, DETAIL_H), Color(0.075, 0.08, 0.10), true)
-	draw_rect(Rect2(x, y, PANEL_W, DETAIL_H), Color(0.24, 0.25, 0.26), false, 1.0)
-	var tx: float = x + 12.0
-	var tw: float = PANEL_W - 24.0
-	if sel == ENTER_ROW:
-		draw_string(font, Vector2(tx, y + 18), "出 发", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.86, 0.94, 0.82))
-		var c: Dictionary = GameData.characters_by_id.get(RunCfg.character_id, {})
-		draw_string(font, Vector2(tx, y + 36), String(c.get("name", "大卫")), HORIZONTAL_ALIGNMENT_LEFT, tw, 14, Color(0.94, 0.90, 0.78))
-		draw_multiline_string(font, Vector2(tx, y + 52), UIText.perk_text(c.get("perk", {}), 2), HORIZONTAL_ALIGNMENT_LEFT, tw, 8, 2, Color(0.68, 0.72, 0.64))
-		var s: Dictionary = _stage_def_at(stage_cursor)
-		draw_string(font, Vector2(tx, y + 82), "试炼 · 第 %d 章 %s" % [int(s.get("chapter", 0)), String(s.get("name", ""))], HORIZONTAL_ALIGNMENT_LEFT, tw, 9, Color(0.72, 0.76, 0.82))
-		draw_string(font, Vector2(tx, y + 96), "灾变阶 · %s" % Meta.tier_name(), HORIZONTAL_ALIGNMENT_LEFT, tw, 9, Color(0.78, 0.68, 0.50))
-		draw_string(font, Vector2(tx, y + 116), "Enter 出发 · 先在此整备", HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.50, 0.52, 0.50))
-		return
-	if sel == STAGE_ROW:
-		_draw_stage_detail(font, tx, y, tw)
-		return
-	if page == 1:
-		_draw_building_detail(font, tx, y, tw)
-	else:
-		_draw_upgrade_detail(font, tx, y, tw)
-
-func _draw_upgrade_detail(font: Font, tx: float, y: float, tw: float) -> void:
-	var u: Dictionary = _upgrade_at(sel)
-	if u.is_empty():
-		return
-	var id: String = String(u.get("id", ""))
-	var lv: int = Meta.level_of(id)
-	var mx: int = int(u.get("max", 5))
-	draw_string(font, Vector2(tx, y + 18), String(u.get("name", "")), HORIZONTAL_ALIGNMENT_LEFT, tw, 14, Color(0.96, 0.90, 0.74))
-	draw_string(font, Vector2(tx, y + 32), String(u.get("scripture", "")), HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.58, 0.54, 0.44))
-	draw_multiline_string(font, Vector2(tx, y + 46), String(u.get("desc", "")), HORIZONTAL_ALIGNMENT_LEFT, tw, 9, 2, Color(0.78, 0.75, 0.66))
-	draw_string(font, Vector2(tx, y + 76), "等级 Lv %d / %d" % [lv, mx], HORIZONTAL_ALIGNMENT_LEFT, tw, 9, Color(0.70, 0.72, 0.66))
-	if lv >= mx:
-		draw_string(font, Vector2(tx, y + 92), "已满级", HORIZONTAL_ALIGNMENT_LEFT, tw, 10, Color(0.56, 0.60, 0.54))
-	else:
-		draw_string(font, Vector2(tx, y + 92), "下一级  %d 舍客勒" % Meta.upgrade_cost(id), HORIZONTAL_ALIGNMENT_LEFT, tw, 10, Color(0.95, 0.80, 0.35))
-	draw_string(font, Vector2(tx, y + 112), "当前 " + _bonus_text(id), HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.66, 0.74, 0.64))
-
-func _bonus_text(id: String) -> String:
-	var b: Dictionary = Meta.bonus()
-	match id:
+func _draw_glyph(gid: String, cx: float, cy: float, col: Color) -> void:
+	match gid:
 		"might":
-			return "全伤害 +%d%%" % int(round(float(b.get("damage_mult", 0.0)) * 100.0))
-		"vitality":
-			return "最大生命 +%d" % int(b.get("max_hp", 0))
+			draw_line(Vector2(cx, cy - 11.0), Vector2(cx, cy + 3.0), col, 3.0)
+			draw_rect(Rect2(cx - 5.0, cy + 3.0, 10.0, 2.0), col, true)
+			draw_line(Vector2(cx, cy + 5.0), Vector2(cx, cy + 10.0), col, 2.0)
+			draw_circle(Vector2(cx, cy + 11.0), 1.8, col)
+		"vitality", "mercy":
+			draw_circle(Vector2(cx - 4.0, cy - 3.0), 4.2, col)
+			draw_circle(Vector2(cx + 4.0, cy - 3.0), 4.2, col)
+			var heart := PackedVector2Array([Vector2(cx - 8.0, cy - 1.0), Vector2(cx + 8.0, cy - 1.0), Vector2(cx, cy + 9.0)])
+			draw_colored_polygon(heart, col)
+			if gid == "mercy":
+				for k in range(3):
+					var ax: float = cx - 7.0 + float(k) * 7.0
+					draw_line(Vector2(ax, cy - 11.0), Vector2(ax + 1.5, cy - 8.0), Color(col.r, col.g, col.b, 0.75), 1.0)
 		"swift":
-			return "移速 +%d%%" % int(round(float(b.get("speed_pct", 0.0)) * 100.0))
+			draw_line(Vector2(cx - 9.0, cy + 8.0), Vector2(cx + 7.0, cy - 8.0), col, 2.4)
+			var head := PackedVector2Array([Vector2(cx + 10.0, cy - 11.0), Vector2(cx + 2.0, cy - 9.0), Vector2(cx + 8.0, cy - 3.0)])
+			draw_colored_polygon(head, col)
+			draw_line(Vector2(cx - 10.0, cy + 2.0), Vector2(cx - 4.0, cy + 2.0), Color(col.r, col.g, col.b, 0.5), 1.0)
+			draw_line(Vector2(cx - 10.0, cy + 6.0), Vector2(cx - 6.0, cy + 6.0), Color(col.r, col.g, col.b, 0.4), 1.0)
 		"grace":
-			return "拾取 +%d%%" % int(round(float(b.get("pickup_pct", 0.0)) * 100.0))
+			draw_arc(Vector2(cx, cy), 8.0, 0.0, TAU, 22, col, 2.0, true)
+			draw_line(Vector2(cx, cy - 4.0), Vector2(cx, cy + 4.0), col, 1.6)
+			draw_line(Vector2(cx - 4.0, cy), Vector2(cx + 4.0, cy), col, 1.2)
 		"wisdom":
-			return "经验 +%d%%" % int(round(float(b.get("xp_gain", 0.0)) * 100.0))
-		"mercy":
-			return "升级回血 +%d%%" % int(round(float(b.get("level_heal", 0.0)) * 100.0))
-	return ""
+			draw_rect(Rect2(cx - 8.0, cy - 8.0, 16.0, 16.0), col, false, 2.0)
+			for k in range(3):
+				draw_line(Vector2(cx - 5.0, cy - 4.0 + float(k) * 4.0), Vector2(cx + 5.0, cy - 4.0 + float(k) * 4.0), col, 1.0)
+		"faith":
+			var shield := PackedVector2Array([Vector2(cx, cy - 10.0), Vector2(cx + 8.0, cy - 6.0), Vector2(cx + 6.0, cy + 5.0), Vector2(cx, cy + 10.0), Vector2(cx - 6.0, cy + 5.0), Vector2(cx - 8.0, cy - 6.0)])
+			draw_colored_polygon(shield, col)
+			draw_line(Vector2(cx, cy - 6.0), Vector2(cx, cy + 7.0), Color(0.12, 0.12, 0.14, 0.6), 1.2)
+		"prayer":
+			draw_arc(Vector2(cx, cy - 6.0), 3.0, 0.0, TAU, 10, Color(col.r, col.g, col.b, 0.5), 1.0, true)
+			draw_arc(Vector2(cx, cy - 1.0), 4.0, 0.0, TAU, 12, Color(col.r, col.g, col.b, 0.7), 1.0, true)
+			var bowl := PackedVector2Array([Vector2(cx - 8.0, cy + 3.0), Vector2(cx + 8.0, cy + 3.0), Vector2(cx + 4.0, cy + 9.0), Vector2(cx - 4.0, cy + 9.0)])
+			draw_colored_polygon(bowl, col)
+		"sanctuary":
+			draw_arc(Vector2(cx, cy - 3.0), 8.0, PI * 1.05, PI * 1.95, 12, Color(col.r, col.g, col.b, 0.9), 1.6, true)
+			draw_rect(Rect2(cx - 9.0, cy - 1.0, 18.0, 8.0), col, true)
+			draw_line(Vector2(cx - 6.0, cy - 5.0), Vector2(cx - 6.0, cy - 1.0), col, 1.6)
+			draw_line(Vector2(cx + 6.0, cy - 5.0), Vector2(cx + 6.0, cy - 1.0), col, 1.6)
+		_:
+			var dia := PackedVector2Array([Vector2(cx, cy - 9.0), Vector2(cx + 9.0, cy), Vector2(cx, cy + 9.0), Vector2(cx - 9.0, cy)])
+			draw_colored_polygon(dia, col)
 
-func _draw_building_detail(font: Font, tx: float, y: float, tw: float) -> void:
-	var b: Dictionary = _building_at(sel)
-	if b.is_empty():
-		return
-	var s: Dictionary = _building_status(b)
-	draw_string(font, Vector2(tx, y + 18), String(b.get("name", "")), HORIZONTAL_ALIGNMENT_LEFT, tw, 14, Color(0.96, 0.90, 0.74))
-	draw_string(font, Vector2(tx, y + 31), String(b.get("scripture", "")), HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.58, 0.54, 0.44))
-	draw_multiline_string(font, Vector2(tx, y + 44), String(b.get("desc", "")), HORIZONTAL_ALIGNMENT_LEFT, tw, 8, 2, Color(0.74, 0.72, 0.64))
-	draw_string(font, Vector2(tx, y + 64), "开放 · " + String(b.get("unlocks", "")), HORIZONTAL_ALIGNMENT_LEFT, tw, 7, Color(0.60, 0.58, 0.50))
-	var ups: Array = _all_upgrades(b)
-	for i in range(mini(ups.size(), 2)):
-		var u: Dictionary = ups[i]
-		var uid: String = String(u.get("id", ""))
-		var live: bool = bool(u.get("live", false))
-		var lv: int = Meta.level_of(uid)
-		var mx: int = int(u.get("max_level", 5))
-		var tail: String
-		if not live:
-			tail = "待实装"
-		elif lv >= mx:
-			tail = "已满"
-		else:
-			tail = "%d 舍客勒" % Meta.upgrade_cost(uid)
-		var line: String = "%s  Lv %d/%d  %s" % [String(u.get("name", uid)), lv, mx, tail]
-		draw_string(font, Vector2(tx, y + 80 + float(i) * 12.0), line, HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.70, 0.72, 0.66) if live else Color(0.50, 0.48, 0.44))
-	if bool(s["pending"]):
-		draw_string(font, Vector2(tx, y + 108), "强化数值尚未实装", HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.72, 0.54, 0.40))
-	elif bool(s["maxed"]):
-		draw_string(font, Vector2(tx, y + 108), "本建筑已全部满级", HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.56, 0.60, 0.54))
-	elif bool(s["unlock_ok"]):
-		draw_string(font, Vector2(tx, y + 108), "Enter 购买 · 下一级 %d 舍客勒" % int(s["cost"]), HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.92, 0.78, 0.38))
-	else:
-		draw_string(font, Vector2(tx, y + 108), "未开放 · " + String(b.get("unlocks", "")), HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.72, 0.48, 0.40))
+func _draw_seals(font: Font) -> void:
+	var r: Rect2 = _seal_rect()
+	UITheme.panel(self, r, 1.0, true)
+	var cur: int = Meta.effective_tier()
+	var hi: int = Meta.max_tier_allowed()
+	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 18.0), "七 印", 12, UITheme.GOLD_PALE, 0, -1.0)
+	UITheme.text(self, Vector2(r.position.x + 80.0, r.position.y + 18.0), "灾变阶 · " + UIText.clip(Meta.tier_name(), 9), 10, Color(0.82, 0.74, 0.54), 2, r.size.x - 94.0)
+	for side in range(2):
+		var ar: Rect2 = _seal_arrow_rect(side)
+		var hv: bool = _seal_arrow_rect(side).has_point(get_local_mouse_position())
+		draw_rect(ar, Color(0.10, 0.11, 0.14, 0.9) if not hv else Color(0.16, 0.17, 0.21), true)
+		draw_rect(ar, Color(0.30, 0.33, 0.38), false, 1.0)
+		_chevron(ar, side, Color(0.72, 0.78, 0.92))
+	for n in range(1, SEAL_MAX + 1):
+		var p: Vector2 = _seal_dot_pos(n)
+		var avail: bool = n <= hi
+		var act: bool = n == cur
+		var hov: bool = n == seal_hover
+		var col := Color(0.86, 0.72, 0.40)
+		if not avail:
+			col = Color(0.34, 0.28, 0.26)
+		elif not act:
+			col = col.lerp(Color(0.98, 0.90, 0.66), 0.25 if hov else 0.0)
+		draw_circle(p, 7.2 if act else (6.2 if hov else 5.4), col)
+		draw_circle(p, 2.4, Color(0.12, 0.10, 0.08, 0.9))
+		if act:
+			draw_arc(p, 9.6, 0.0, TAU, 24, Color(0.98, 0.88, 0.60, 0.9), 1.4, true)
+		UITheme.text(self, Vector2(p.x - 10.0, p.y + 20.0), "%d" % n, 10, Color(0.86, 0.78, 0.58) if avail else Color(0.40, 0.36, 0.34), 1, 20.0)
+	var b: Dictionary = Meta.bonus()
+	var tr: Dictionary = Meta.tier_row(cur)
+	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 70.0), "伤害 +%d%% · 生命 +%d · 移速 +%d%%" % [int(round(float(b.get("damage_mult", 0.0)) * 100.0)), int(b.get("max_hp", 0)), int(round(float(b.get("speed_pct", 0.0)) * 100.0))], 10, Color(0.80, 0.82, 0.72), 0, r.size.x - 28.0)
+	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 82.0), "拾取 +%d%% · 经验 +%d%% · 回血 +%d%%" % [int(round(float(b.get("pickup_pct", 0.0)) * 100.0)), int(round(float(b.get("xp_gain", 0.0)) * 100.0)), int(round(float(b.get("level_heal", 0.0)) * 100.0))], 10, Color(0.74, 0.78, 0.66), 0, r.size.x - 28.0)
+	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 94.0), "敌 HP +%d%% · 舍客勒 ×%.2f" % [int(round((Meta.tier_enemy_hp(cur) - 1.0) * 100.0)), float(tr.get("silver_mult", Meta.seal_mult(cur)))], 10, Color(0.78, 0.62, 0.58), 0, r.size.x - 28.0)
 
-func _draw_stage_detail(font: Font, tx: float, y: float, tw: float) -> void:
+func _draw_stage_card(font: Font) -> void:
+	var r: Rect2 = _stage_card_rect()
 	var s: Dictionary = _stage_def_at(stage_cursor)
-	if s.is_empty():
-		return
-	var sid: String = String(s.get("id", ""))
 	var unlocked: bool = _stage_unlocked(stage_cursor)
-	draw_string(font, Vector2(tx, y + 16), "试炼 · %d / %d · 已解锁 %d 章" % [stage_cursor + 1, GameData.stages.size(), _count_unlocked()], HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.60, 0.64, 0.70))
-	draw_string(font, Vector2(tx, y + 33), String(s.get("name", "")), HORIZONTAL_ALIGNMENT_LEFT, tw, 14, Color(0.90, 0.93, 0.98) if unlocked else Color(0.86, 0.66, 0.58))
-	draw_string(font, Vector2(tx, y + 46), "第 %d 章 · %s" % [int(s.get("chapter", 0)), String(s.get("scripture", ""))], HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.58, 0.54, 0.44))
-	draw_multiline_string(font, Vector2(tx, y + 60), String(s.get("desc", "")), HORIZONTAL_ALIGNMENT_LEFT, tw, 8, 3, Color(0.74, 0.72, 0.64))
-	draw_multiline_string(font, Vector2(tx, y + 92), _stage_reward_text(sid), HORIZONTAL_ALIGNMENT_LEFT, tw, 8, 2, Color(0.78, 0.68, 0.42))
+	var on: bool = sel == STAGE_ROW
+	UITheme.panel(self, r, 1.0, true)
+	if on:
+		draw_rect(r.grow(-3.0), Color(UITheme.GOLD_BRIGHT.r, UITheme.GOLD_BRIGHT.g, UITheme.GOLD_BRIGHT.b, 0.5), false, 1.0)
+	var name_c := Color(0.92, 0.94, 0.98) if unlocked else Color(0.86, 0.64, 0.56)
+	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 20.0), "第 %d 章 · %s" % [int(s.get("chapter", 0)), UIText.clip(String(s.get("name", "—")), 10)], 12, name_c, 0, 200.0)
+	for side in range(2):
+		var ar: Rect2 = _stage_arrow_rect(side)
+		var hv: bool = stage_arrow_hover == side
+		draw_rect(ar, Color(0.10, 0.11, 0.14, 0.9) if not hv else Color(0.16, 0.17, 0.21), true)
+		draw_rect(ar, Color(0.34, 0.37, 0.44), false, 1.0)
+		_chevron(ar, side, Color(0.72, 0.78, 0.92))
+	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 34.0), "第 %d / %d 章 · 已解锁 %d 章" % [stage_cursor + 1, GameData.stages.size(), _count_unlocked()], 10, Color(0.56, 0.60, 0.66), 0, 250.0)
+	var stars: int = _difficulty_stars(s)
+	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 54.0), "难度", 10, Color(0.62, 0.60, 0.50), 0, -1.0)
+	for k in range(5):
+		var cx: float = r.position.x + 60.0 + float(k) * 12.0
+		UITheme.star(self, Vector2(cx, r.position.y + 50.0), 4.0, UITheme.GOLD_BRIGHT if k < stars else Color(0.28, 0.29, 0.28))
+	UITheme.text(self, Vector2(r.position.x + 130.0, r.position.y + 54.0), "舍客勒 ×%.2f" % _silver_mult(), 10, Color(0.86, 0.78, 0.48), 2, r.size.x - 144.0)
+	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 68.0), UIText.clip(String(s.get("scripture", "")), 24), 10, Color(0.58, 0.54, 0.44), 0, 250.0)
+	var line: String
+	var lc: Color
 	if unlocked:
-		draw_string(font, Vector2(tx, y + 112), "已解锁 · Enter 出发", HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.55, 0.82, 0.58))
+		line = "已解锁 · Enter 出发"
+		lc = Color(0.60, 0.84, 0.58)
 	else:
-		draw_string(font, Vector2(tx, y + 112), "需得胜 %d 次（当前 %d）" % [int(s.get("unlock_wins", 0)), Meta.wins], HORIZONTAL_ALIGNMENT_LEFT, tw, 8, Color(0.80, 0.50, 0.42))
+		line = "需通关 %d 次（已通关 %d）" % [int(s.get("unlock_wins", 0)), Meta.wins]
+		lc = Color(0.86, 0.55, 0.44)
+	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 84.0), line, 10, lc, 0, 250.0)
+	UITheme.text(self, Vector2(r.position.x + 14.0, r.position.y + 100.0), UIText.clip(String(s.get("desc", "")), 24), 10, Color(0.56, 0.56, 0.50), 0, 250.0)
+
+func _draw_depart(font: Font) -> void:
+	var r: Rect2 = _depart_rect()
+	var unlocked: bool = _stage_unlocked(stage_cursor)
+	var on: bool = sel == ENTER_ROW or hover == ENTER_ROW
+	var s: Dictionary = _stage_def_at(stage_cursor)
+	var label: String
+	if unlocked:
+		label = "出 发 · 第 %d 章 %s" % [int(s.get("chapter", 0)), UIText.clip(String(s.get("name", "")), 9)]
+	else:
+		label = "未解锁 · 需通关 %d 次" % int(s.get("unlock_wins", 0))
+	UITheme.button(self, r, label, unlocked, (0.5 + 0.5 * sin(t * 3.0)) if on else 0.0)
 
 func _draw_career(font: Font) -> void:
-	draw_string(font, Vector2(PANEL_X + 2, 314), "出发 %d 次 · 得胜 %d 次 · 最佳击杀 %d" % [Meta.runs, Meta.wins, Meta.best_kills], HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.56, 0.58, 0.55))
-	draw_string(font, Vector2(PANEL_X + 2, 328), "最长存活 %s · 累计击杀 %d" % [_mmss(Meta.best_time), Meta.lifetime_kills], HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.56, 0.58, 0.55))
+	UITheme.text(self, Vector2(PANEL_X, 318.0), "出发 %d 次 · 得胜 %d 次 · 累计击杀 %d" % [Meta.runs, Meta.wins, Meta.lifetime_kills], 10, Color(0.56, 0.58, 0.55), 0, PANEL_W)
+	UITheme.text(self, Vector2(PANEL_X, 332.0), "最佳存活 %s · 最高击杀 %d" % [_mmss(Meta.best_time), Meta.best_kills], 10, Color(0.56, 0.58, 0.55), 0, PANEL_W)
+
+func _hash01(n: int) -> float:
+	var v: float = sin(float(n) * 12.9898 + 78.233) * 43758.5453
+	return v - floor(v)
 
 func _mmss(s: float) -> String:
 	var n: int = int(s)

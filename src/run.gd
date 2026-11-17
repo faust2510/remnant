@@ -41,6 +41,24 @@ var dash_time: float = 0.0
 var dash_dir: Vector2 = Vector2.RIGHT
 var hit_cd: float = 0.0
 
+# ---- V3 契约 3.1：暂停 / 静音 / 地面银钱 / 浮动伤害（HUD 与渲染层只读）
+var paused: bool = false
+var pause_index: int = 0
+var muted: bool = false
+var picked_shillings: int = 0
+var dmg_events: Array = []
+## 与 dmg_events 等长：剩余显示寿命（秒）。渲染层可拿它做淡出，不看也不影响绘制。
+var dmg_life: PackedFloat32Array = PackedFloat32Array()
+## 地面银钱：{x, y, v, t}；t = 已存活秒数（渲染层做浮动/闪光用）
+var ground_coins: Array = []
+const PAUSE_ITEMS: Array = ["继续试炼", "重开本局", "返回营地", "音效静音"]
+const DMG_EVENT_CAP := 200        # 契约 3.1：浮动伤害最多 200 条（先进先出）
+const DMG_EVENT_LIFE := 0.75      # 一条浮动伤害在场上停留的秒数
+const COIN_CAP := 240             # 地面银钱上限，超了丢最旧的
+const COIN_ELITE := 15            # 契约 3.1 指定数值：精英/BOSS 掉 15
+const COIN_NORMAL := 2            # 普通怪掉 2
+const COIN_NORMAL_CHANCE := 0.04  # 普通怪 4% 概率
+
 var gems: Array = []
 var altars: Array = []
 var active_fx: Array = []
@@ -110,11 +128,14 @@ var seed_override: int = 0
 var sim_log: Array = []
 var shot_frames: int = 0
 var shot_wait: int = 0
+var shot_pause: bool = false     # --shot-pause：拍暂停菜单（先开暂停再截，验证 Esc 菜单三列摘要）
 var shot_fast: int = 1
 var shot_modal: bool = false
 
 const CAM_ZOOM := 1.35
 var rng := RandomNumberGenerator.new()
+## 纯表现随机（震屏抖动 / 音效音高）：独立于 gameplay rng，避免视觉随机扰动模拟。
+var fx_rng := RandomNumberGenerator.new()
 
 # ---------------------------------------------------------------- 初始化
 
@@ -159,6 +180,8 @@ func _ready() -> void:
 			stage_id = a.substr(8)
 		elif a == "--no-meta":
 			no_meta = true
+		elif a == "--shot-pause":
+			shot_pause = true
 		elif a == "--shot-end":
 			shot_end = true
 			sim_mode = true
@@ -206,9 +229,17 @@ func _ready() -> void:
 
 	weapons = WeaponRunner.new()
 	weapons.setup(state, enemies, shots)
-	# 无头模拟必须完全可复现：敌人与武器各自用主 rng 派生的种子
-	enemies.rng.seed = rng.randi()
-	weapons.rng.seed = rng.randi()
+	# 无头模拟必须完全可复现（契约 3.3）：敌人与武器拿同一个派生种子；
+	# 各自持有独立 RNG 对象，消费顺序互不干扰。
+	var sim_seed: int = rng.randi()
+	enemies.rng.seed = sim_seed
+	weapons.rng.seed = sim_seed
+	fx_rng.seed = rng.randi()
+	# 契约 3.2：武器层每次造成伤害都回调 on_damage，这里接成浮动伤害数据源。
+	# 用 set() 接线：combat-mods 的属性还没落地时静默跳过，落地后立即生效。
+	weapons.set("on_damage", Callable(self, "_push_dmg"))
+	# 香炉/活水类区域的持续治疗：接上 heal_player 后立即生效（不接则退回 heal_pending）。
+	weapons.set("on_heal", Callable(self, "heal_player"))
 
 	player = Vector2.ZERO
 	player_max_hp = float(state.stats.get("max_hp", 100.0))
@@ -220,7 +251,7 @@ func _ready() -> void:
 	cam.make_current()
 
 	sfx = Sfx.new()
-	sfx.enabled = not sim_mode
+	sfx.enabled = (not sim_mode) and (not muted)
 	add_child(sfx)
 
 	world = WorldRenderer.new()
@@ -284,6 +315,17 @@ func _process(delta: float) -> void:
 		if over and not shot_end:
 			_sim_report()
 		return
+	# 截图倒计时必须在暂停门之前：--shot-pause 先开暂停再倒数三帧，
+	# 否则 paused 直接 return，shot_wait 永远不减 → 进程挂着不退出。
+	if shot_mode and shot_wait > 0:
+		shot_wait -= 1
+		_update_ui_only(d)
+		if shot_wait == 0:
+			_save_shot()
+		return
+	# 暂停：世界与计时全冻结（step 里还有同样一道门），HUD 自己每帧重绘
+	if paused:
+		return
 	# 截图前先快进到目标时间附近，避免为了看一眼 5 分钟的画面真的等 5 分钟
 	if shot_mode and shot_fast > 1 and elapsed < shot_at - 6.0:
 		for k in range(shot_fast):
@@ -295,12 +337,6 @@ func _process(delta: float) -> void:
 			step(1.0 / 60.0)
 		if over:
 			_finish(won)
-		return
-	if shot_mode and shot_wait > 0:
-		shot_wait -= 1
-		_update_ui_only(d)
-		if shot_wait == 0:
-			_save_shot()
 		return
 	if over or modal:
 		if shot_mode and shot_modal and modal and elapsed >= shot_at and shot_wait <= 0:
@@ -314,6 +350,8 @@ func _process(delta: float) -> void:
 	shot_frames += 1
 	var shot_ready: bool = modal if shot_modal else not modal
 	if shot_mode and shot_ready and (elapsed >= shot_at or shot_frames > 40000):
+		if shot_pause and not paused:
+			toggle_pause()
 		shot_wait = 3
 
 func _save_shot() -> void:
@@ -329,12 +367,14 @@ func _save_shot() -> void:
 
 func _update_ui_only(d: float) -> void:
 	perfect_flash = maxf(perfect_flash - d, 0.0)
-	if Input.is_action_just_pressed("pause") and over:
-		get_tree().reload_current_scene()
+	# 暂停键与 R 键统一在 _unhandled_input 处理，避免同一次按键被两处响应
 
 # ---------------------------------------------------------------- 主循环
 
 func step(delta: float) -> void:
+	# 契约 3.1：暂停时整局冻结，不推进世界也不推进 elapsed
+	if paused:
+		return
 	elapsed += delta
 	perfect_flash = maxf(perfect_flash - delta, 0.0)
 	hit_cd = maxf(hit_cd - delta, 0.0)
@@ -385,7 +425,8 @@ func step(delta: float) -> void:
 		if player_hp < player_max_hp:
 			player_hp = minf(player_hp + weapons.heal_pending, player_max_hp)
 		weapons.heal_pending = 0.0
-	shots.update(delta, enemies, Callable(), player)
+	# 契约 3.2：第三参必须是武器层的弹幕命中回调，否则 line/homing 没有浮动伤害数字。
+	shots.update(delta, enemies, weapons.on_projectile_hit, player)
 
 	var contact: float = enemies.update(delta, player, float(state.stats.get("dot_mult", 1.0)))
 	if contact > 0.0:
@@ -393,7 +434,8 @@ func step(delta: float) -> void:
 			_trigger_watcher()
 		elif hit_cd <= 0.0:
 			# 圣典 13 章门禁：普通接触伤害上限 10，BOSS 在场放宽到 18；无敌帧统一 0.60s
-			var contact_cap: float = 18.0 if boss_index >= 0 else 10.0
+			# 契约 3.1：普通怪单次上限 10.0，精英 / BOSS 放宽到 18.0（来源标记由 EnemySim 给）
+			var contact_cap: float = 18.0 if enemies.contact_elite else 10.0
 			_take_damage(minf(contact, contact_cap) * seal_dmg, true, "contact")
 	enemies.rebuild_grid()
 
@@ -408,6 +450,8 @@ func step(delta: float) -> void:
 	_drain_fx(delta)
 	_consume_deaths()
 	_pickup_gems(delta)
+	_pickup_coins(delta)
+	_tick_dmg_events(delta)
 	_check_ascend()
 	_spawner(delta)
 	_recycle_far(delta)
@@ -502,7 +546,7 @@ func _move_player(delta: float) -> void:
 
 	cam.position = player
 	if shake > 0.01:
-		cam.offset = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * shake
+		cam.offset = Vector2(fx_rng.randf_range(-1.0, 1.0), fx_rng.randf_range(-1.0, 1.0)) * shake
 	else:
 		cam.offset = Vector2.ZERO
 
@@ -654,7 +698,7 @@ func _take_damage(amount: float, respect_cd: bool = true, src: String = "hit") -
 		var refl: float = real * 35.0 + float(state.stats.get("armor", 0.0)) * 10.0
 		enemies.damage_in_circle(player.x, player.y, 240.0, refl, "tremor", 0.0, 80.0)
 		active_fx.append({ "kind": "nova", "x": player.x, "y": player.y, "r": 240.0, "life": 0.35, "color": Color("#E0A0A0") })
-	sfx.play("hurt", -3.0, randf_range(0.94, 1.06), 0.12)
+	sfx.play("hurt", -3.0, fx_rng.randf_range(0.94, 1.06), 0.12)
 	if player_hp <= 0.0:
 		player_hp = 0.0
 		_finish(false)
@@ -735,7 +779,7 @@ func _sim_report() -> void:
 	for p in state.passives:
 		pp.append("%s(Lv%d)" % [String(GameData.passives.get(p["id"], {}).get("name", p["id"])), int(p["level"])])
 	print("[sim] passives=", ", ".join(pp))
-	print("[sim] stage=%s seal=%d reward=%d shillings=%d saved=%s armor=%d" % [stage_id, seal, reward, Meta.shillings, str(not sim_mode or save_run), state.armor.size()])
+	print("[sim] stage=%s seal=%d reward=%d shillings=%d saved=%s armor=%d ground_coins=%d picked=%d" % [stage_id, seal, reward, Meta.shillings, str(not sim_mode or save_run), state.armor.size(), ground_coins.size(), picked_shillings])
 	var srcs: Array = []
 	for k in dmg_by_src.keys():
 		srcs.append("%s=%.0f" % [String(k), float(dmg_by_src[k])])
@@ -759,6 +803,10 @@ func _finish(victory: bool) -> void:
 	reward = int(round(float(Meta.reward_for(victory, state.kills, elapsed, seal)) * stage_coin))
 	if rewards != null:
 		reward += int(round(float(rewards.silver_run) * stage_coin + float(rewards.meta_silver_bonus)))
+	# 地面银钱：本局拾取的舍客勒按关卡倍率并入结算显示（契约 3.1）。
+	# Meta.reward_for 的公式不动；真正的银两在下面的 commit 分支里单独入账。
+	var ground_silver: int = int(round(float(picked_shillings) * stage_coin))
+	reward += ground_silver
 	var commit: bool = (not sim_mode or save_run) and not no_meta
 	# 毗努伊勒：全程不闪避（ach_28）
 	if dashes_used <= 0:
@@ -776,8 +824,12 @@ func _finish(victory: bool) -> void:
 		# 局外银两（寡妇的油瓶 / 钱袋）：结算时一次性入账
 		if rewards != null and int(rewards.meta_silver_bonus) > 0:
 			Meta.shillings += int(rewards.meta_silver_bonus)
+		# 地面拾取的舍客勒：本局即时入账（不走 Meta.reward_for 的公式）
+		if ground_silver > 0:
+			Meta.shillings += ground_silver
 		# 觉醒：三阶及以上通关点亮（圣典 3 章：觉醒是终局成长，不再另外消耗银两）
-		if victory and Meta.effective_tier() >= 3:
+		# --seal=N 时必须看本局印，不能回头读存档阶（契约 F）
+		if victory and seal >= 3:
 			Meta.set_awakened(character_id)
 		Meta.save_save()
 	shake = maxf(shake, 6.0)
@@ -787,10 +839,84 @@ func _finish(victory: bool) -> void:
 		sfx.play("defeat", 0.0, 1.0, 1.0)
 
 func _unhandled_input(e: InputEvent) -> void:
-	if not over or not (e is InputEventKey) or not e.pressed or e.echo:
+	if not (e is InputEventKey) or not e.pressed or e.echo:
 		return
-	if e.keycode == KEY_R:
+	# ---- Esc（InputMap 的 pause）：暂停中再按一次 = 继续试炼；结算界面 = 再来一局
+	if e.is_action_pressed("pause"):
+		if over:
+			get_tree().reload_current_scene()
+		else:
+			toggle_pause()
+		get_viewport().set_input_as_handled()
+		return
+	if paused:
+		if e.is_action_pressed("move_up") or e.is_action_pressed("ui_up"):
+			pause_move(-1)
+			get_viewport().set_input_as_handled()
+		elif e.is_action_pressed("move_down") or e.is_action_pressed("ui_down"):
+			pause_move(1)
+			get_viewport().set_input_as_handled()
+		elif e.is_action_pressed("interact") or e.is_action_pressed("ui_accept"):
+			pause_confirm()
+			get_viewport().set_input_as_handled()
+		return
+	if over and e.keycode == KEY_R:
 		get_tree().change_scene_to_file.call_deferred("res://scenes/camp.tscn")
+
+# ---------------------------------------------------------------- 暂停 / 静音（契约 3.1）
+
+## 暂停菜单四项文案；HUD 直接取用，避免两处各写一份。
+func pause_items() -> Array:
+	# 返回副本：调用方想改文案也不会踩只读常量
+	return PAUSE_ITEMS.duplicate()
+
+## Esc 切换暂停。仅在「未结束、无弹窗、非无头模拟」时生效。
+func toggle_pause() -> void:
+	if paused:
+		paused = false
+		return
+	if sim_mode or over or modal:
+		return
+	paused = true
+	pause_index = 0
+
+## 上下移动选中项（dir < 0 上移 / > 0 下移），首尾循环。
+func pause_move(dir: int) -> void:
+	if not paused or dir == 0:
+		return
+	pause_index = wrapi(pause_index + (1 if dir > 0 else -1), 0, PAUSE_ITEMS.size())
+
+## 执行当前选中项：0 继续试炼 / 1 重开本局 / 2 返回营地 / 3 音效静音。
+func pause_confirm() -> void:
+	if not paused:
+		return
+	match pause_index:
+		0:
+			paused = false
+		1:
+			# 重开本局：整场景重建（角色 / 关卡 / 种子沿用 RunCfg 与命令行）
+			paused = false
+			get_tree().reload_current_scene()
+		2:
+			# 返回营地：deferred 切场景，避免在输入回调里直接换场景树
+			paused = false
+			get_tree().change_scene_to_file.call_deferred("res://scenes/camp.tscn")
+		3:
+			set_muted(not muted)
+
+## 音效静音：写 sfx.enabled，并把状态喂给 HUD 的静音标记（HUD 读 run.muted）。
+func set_muted(v: bool) -> void:
+	muted = v
+	if sfx != null:
+		sfx.enabled = (not sim_mode) and (not muted)
+	if hud != null:
+		# 动态调用：HUD 可能只提供方法、也可能只提供字段，两种都兜底；
+		# 用 call()/set() 而不是静态调用，避免 HUD 尚未实现时 run.gd 编译不过。
+		if hud.has_method("set_muted"):
+			hud.call("set_muted", muted)
+		else:
+			hud.set("muted", muted)
+		hud.queue_redraw()
 
 func _drain_enemy_shots() -> void:
 	var k: int = 0
@@ -856,6 +982,11 @@ func _consume_deaths() -> void:
 			gems.append({ "x": dpos.x, "y": dpos.y, "val": xp })
 		if int(d["coal"]) > 0:
 			state.coals += int(d["coal"])
+		# 契约 3.1 地面银钱：精英/BOSS 必掉 1 枚（15），普通怪 4% 掉 2
+		if bool(d["elite"]) or bool(d["boss"]):
+			_spawn_coin(dpos.x, dpos.y, COIN_ELITE)
+		elif rng.randf() < COIN_NORMAL_CHANCE:
+			_spawn_coin(dpos.x, dpos.y, COIN_NORMAL)
 		if bool(d["boss"]):
 			if sim_mode:
 				print("[sim] boss_killed t=%.1f" % elapsed)
@@ -872,7 +1003,7 @@ func _consume_deaths() -> void:
 				else:
 					rewards.on_elite_killed(dpos.x, dpos.y)
 	if not enemies.deaths.is_empty():
-		sfx.play("hit", -6.0, randf_range(0.9, 1.15), 0.045)
+		sfx.play("hit", -6.0, fx_rng.randf_range(0.9, 1.15), 0.045)
 	enemies.deaths.clear()
 
 func _pickup_gems(delta: float) -> void:
@@ -895,9 +1026,81 @@ func _pickup_gems(delta: float) -> void:
 		i -= 1
 	if gained > 0:
 		pending_levels += gained
-		sfx.play("pickup", -9.0, randf_range(0.92, 1.18), 0.04)
+		sfx.play("pickup", -9.0, fx_rng.randf_range(0.92, 1.18), 0.04)
 	if pending_levels > 0 and not modal and not over:
 		_open_levelup()
+
+## 地面银钱生成（契约 3.1）：{x, y, v, t}，t 从 0 开始累计存活秒数。
+func _spawn_coin(x: float, y: float, v: int) -> void:
+	if v <= 0:
+		return
+	if ground_coins.size() >= COIN_CAP:
+		ground_coins.pop_front()
+	ground_coins.append({ "x": x, "y": y, "v": v, "t": 0.0 })
+
+## 银钱拾取：拾取半径内自动收取，4 倍半径内缓慢磁吸（与宝石同手感）。
+func _pickup_coins(delta: float) -> void:
+	if ground_coins.is_empty():
+		return
+	var pr: float = float(state.stats.get("pickup_radius", 30.0))
+	if magnet_t > 0.0:
+		pr *= 14.0
+	var gain: int = 0
+	var i: int = ground_coins.size() - 1
+	while i >= 0:
+		var c: Dictionary = ground_coins[i]
+		c["t"] = float(c.get("t", 0.0)) + delta
+		var cp := Vector2(float(c["x"]), float(c["y"]))
+		var d: float = cp.distance_to(player)
+		if d < pr:
+			gain += int(c["v"])
+			ground_coins.remove_at(i)
+		elif d < pr * 4.0:
+			var t: float = clampf(320.0 * delta / maxf(d, 1.0), 0.0, 1.0)
+			c["x"] = cp.x + (player.x - cp.x) * t
+			c["y"] = cp.y + (player.y - cp.y) * t
+		i -= 1
+	if gain > 0:
+		picked_shillings += gain
+		sfx.play("pickup", -8.0, 1.32, 0.05)
+
+## dmg_events 的写入方是 run，但 world_renderer 每帧消费后会把整表 clear()。
+## 两条数组长度一旦对不上就按当前长度重建寿命表，避免错位后寿命乱套。
+func _sync_dmg_life() -> void:
+	var n: int = dmg_events.size()
+	if dmg_life.size() == n:
+		return
+	dmg_life.resize(n)
+	for k in range(n):
+		if dmg_life[k] <= 0.0:
+			dmg_life[k] = DMG_EVENT_LIFE
+
+## 契约 3.2：武器层 on_damage 的回调，转成浮动伤害数据源。
+## 无头模拟不画浮动数字，且 900 倍速下每秒数万次 append 会拖慢门禁，故 sim 下不记录。
+func _push_dmg(x: float, y: float, amt: float, crit = false) -> void:
+	if amt <= 0.0 or sim_mode:
+		return
+	_sync_dmg_life()
+	# crit 不收窄类型：武器层可能传 bool、也可能传 0/1，这里统一转成 bool
+	dmg_events.append({ "x": x, "y": y, "amt": amt, "crit": bool(crit) })
+	dmg_life.append(DMG_EVENT_LIFE)
+	# 契约 3.1：最多 200 条，先进先出
+	while dmg_events.size() > DMG_EVENT_CAP:
+		dmg_events.pop_front()
+		if not dmg_life.is_empty():
+			dmg_life.remove_at(0)
+
+## 浮动伤害寿命衰减；过期就从数据源里移除（渲染层读后清空与这里互相兜底）。
+func _tick_dmg_events(delta: float) -> void:
+	_sync_dmg_life()
+	var i: int = dmg_events.size() - 1
+	while i >= 0:
+		var left: float = dmg_life[i] - delta
+		dmg_life[i] = left
+		if left <= 0.0:
+			dmg_events.remove_at(i)
+			dmg_life.remove_at(i)
+		i -= 1
 
 func _check_ascend() -> void:
 	var newly: Array = state.try_ascend(state.kills)

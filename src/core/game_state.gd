@@ -14,6 +14,15 @@ const BASE_TREASURE_SLOTS := 4
 const XP_BASE := 8.0
 const XP_GROWTH := 1.13
 
+## 成全（Ascend）永久倍率：成全瞬间一次性算好，整包写进武器字典 entry["ascend_params"]，
+## 之后每次开火/轨道结算都直接吃这份参数；recompute() 只重建 stats，不碰 weapons，所以不会被冲掉。
+const ASCEND_COUNT_BONUS := 2      # 弹数 +2
+const ASCEND_RADIUS_MULT := 1.35   # 范围半径 ×1.35
+const ASCEND_DAMAGE_MULT := 1.25   # 单发伤害 ×1.25
+const ASCEND_COOLDOWN_MULT := 0.85 # 冷却/节奏 ×0.85（环绕与领域类的 tick 同吃）
+const ASCEND_RANGE_MULT := 1.12    # 射程/触达距离 ×1.12
+const ASCEND_ARC_MULT := 1.1       # 近战扇角 ×1.1（上限 360°）
+
 var character: Dictionary = {}
 var weapons: Array = []          # [{id, kind:"base"|"fusion", level, ascended:bool}]
 var passives: Array = []         # [{id, level}]
@@ -282,6 +291,51 @@ func resolved_params(entry: Dictionary) -> Dictionary:
 		out[k] = ov[k]
 	return out
 
+## 成全的永久参数：evolves_to.overrides 先落成绝对值，再乘成全倍率，整包写进 entry["ascend_params"]。
+## 写进武器字典而不是 stats —— recompute() 重建 stats 时不会把它重置，武器在，强化就在。
+## 幂等：已有 ascend_params 就直接返回。
+func bake_ascend(entry: Dictionary) -> void:
+	if entry.get("ascend_params", null) is Dictionary:
+		return
+	var p: Dictionary = resolved_params(entry)
+	var def: Dictionary = weapon_def(entry)
+	var ov: Dictionary = {}
+	if def.get("evolves_to", null) is Dictionary:
+		var ev: Dictionary = def["evolves_to"]
+		if ev.get("overrides", null) is Dictionary:
+			ov = ev["overrides"]
+	if ov.is_empty() and p.is_empty():
+		return
+	for k in ov.keys():
+		p[String(k)] = ov[k]
+	if p.has("damage"):
+		p["damage"] = float(p["damage"]) * ASCEND_DAMAGE_MULT
+	if p.has("count"):
+		p["count"] = int(p["count"]) + ASCEND_COUNT_BONUS
+	if p.has("radius"):
+		p["radius"] = float(p["radius"]) * ASCEND_RADIUS_MULT
+	if p.has("range"):
+		p["range"] = float(p["range"]) * ASCEND_RANGE_MULT
+	if p.has("arc_deg"):
+		p["arc_deg"] = minf(float(p["arc_deg"]) * ASCEND_ARC_MULT, 360.0)
+	if p.has("cooldown"):
+		p["cooldown"] = float(p["cooldown"]) * ASCEND_COOLDOWN_MULT
+	if p.has("tick"):
+		# 环绕 / 领域类没有 cooldown，用 tick 当节奏键，吃同一条冷却倍率
+		p["tick"] = float(p["tick"]) * ASCEND_COOLDOWN_MULT
+	entry["ascend_params"] = p
+
+## 实际开火参数：成全武器返回永久烘好的那份（副本，防外部改写），否则按当前等级解析。
+## weapon_runner 每帧只认这一个入口，所以成全强化不会因为重复乘而叠爆。
+func fire_params(entry: Dictionary) -> Dictionary:
+	if bool(entry.get("ascended", false)):
+		if not (entry.get("ascend_params", null) is Dictionary):
+			bake_ascend(entry)
+		var baked: Variant = entry.get("ascend_params", null)
+		if baked is Dictionary:
+			return (baked as Dictionary).duplicate()
+	return resolved_params(entry)
+
 func entry_status(entry: Dictionary) -> String:
 	return String(weapon_def(entry).get("status", ""))
 
@@ -374,6 +428,8 @@ func try_ascend(all_kills: int) -> Array:
 		if all_kills - int(w.get("born_kills", 0)) < need_kills:
 			continue
 		w["ascended"] = true
+		# 成全强化在点亮的这一刻就永久写进武器字典（之后开火只读这份，重复成全也不会再乘）
+		bake_ascend(w)
 		ascended_count += 1
 		newly.append({ "entry": w, "evolve": evo })
 	if not newly.is_empty():
@@ -484,6 +540,8 @@ func recompute() -> void:
 		var empty: int = max_weapon_slots() - weapons.size()
 		s["damage_mult"] += dps * float(maxi(empty, 0))
 
+	# 只换 stats，不碰 weapons / passives / armor / relics：
+	# 成全写进 entry["ascend_params"] 的永久参数因此不会被 recompute 重置。
 	stats = s
 	stats_changed.emit()
 
